@@ -1,10 +1,10 @@
 // Service worker: makes the app shell and libraries available offline.
 // Bump CACHE when any shell file changes.
-const CACHE = 'pos-shell-v1';
+const CACHE = 'pos-shell-v2';
 
 const SHELL = [
   './', 'index.html', 'styles.css', 'config.js', 'i18n.js', 'db.js', 'app.js',
-  'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'
+  'manifest.webmanifest', 'icon-192.png', 'icon-512.png'
 ];
 const LIBS = [
   'https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js',
