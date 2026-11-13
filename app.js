@@ -81,9 +81,22 @@ async function boot() {
 }
 
 // ───────── Login ─────────
+// Mobile number (03xx..., +92 3xx..., 923xx...) -> internal email. An input containing '@' is used as an email as-is.
+function loginIdToEmail(v) {
+  v = (v || '').trim();
+  if (v.includes('@')) return v.toLowerCase();
+  let d = v.replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('0')) d = '92' + d.slice(1);
+  else if (d.length === 10 && d.startsWith('3')) d = '92' + d;
+  if (!/^923\d{9}$/.test(d)) throw new Error(t('bad_phone'));
+  return `${d}@${POS_CONFIG.LOGIN_DOMAIN}`;
+}
+const displayLogin = e => String(e || '').replace('@' + (window.POS_CONFIG && POS_CONFIG.LOGIN_DOMAIN), '');
+
 function applyStaticText() {
   $('login-title').textContent = t('app_name');
-  $('lbl-email').textContent = t('email'); $('lbl-pass').textContent = t('password');
+  $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
   $('syncnote').textContent = t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
@@ -103,11 +116,13 @@ function getSb() {
 async function doLogin(e) {
   e.preventDefault();
   const err = $('login-err'); err.hidden = true;
+  let loginEmail;
+  try { loginEmail = loginIdToEmail($('in-email').value); } catch (ex) { err.textContent = ex.message; err.hidden = false; return; }
   if (!(await pingServer())) { err.textContent = t('login_need_online'); err.hidden = false; return; }
   $('btn-login').disabled = true;
   try {
     const sb = getSb();
-    const { data, error } = await sb.auth.signInWithPassword({ email: $('in-email').value.trim(), password: $('in-pass').value });
+    const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: $('in-pass').value });
     if (error) throw new Error(t('login_failed'));
     const user = data.user;
     // Membership is decided by the SERVER (RLS), never by the client.
@@ -453,7 +468,7 @@ async function renderSettings() {
   $('view-settings').innerHTML = `
     <div class="card">
       <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
-      <div class="muted">${esc(S.session.email)} · ${t('role')}: ${t(S.session.role)}</div>
+      <div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
       <div class="muted" dir="ltr" style="text-align:start">${t('device_id')}: ${esc(await getDeviceId())}</div>
     </div>
     <div class="card">

@@ -2,7 +2,7 @@
 const I18N = {
   ur: {
     app_name: 'یونیورسل پی او ایس',
-    email: 'ای میل', password: 'پاس ورڈ', login: 'لاگ اِن',
+    email: 'ای میل', phone: 'موبائل نمبر', bad_phone: 'درست موبائل نمبر لکھیں (مثلاً 03001234567)', password: 'پاس ورڈ', login: 'لاگ اِن',
     login_need_online: 'پہلی بار لاگ اِن کے لیے انٹرنیٹ ضروری ہے',
     login_failed: 'لاگ اِن ناکام: ای میل یا پاس ورڈ چیک کریں',
     no_shop: 'اس اکاؤنٹ کے ساتھ کوئی دکان منسلک نہیں',
@@ -36,7 +36,7 @@ const I18N = {
   },
   en: {
     app_name: 'Universal POS',
-    email: 'Email', password: 'Password', login: 'Log in',
+    email: 'Email', phone: 'Mobile number', bad_phone: 'Enter a valid mobile number (e.g. 03001234567)', password: 'Password', login: 'Log in',
     login_need_online: 'Internet is required for the first login',
     login_failed: 'Login failed: check email or password',
     no_shop: 'No shop is linked to this account',
