@@ -1,6 +1,6 @@
 // Universal POS — app logic (Stage 2: offline billing MVP).
 // The UI reads/writes ONLY the local database. Network is used for login and the connectivity check.
-// Sync engine comes in Stage 3.
+// Sync engine: sync.js (Stage 3).
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
@@ -197,6 +197,7 @@ async function showApp() {
   renderBillShell(); renderCart();
   switchTab(S.tab);
   refreshStatus();
+  if (typeof syncStart === 'function') syncStart();
   if (!window.POS_DEMO && navigator.onLine) saLoadAnnouncement().catch(() => {});
   if (showApp._timer) return;
   showApp._timer = setInterval(async () => { if (S.session) { const p = await pendingCount(), f = await failedCount();
@@ -589,10 +590,17 @@ async function renderSettings() {
       <label>${t('paper_width')}</label>
       <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
     </div>
+    ${window.POS_DEMO ? '' : `<div class="card"><b>${t('sync_title')}</b>
+      <div class="muted" id="sync-state"></div>
+      <div class="muted">${t('pending')}: ${await pendingCount()} · ${t('sync_failed_n')}: ${await failedCount()} · ${t('sync_conflicts')}: ${await db.conflicts.filter(c => !c.resolved_at).count()}</div>
+      <button class="btn block" id="btn-sync-now" style="margin-top:8px">${t('sync_now')}</button>
+      ${(await failedCount()) ? `<button class="btn secondary block" id="btn-sync-retry" style="margin-top:8px">${t('sync_retry')}</button>` : ''}
+    </div>`}
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
     <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
     <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
+  if (typeof syncUi === 'function') syncUi();
 }
 
 // ───────── Event wiring (delegation) ─────────
@@ -644,6 +652,8 @@ document.addEventListener('click', async ev => {
   const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
+  if (el.closest('#btn-sync-now')) { toast(t('sync_running')); const r = await syncRun(); syncUi(); if (r && r.offline) toast(t('offline')); renderSettings(); return; }
+  if (el.closest('#btn-sync-retry')) { await syncRetryFailed(); renderSettings(); return; }
   if (el.closest('#btn-export')) {
     try {
       const blob = await exportAllData();
