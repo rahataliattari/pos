@@ -20,7 +20,9 @@ const SAT = {
   sa_confirm_archive: ['دکان آرکائیو کریں؟ لاگ اِن بند ہو جائے گا، ڈیٹا محفوظ رہے گا۔', 'Archive this shop? Logins stop, data is kept.'],
   sa_no_payments: ['ابھی کوئی ادائیگی نہیں', 'No payments yet'], sa_add_user: ['نیا صارف', 'New user'], sa_edit_user: ['صارف میں ترمیم', 'Edit user'],
   sa_user_search: ['نام، نمبر یا دکان', 'Name, number or shop'], sa_no_users: ['کوئی صارف نہیں ملا', 'No users found'], sa_active_acc: ['اکاؤنٹ فعال ہے', 'Account is active'],
-  sa_reset_pw: ['پاس ورڈ ری سیٹ', 'Reset password'], sa_confirm_reset: ['نیا عارضی پاس ورڈ بنائیں؟', 'Generate a new temporary password?'],
+  sa_reset_pw: ['پاس ورڈ ری سیٹ', 'Reset password'],
+  sa_no_owner: ['اس دکان کا کوئی لاگ اِن اکاؤنٹ نہیں، اس لیے دکاندار لاگ اِن نہیں کر سکتا۔', 'This shop has no login account, so the shopkeeper cannot log in.'],
+  sa_make_owner: ['مالک کا لاگ اِن بنائیں', 'Create owner login'], sa_owner_pw: ['مالک کا پاس ورڈ ری سیٹ', 'Reset owner password'], sa_confirm_reset: ['نیا عارضی پاس ورڈ بنائیں؟', 'Generate a new temporary password?'],
   sa_confirm_deluser: ['یہ صارف حذف کریں؟', 'Delete this user?'], sa_last_owner: ['دکان کا واحد مالک ہٹایا یا بدلا نہیں جا سکتا', 'The only owner of a shop cannot be removed or changed'],
   sa_limit_users: ['اس پلان میں صارفین کی حد پوری ہو چکی', 'User limit of this plan reached'], sa_phone_used: ['یہ نمبر پہلے سے کسی صارف کا ہے', 'This number already belongs to a user'],
   sa_creds_title: ['لاگ اِن تفصیل', 'Login details'], sa_login_no: ['لاگ اِن نمبر', 'Login number'], sa_temp_pw: ['عارضی پاس ورڈ', 'Temporary password'],
@@ -305,14 +307,15 @@ function saShopsList() {
 }
 function saShopDetail(id) {
   const d = SAD, s = d.shops.find(x => x.id === id); if (!s) return;
-  const us = d.users.filter(u => u.shop_id === id), pay = d.payments.filter(p => p.shop_id === id).slice(0, 3), p = saPlan(s.plan_id);
+  const us = d.users.filter(u => u.shop_id === id), owner = us.find(u => u.role === 'owner' && u.user_id), pay = d.payments.filter(p => p.shop_id === id).slice(0, 3), p = saPlan(s.plan_id);
   const wa = waNumber(s.phone), msg = saFill(t('sa_remind_msg'), { name: s.owner_name, shop: s.name, date: s.expires_at.slice(0, 10), phone: d.settings.support_phone });
   openModal(`<div class="row"><h2 class="grow">${esc(s.name)}</h2>${stChip(s)}</div>
     <div class="muted">${esc(s.city)} · ${esc(s.owner_name)}${s.phone ? ` · <a href="tel:${esc(s.phone)}" dir="ltr">${esc(s.phone)}</a>` : ''}</div>
     ${s.suspended && s.suspend_reason ? `<div class="warn">${esc(s.suspend_reason)}</div>` : ''}
     <div class="balbox"><span>${esc(saPlanName(p))} · ${money(p.price)} ${t('sa_per_month')}</span><b style="font-size:16px">${s.expires_at.slice(0, 10)}<br><small class="muted">${saExpTxt(s)}</small></b></div>
     <div class="sa-kpis"><div><b>${us.length}</b><span>${t('sa_users_n')}</span></div><div><b>${s.bills_30d}</b><span>${t('sa_bills30')}</span></div><div><b>${money(s.sales_30d)}</b><span>${t('sa_sales30')}</span></div></div>
-    <div class="row" style="margin-bottom:8px"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button><button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
+    ${owner ? '' : `<div class="warn" style="margin-bottom:8px">${t('sa_no_owner')}<br><button class="btn sm" type="button" data-sa="mkowner|${id}" style="margin-top:6px">${ic('key', 16)} ${t('sa_make_owner')}</button></div>`}
+    <div class="row" style="margin-bottom:8px"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button>${owner ? `<button class="btn secondary" data-sa="resetpw|${owner.id}" aria-label="${t('sa_owner_pw')}" title="${t('sa_owner_pw')}">${ic('key', 18)}</button>` : ''}<button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
     <div class="row" style="margin-bottom:8px">
       <button class="btn ${s.suspended ? 'secondary' : 'danger'} grow" data-sa="toggle|${id}">${s.suspended ? t('sa_activate') : t('sa_suspend')}</button>
       <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
@@ -509,6 +512,15 @@ const SA_ACT = {
     s.archived = !s.archived; saLog(s.archived ? 'shop_archive' : 'shop_restore', s.name); saSave(); closeModal(); toast(t('saved')); saRender();
   },
   useradd: sid => saUserForm(null, sid), useredit: id => saUserForm(id),
+  mkowner: sid => {                       // shop exists but has no login: create the owner from the shop's own owner name + phone
+    const s = SAD.shops.find(x => x.id === sid); if (!s) return;
+    const phone = saPhone(s.phone);
+    try { loginIdToEmail(phone); } catch (e) { return toast(t('bad_phone'), 4000); }
+    if (SAD.users.some(x => saPhone(x.phone) === phone)) return toast(t('sa_phone_used'), 4000);
+    const pw = saPass(), nu = { id: uuid(), shop_id: sid, name: s.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw };
+    SAD.users.push(nu); saLog('user_new', nu.name, s.name);
+    saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, pw); } });
+  },
   userdel: id => {
     const u = SAD.users.find(x => x.id === id);
     if (saOnlyOwner(u)) return toast(t('sa_last_owner'), 4000);
