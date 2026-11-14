@@ -178,11 +178,11 @@ async function saPushNow() {
   for (const u of d.users) {                                                      // users: auth account first (Edge Function)
     const o = SAB.users.get(u.id);
     if (!o) {
-      const r = await saFn({ action: 'create', member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw });
+      const r = await saFn({ action: 'create', email: loginIdToEmail(u.phone), member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw });
       u.user_id = r.user_id; delete u._pw;
       if (!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: true });
     } else if (o.k !== saKey('users', u)) {
-      if (o.r.phone !== u.phone) await saFn({ action: 'phone', user_id: u.user_id, phone: u.phone });
+      if (o.r.phone !== u.phone) await saFn({ action: 'phone', user_id: u.user_id, phone: u.phone, email: loginIdToEmail(u.phone) });
       if (!!o.r.active !== !!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: !u.active });
       const { error } = await sb.from('shop_members').update({ name: u.name, phone: u.phone, role: u.role, shop_id: u.shop_id, active: u.active }).eq('id', u.id);
       if (error) throw new Error(error.message);
@@ -509,7 +509,7 @@ const SA_ACT = {
     const u = SAD.users.find(x => x.id === id);
     if (!confirm(t('sa_confirm_reset'))) return;
     const pw = saPass();
-    if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
+    if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw, email: loginIdToEmail(u.phone) }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
     saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, pw);
   },
   copy: pw => { try { navigator.clipboard.writeText(pw); toast(t('sa_copied')); } catch (e) { toast(pw, 5000); } },
