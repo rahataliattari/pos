@@ -105,6 +105,17 @@ function loginIdToEmail(v) {
   if (!/^923\d{9}$/.test(d)) throw new Error(t('bad_phone'));
   return `${d}@${POS_CONFIG.LOGIN_DOMAIN}`;
 }
+const EYE = shown => ic(shown ? 'eyeoff' : 'eye', 22);
+function pwField(id, ph, style = '') {          // password input with a show/hide eye button
+  return `<div class="pwwrap" ${style ? `style="${style}"` : ''}><input id="${id}" type="password" placeholder="${ph}" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="show/hide password">${EYE(false)}</button></div>`;
+}
+function initEyes() { document.querySelectorAll('button.eye[data-eye]:empty').forEach(b => { b.innerHTML = EYE(false); }); }
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('button.eye[data-eye]'); if (!b) return;
+  const inp = document.getElementById(b.dataset.eye); if (!inp) return;
+  const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show);
+});
+const homeHello = () => (S.session && S.session.user_name) || t('greeting');   // Home header: the signed-in person's name
 const displayLogin = e => String(e || '').replace('@' + (window.POS_CONFIG && POS_CONFIG.LOGIN_DOMAIN), '');
 
 function applyStaticText() {
@@ -117,7 +128,7 @@ function applyStaticText() {
   $('nav').innerHTML = [['home', 'tab_home', 'home'], ['products', 'tab_inventory', 'box'], ['bill', 'tab_sale', 'cart'], ['sales', 'tab_sales', 'receipt'], ['settings', 'tab_more', 'settings']]
     .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
 }
-function showLogin() { $('app').hidden = true; $('login').hidden = false; applyStaticText(); }
+function showLogin() { $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
 
 function getSb() {
   if (!S.sb) {
@@ -136,20 +147,27 @@ async function doLogin(e) {
   $('btn-login').disabled = true;
   try {
     const sb = getSb();
-    const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: $('in-pass').value });
-    if (error) throw new Error(t('login_failed'));
+    const pw = $('in-pass').value;
+    let { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: pw });
+    // pasted passwords often carry a stray space / invisible character: try once more without it
+    const clean = pw.replace(/[\s\u200b-\u200f\u202a-\u202e\ufeff]/g, '');
+    if (error && clean && clean !== pw) ({ data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: clean }));
+    if (error) {
+      const m = String(error.message || '');
+      throw new Error(/invalid login credentials/i.test(m) ? t('login_failed') : t('login_failed') + ' (' + m + ')');
+    }
     const user = data.user;
     // Membership is decided by the SERVER (RLS), never by the client.
     let isAdm = false;
     try { isAdm = (await sb.rpc('is_platform_admin')).data === true; } catch (x) {}
-    const { data: all, error: e2 } = await sb.from('shop_members').select('shop_id, role, active, shops(name, suspended, archived, expires_at)').eq('user_id', user.id);
+    const { data: all, error: e2 } = await sb.from('shop_members').select('shop_id, role, active, name, shops(name, suspended, archived, expires_at)').eq('user_id', user.id);
     if (e2) throw new Error(e2.message);
     if (isAdm && (!all || !all.length)) return enterAdminOnly();
     if (!all || !all.length) throw new Error(t('no_shop'));
     // blocked shops (suspended / archived / expired) and deactivated members can't log in; Super Admin is never blocked
     const rows = isAdm ? all : all.filter(r => r.active !== false && r.shops && !r.shops.suspended && !r.shops.archived && new Date(r.shops.expires_at).getTime() >= Date.now());
     if (!rows.length) { try { await sb.auth.signOut(); } catch (x) {} throw new Error(t('sa_shop_blocked')); }
-    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', role: r.role, admin: isAdm, expires_at: r.shops && r.shops.expires_at });
+    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', user_name: r.name || '', role: r.role, admin: isAdm, expires_at: r.shops && r.shops.expires_at });
     if (rows.length === 1) return await finishLogin(make(rows[0]));
     $('login-form').hidden = true;
     const box = $('shop-choice'); box.hidden = false;
@@ -216,7 +234,7 @@ function switchTab(tab) {
   S.tab = tab;
   for (const k of VIEWS) $('view-' + k).hidden = k !== tab;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  $('hdr-hello').textContent = TAB_TITLE[tab] ? t(TAB_TITLE[tab]) : t('greeting');
+  $('hdr-hello').textContent = TAB_TITLE[tab] ? t(TAB_TITLE[tab]) : homeHello();
   if (tab === 'home') renderHome();
   if (tab === 'bill') loadTiles();
   if (tab === 'products') { S.productPage = 0; renderProducts(); }
@@ -602,6 +620,7 @@ async function renderSales(append = false) {
 // ───────── Settings screen ─────────
 async function renderSettings() {
   const c = S.cfg, own = isOwner(), dis = own ? '' : 'disabled', live = !window.POS_DEMO;
+  const rdis = (window.POS_DEMO || canPurchase()) ? '' : 'disabled';   // receipt text: owner/manager (it is shared by all phones)
   // remember which sections are open so a re-render (after saving something) doesn't collapse them
   S.setOpen = S.setOpen || new Set();
   const cur = document.querySelectorAll('#view-settings details[data-sec]');
@@ -609,8 +628,8 @@ async function renderSettings() {
   const sec = (id, icon, title, body) => `<details class="sset" data-sec="${id}" ${S.setOpen.has(id) ? 'open' : ''}><summary>${ic(icon, 20)} <span class="grow">${title}</span></summary><div class="sbody">${body}</div></details>`;
   const nConf = live ? await db.conflicts.filter(x => !x.resolved_at).count() : 0, nFail = live ? await failedCount() : 0, nPend = live ? await pendingCount() : 0;
 
-  const account = (live ? `<label>${t('change_pw')}</label><input id="set-oldpw" type="password" placeholder="${t('cur_password')}"><input id="set-newpw" type="password" placeholder="${t('new_password')}" style="margin-top:8px"><button class="btn block" id="btn-pw" style="margin:8px 0">${t('save')}</button>` : '')
-    + (own && live ? `<label>${t('my_phone')}</label><input id="set-newphone" inputmode="tel" dir="ltr" placeholder="03xx xxxxxxx"><input id="set-phonepw" type="password" placeholder="${t('cur_password')}" style="margin-top:8px"><button class="btn block" id="btn-phone" style="margin:8px 0">${t('save')}</button>` : '')
+  const account = (live ? `<label>${t('change_pw')}</label>${pwField('set-oldpw', t('cur_password'))}${pwField('set-newpw', t('new_password'), 'margin-top:8px')}<button class="btn block" id="btn-pw" style="margin:8px 0">${t('save')}</button>` : '')
+    + (own && live ? `<label>${t('my_phone')}</label><input id="set-newphone" inputmode="tel" dir="ltr" placeholder="03xx xxxxxxx">${pwField('set-phonepw', t('cur_password'), 'margin-top:8px')}<button class="btn block" id="btn-phone" style="margin:8px 0">${t('save')}</button>` : '')
     + (own && live ? `<label>${t('shop_name')}</label><input id="set-shopname" value="${esc(S.session.shop_name)}" maxlength="80"><button class="btn block" id="btn-shopname" style="margin:8px 0">${t('save')}</button>` : '');
 
   const look = `<label>${t('language')}</label>
@@ -623,11 +642,11 @@ async function renderSettings() {
       <label><input type="checkbox" id="set-cdisc" style="width:auto;min-height:0" ${c.cashier_discount ? 'checked' : ''} ${dis}> ${t('cashier_discount')}</label>
       <label><input type="checkbox" id="set-cprice" style="width:auto;min-height:0" ${c.cashier_price ? 'checked' : ''} ${dis}> ${t('cashier_price')}</label>`;
 
-  const receipt = `<label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}">
-      <label>${t('receipt_footer')}</label><input id="set-rf" value="${esc(c.receipt_footer)}">
-      <label>${t('set_phone')}</label><input id="set-sp" inputmode="tel" dir="ltr" value="${esc(c.shop_phone)}">
-      <label>${t('set_addr')}</label><input id="set-sa" value="${esc(c.shop_address)}">
-      <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}">
+  const receipt = `<label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}" ${rdis}>
+      <label>${t('receipt_footer')}</label><input id="set-rf" value="${esc(c.receipt_footer)}" ${rdis}>
+      <label>${t('set_phone')}</label><input id="set-sp" inputmode="tel" dir="ltr" value="${esc(c.shop_phone)}" ${rdis}>
+      <label>${t('set_addr')}</label><input id="set-sa" value="${esc(c.shop_address)}" ${rdis}>
+      <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}" ${rdis}>
       <label>${t('paper_width')}</label>
       <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>`;
 
@@ -644,7 +663,7 @@ async function renderSettings() {
   $('view-settings').innerHTML = `
     <div class="card">
       <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
-      <div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
+      ${S.session.user_name ? `<div><b>${esc(S.session.user_name)}</b></div>` : ''}<div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
     </div>
     ${account ? sec('account', 'user', t('set_sec_account'), account) : ''}
     ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
@@ -807,11 +826,11 @@ document.addEventListener('change', async ev => {
   else if (isOwner() && id === 'set-tax') { await saveCfg('tax_rate', Math.max(0, num(ev.target.value))); }
   else if (isOwner() && id === 'set-cdisc') { await saveCfg('cashier_discount', ev.target.checked); }
   else if (isOwner() && id === 'set-cprice') { await saveCfg('cashier_price', ev.target.checked); }
-  else if (id === 'set-rh') { await saveCfg('receipt_header', ev.target.value); }
-  else if (id === 'set-rf') { await saveCfg('receipt_footer', ev.target.value); }
-  else if (id === 'set-sp') { await saveCfg('shop_phone', ev.target.value.trim()); }
-  else if (id === 'set-sa') { await saveCfg('shop_address', ev.target.value.trim()); }
-  else if (id === 'set-sn') { await saveCfg('shop_tax_no', ev.target.value.trim()); }
+  else if (id === 'set-rh') { await saveCfg('receipt_header', ev.target.value); shopCfgChanged(); }
+  else if (id === 'set-rf') { await saveCfg('receipt_footer', ev.target.value); shopCfgChanged(); }
+  else if (id === 'set-sp') { await saveCfg('shop_phone', ev.target.value.trim()); shopCfgChanged(); }
+  else if (id === 'set-sa') { await saveCfg('shop_address', ev.target.value.trim()); shopCfgChanged(); }
+  else if (id === 'set-sn') { await saveCfg('shop_tax_no', ev.target.value.trim()); shopCfgChanged(); }
   else if (id === 'set-paper') { await saveCfg('paper', ev.target.value === 'a4' ? 'a4' : +ev.target.value); }
 });
 

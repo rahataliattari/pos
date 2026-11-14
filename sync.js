@@ -48,6 +48,7 @@ async function syncRun(opts = {}) {
       const shop = await getSetting('shop_id'); if (!shop) return { error: 'no_shop' };
       const pushed = await syncPush(sb, shop);
       const pulled = await syncPull(sb, shop);
+      await syncShopCfg(sb, shop);                  // رسید کی سیٹنگز (فون، پتہ...) سرور کے ساتھ
       SYNC.lastError = null; SYNC.lastOk = new Date().toISOString();
       await setSetting('last_sync_at', SYNC.lastOk);
       await syncCheckExpiry(sb, shop);
@@ -183,6 +184,60 @@ async function syncPull(sb, shop) {
   return total;
 }
 
+// ───────── Receipt settings (shop-wide: header, footer, phone, address, NTN) ─────────
+// These live on the server (shops.settings) so every phone of the shop shows the same receipt text.
+// Paper size, language and theme stay per-device on purpose (they depend on the phone/printer).
+const SHOP_CFG_KEYS = ['receipt_header', 'receipt_footer', 'shop_phone', 'shop_address', 'shop_tax_no'];
+const shopCfgCanWrite = () => S.session && ['owner', 'manager'].includes(S.session.role);
+
+async function shopCfgChanged() {                  // call after the user edits one of SHOP_CFG_KEYS
+  if (window.POS_DEMO || !shopCfgCanWrite()) return;
+  const shop = await getSetting('shop_id'); if (!shop) return;
+  await setSetting('cfg_dirty_' + shop, true);
+  setSetting('cfg_shop', shop).catch(() => {});
+  syncSchedule(300);
+}
+
+async function syncShopCfg(sb, shop) {
+  try {
+    const dirtyKey = 'cfg_dirty_' + shop;
+    const localShop = await getSetting('cfg_shop', null);          // which shop this phone's saved cfg belongs to
+    const pick = () => Object.fromEntries(SHOP_CFG_KEYS.map(k => [k, S.cfg[k] || '']));
+    const hasLocal = SHOP_CFG_KEYS.some(k => S.cfg[k]);
+    const { data, error } = await sb.rpc('get_shop_settings', { p_shop: shop });
+    if (error) throw error;
+    const server = data && typeof data === 'object' ? data : {};
+    const hasServer = SHOP_CFG_KEYS.some(k => server[k]);
+
+    // phone was used with another shop before: its receipt text must not leak into this shop
+    if (localShop && localShop !== shop) {
+      for (const k of SHOP_CFG_KEYS) await saveCfg(k, '');
+      await setSetting('cfg_shop', shop);
+    }
+    const mine = !localShop || localShop === shop;                  // old installs (no marker) count as this shop's
+
+    if (await getSetting(dirtyKey, false) || (mine && hasLocal && !hasServer)) {
+      // local edit not yet on the server (or first upload from the phone that already had the data)
+      if (!shopCfgCanWrite()) return;
+      const { error: e2 } = await sb.rpc('save_shop_settings', { p_shop: shop, p_settings: pick() });
+      if (e2) throw e2;
+      await setSetting(dirtyKey, false); await setSetting('cfg_shop', shop);
+      return;
+    }
+    // otherwise the server copy wins and is applied on this phone
+    let changed = false;
+    for (const k of SHOP_CFG_KEYS) {
+      const v = typeof server[k] === 'string' ? server[k] : '';
+      if ((S.cfg[k] || '') !== v) { await saveCfg(k, v); changed = true; }
+    }
+    await setSetting('cfg_shop', shop);
+    if (changed && S.tab === 'settings' && !(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))) renderSettings();
+  } catch (e) {
+    if (syncIsAuthError(e)) throw e;
+    try { await logSync('warn', 'shop settings sync failed', String(e && e.message || e)); } catch (x) {}   // e.g. 04 SQL not run yet
+  }
+}
+
 // ───────── Housekeeping, retry, UI ─────────
 async function syncTrimLogs() {
   const n = await db.sync_logs.count();
@@ -207,7 +262,15 @@ async function syncCheckExpiry(sb, shop) {
   try {
     const { data } = await sb.from('shops').select('expires_at').eq('id', shop).maybeSingle();
     if (!data) return;
-    S.session.expires_at = data.expires_at; await setSetting('session', S.session);
+    S.session.expires_at = data.expires_at;
+    try {                                            // sessions saved before names existed: fetch the person's name once
+      const m = await sb.from('shop_members').select('name').eq('shop_id', shop).eq('user_id', S.session.user_id).maybeSingle();
+      if (m.data && m.data.name && m.data.name !== S.session.user_name) {
+        S.session.user_name = m.data.name;
+        if (S.tab === 'home') { const h = document.getElementById('hdr-hello'); if (h) h.textContent = m.data.name; }
+      }
+    } catch (x) {}
+    await setSetting('session', S.session);
     const d = syncDaysLeft();
     if (d !== null && d <= 7 && !syncCheckExpiry._warned) { syncCheckExpiry._warned = true; toast(syncExpiryText(), 6000); }
   } catch (e) {}

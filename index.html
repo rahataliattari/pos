@@ -17,9 +17,9 @@
     <h1 id="login-title"></h1>
     <form id="login-form" autocomplete="on">
       <label id="lbl-email" for="in-email"></label>
-      <input id="in-email" type="text" inputmode="tel" name="username" autocomplete="username" autocapitalize="none" required dir="ltr" placeholder="03001234567">
+      <input id="in-email" type="text" inputmode="tel" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
-      <input id="in-pass" type="password" name="password" autocomplete="current-password" required dir="ltr">
+      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="show/hide password"></button></div>
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
       <div class="errtext" id="login-err" hidden></div>
     </form>
