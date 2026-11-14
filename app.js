@@ -149,7 +149,7 @@ async function doLogin(e) {
     // blocked shops (suspended / archived / expired) and deactivated members can't log in; Super Admin is never blocked
     const rows = isAdm ? all : all.filter(r => r.active !== false && r.shops && !r.shops.suspended && !r.shops.archived && new Date(r.shops.expires_at).getTime() >= Date.now());
     if (!rows.length) { try { await sb.auth.signOut(); } catch (x) {} throw new Error(t('sa_shop_blocked')); }
-    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', role: r.role, admin: isAdm });
+    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', role: r.role, admin: isAdm, expires_at: r.shops && r.shops.expires_at });
     if (rows.length === 1) return await finishLogin(make(rows[0]));
     $('login-form').hidden = true;
     const box = $('shop-choice'); box.hidden = false;
@@ -180,6 +180,9 @@ async function finishLogin(session) {
 async function doLogout() {
   if (window.POS_DEMO) { if (confirm(t('logout_confirm'))) window.POS_DEMO_RESET(); return; }
   if (!confirm(t('logout_confirm'))) return;
+  if (typeof syncRun === 'function' && navigator.onLine) { toast(t('sync_running'), 6000); try { await syncRun(); } catch (e) {} }
+  const left = (await pendingCount()) + (await failedCount());
+  if (left && !confirm(t('logout_unsynced').replace('{n}', left))) return;
   try { if (S.sb) await S.sb.auth.signOut(); } catch (e) {}
   // Local business data is kept on purpose: pending records must never be deleted before server confirmation.
   await delSetting('session'); await delSetting('shop_id');
@@ -438,6 +441,27 @@ async function completeSale() {
   } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); btn.disabled = false; }
 }
 
+// ───────── Partial return ─────────
+async function showReturnForm(saleId) {
+  const r = await getSaleWithItems(saleId); if (!r) return;
+  openModal(`<h2>${t('return_items')}</h2>
+    ${r.items.filter(i => i.qty > 0).map(i => `<div class="card"><div class="row"><div class="grow"><b>${esc(i.product_name)}</b>
+      <div class="muted">${t('qty')}: ${i.qty} × ${money(i.unit_price)}</div></div>
+      <input type="number" inputmode="decimal" step="any" min="0" max="${i.qty}" value="0" data-ret="${i.id}" style="width:90px"></div></div>`).join('')}
+    <div class="row" style="margin-top:10px"><button class="btn grow" id="btn-ret-ok">${t('save')}</button>
+      <button class="btn secondary grow" data-close>${t('cancel')}</button></div>`);
+  $('btn-ret-ok').onclick = async () => {
+    const lines = [...document.querySelectorAll('[data-ret]')].map(e => ({ item_id: e.dataset.ret, qty: num(e.value) })).filter(l => l.qty > 0);
+    if (!lines.length) return toast(t('ret_none'), 3000);
+    if (!confirm(t('ret_confirm'))) return;
+    try {
+      await returnSaleItems(saleId, lines, '');
+      toast(t('saved')); closeModal();
+      if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome();
+    } catch (e) { toast(e.message || t('err_generic'), 4000); }
+  };
+}
+
 // ───────── Receipt ─────────
 async function showReceipt(saleId) {
   const r = await getSaleWithItems(saleId);
@@ -454,7 +478,18 @@ async function showReceipt(saleId) {
       <button class="btn grow" id="btn-print">${ic('print', 18)} ${t('print')}</button>
       ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(receiptText(r.sale, r.items, cust))}">${ic('chat', 18)} ${t('rc_wa')}</a>` : ''}
       <button class="btn secondary grow" data-close>${t('new_sale')}</button>
-    </div>`);
+    </div>
+    ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
+      : canEditProducts() ? `<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+    ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
+  if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
+  if ($('btn-void')) $('btn-void').onclick = async () => {
+    if (!confirm(t('void_confirm'))) return;
+    const reason = prompt(t('void_reason')) ;
+    if (reason === null) return;
+    try { await voidSale(saleId, reason); toast(t('saved')); closeModal(); if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome(); }
+    catch (e) { toast(e.message || t('err_generic'), 4000); }
+  };
   $('btn-print').onclick = () => doPrint(html, S.cfg.paper);
 }
 
@@ -554,7 +589,7 @@ async function renderSales(append = false) {
   (await db.customers.bulkGet(cids)).forEach(c => { if (c) cmap[c.id] = c.name; });
   const html = list.map(s => `
     <div class="card" data-sale="${s.id}">
-      <div class="row"><div class="grow"><b>${esc(s.invoice_no)}</b><div class="muted">${esc(fmtDate(s.created_at))}</div></div>
+      <div class="row"><div class="grow"><b${s.status === 'void' ? ' style="text-decoration:line-through"' : ''}>${esc(s.invoice_no)}</b>${s.status === 'void' ? ` <span class="owe-t">${t('sale_void')}</span>` : ''}<div class="muted">${esc(fmtDate(s.created_at))}</div></div>
         <div class="price">${money(s.total)}</div></div>
       ${s.customer_id && cmap[s.customer_id] ? `<div class="muted">${ic('user', 14)} ${esc(cmap[s.customer_id])}${s.paid < s.total ? ` · <span class="owe-t">${t('udhaar')}: ${money(s.total - s.paid)}</span>` : ''}</div>` : ''}
       <div class="muted">${s.sync_status === 'synced' ? ic('check', 14) : ic('clock', 14) + ' ' + t('pending')}</div>
@@ -571,9 +606,10 @@ async function renderSettings() {
     <div class="card">
       <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
       <div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
-      <div class="muted" dir="ltr" style="text-align:start">${t('device_id')}: ${esc(await getDeviceId())}</div>
     </div>
     <div class="card">
+      ${!window.POS_DEMO ? `<label>${t('change_pw')}</label><input id="set-oldpw" type="password" placeholder="${t('cur_password')}"><input id="set-newpw" type="password" placeholder="${t('new_password')}" style="margin-top:8px"><button class="btn block" id="btn-pw" style="margin:8px 0">${t('save')}</button>` : ''}
+      ${own && !window.POS_DEMO ? `<label>${t('my_phone')}</label><input id="set-newphone" inputmode="tel" dir="ltr" placeholder="03xx xxxxxxx"><input id="set-phonepw" type="password" placeholder="${t('cur_password')}" style="margin-top:8px"><button class="btn block" id="btn-phone" style="margin:8px 0">${t('save')}</button>` : ''}
       ${own && !window.POS_DEMO ? `<label>${t('shop_name')}</label><input id="set-shopname" value="${esc(S.session.shop_name)}" maxlength="80"><button class="btn block" id="btn-shopname" style="margin:8px 0">${t('save')}</button>` : ''}
       <label>${t('language')}</label>
       <select id="set-lang"><option value="ur" ${c.lang === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${c.lang === 'en' ? 'selected' : ''}>English</option></select>
@@ -594,11 +630,14 @@ async function renderSettings() {
     ${window.POS_DEMO ? '' : `<div class="card"><b>${t('sync_title')}</b>
       <div class="muted" id="sync-state"></div>
       <div class="muted">${t('pending')}: ${await pendingCount()} · ${t('sync_failed_n')}: ${await failedCount()} · ${t('sync_conflicts')}: ${await db.conflicts.filter(c => !c.resolved_at).count()}</div>
+      ${syncDaysLeft() !== null ? `<div class="${syncDaysLeft() <= 7 ? 'warn' : 'muted'}">${syncExpiryText()}</div>` : ''}
       <button class="btn block" id="btn-sync-now" style="margin-top:8px">${t('sync_now')}</button>
+      ${(await db.conflicts.filter(c => !c.resolved_at).count()) ? `<button class="btn secondary block" id="btn-conflicts" style="margin-top:8px">${t('cf_review')}</button>` : ''}
       ${(await failedCount()) ? `<button class="btn secondary block" id="btn-sync-retry" style="margin-top:8px">${t('sync_retry')}</button>` : ''}
     </div>`}
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
     <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
+    ${window.POS_DEMO ? '' : `<button class="btn secondary block" id="btn-import" style="margin-bottom:10px">${ic('download', 18)} ${t('import_data')}</button><input type="file" id="import-file" accept=".json,application/json" hidden>`}
     <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
   if (typeof syncUi === 'function') syncUi();
@@ -653,6 +692,34 @@ document.addEventListener('click', async ev => {
   const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
+  if (el.closest('#btn-pw')) {
+    const oldp = $('set-oldpw').value, newp = $('set-newpw').value;
+    if (!oldp) return toast(t('cur_password'), 3000);
+    if (newp.length < 6) return toast(t('pw_short'), 3500);
+    if (!(await pingServer())) return toast(t('login_need_online'), 3500);
+    try {
+      const sb = getSb();
+      const { error: e1 } = await sb.auth.signInWithPassword({ email: S.session.email, password: oldp });
+      if (e1) throw new Error(t('login_failed'));
+      const { error: e2 } = await sb.auth.updateUser({ password: newp });
+      if (e2) throw new Error(e2.message);
+      $('set-oldpw').value = ''; $('set-newpw').value = ''; toast(t('saved'));
+    } catch (e) { toast(e.message || t('err_generic'), 4500); }
+    return;
+  }
+  if (el.closest('#btn-phone')) {
+    let email; try { email = loginIdToEmail($('set-newphone').value); } catch (e) { return toast(e.message, 3500); }
+    const pw = $('set-phonepw').value; if (!pw) return toast(t('cur_password'), 3000);
+    if (!(await pingServer())) return toast(t('login_need_online'), 3500);
+    if (!confirm(t('phone_confirm') + '\n' + displayLogin(email))) return;
+    try {
+      const { data, error } = await getSb().functions.invoke('admin-users', { body: { action: 'my_phone', phone: $('set-newphone').value, password: pw } });
+      if (error || (data && data.error)) throw new Error((data && data.error) || error.message);
+      S.session.email = data.email; await setSetting('session', S.session);
+      toast(t('saved')); renderSettings();
+    } catch (e) { toast(/bad_password/.test(e.message) ? t('login_failed') : t('err_generic') + ': ' + e.message, 4500); }
+    return;
+  }
   if (el.closest('#btn-shopname')) {
     const name = $('set-shopname').value.trim();
     if (name.length < 2) return toast(t('err_generic'));
@@ -666,6 +733,10 @@ document.addEventListener('click', async ev => {
     return;
   }
   if (el.closest('#btn-sync-now')) { toast(t('sync_running')); const r = await syncRun(); syncUi(); if (r && r.offline) toast(t('offline')); renderSettings(); return; }
+  if (el.closest('#btn-conflicts')) { syncShowConflicts(); return; }
+  if (el.closest('#btn-close-modal')) { closeModal(); renderSettings(); return; }
+  { const b = el.closest('[data-cf-ok],[data-cf-local]'); if (b) { syncResolveChoice(b.dataset.cfOk || b.dataset.cfLocal, !!b.dataset.cfLocal); return; } }
+  if (el.closest('#btn-import')) { $('import-file').click(); return; }
   if (el.closest('#btn-sync-retry')) { await syncRetryFailed(); renderSettings(); return; }
   if (el.closest('#btn-export')) {
     try {
@@ -711,6 +782,12 @@ document.addEventListener('change', async ev => {
   const id = ev.target.id;
   if (id === 'set-lang') { await saveCfg('lang', ev.target.value); setLang(ev.target.value); applyStaticText(); renderBillShell(); switchTab('settings'); }
   else if (id === 'pur-upcost') { S.pur.updateCost = ev.target.checked; }
+  else if (id === 'import-file') {
+    const f = ev.target.files[0]; if (!f) return;
+    try { const n = await syncImportFile(f); toast(t('import_done').replace('{n}', n), 4000); renderSettings(); }
+    catch (e) { toast(e.message || t('import_bad'), 4500); }
+    ev.target.value = '';
+  }
   else if (id === 'set-theme') { await saveCfg('theme', ev.target.value); applyTheme(); }
   else if (isOwner() && id === 'set-tax') { await saveCfg('tax_rate', Math.max(0, num(ev.target.value))); }
   else if (isOwner() && id === 'set-cdisc') { await saveCfg('cashier_discount', ev.target.checked); }

@@ -3,13 +3,15 @@ const RPT = {
   rp_sales: ['کل فروخت', 'Total sales'], rp_cogs: ['مال کی لاگت', 'Cost of goods sold'], rp_gross: ['مجموعی منافع', 'Gross profit'], rp_net: ['خالص منافع', 'Net profit'],
   rp_credit_given: ['ادھار دیا گیا', 'Credit given'], rp_received: ['ادھار کی وصولی', 'Credit received'], rp_purchases: ['خریداری', 'Purchases'],
   rp_daily: ['روزانہ فروخت', 'Daily sales'], rp_top: ['زیادہ بکنے والی پروڈکٹس', 'Top products'], rp_low: ['کم اسٹاک', 'Low stock'], rp_none: ['اس مدت میں کوئی فروخت نہیں', 'No sales in this period'],
-  rp_loss: ['نقصان', 'Loss'], rp_sold: ['بکا', 'sold'], rp_cash_note: ['منافع = فروخت − مال کی لاگت − اخراجات', 'Profit = sales − cost of goods − expenses']
+  rp_loss: ['نقصان', 'Loss'], rp_refunds: ['واپسی میں لوٹائی گئی رقم', 'Cash refunded to customers'], rp_sold: ['بکا', 'sold'], rp_cash_note: ['منافع = فروخت − مال کی لاگت − اخراجات', 'Profit = sales − cost of goods − expenses']
 };
 for (const k in RPT) { I18N.ur[k] = RPT[k][0]; I18N.en[k] = RPT[k][1]; }
 
 async function computeReport(shopId, p) {
   const { from, to } = periodRange(p), rng = [[shopId, from], [shopId, to]];
-  const sales = (await db.sales.where('[shop_id+created_at]').between(...rng).toArray()).filter(s => s.status !== 'void');
+  const allSales = await db.sales.where('[shop_id+created_at]').between(...rng).toArray();
+  const refunds = allSales.reduce((a, s) => a + (s.refunded || 0), 0);   // cash handed back to customers (returns / cancelled bills)
+  const sales = allSales.filter(s => s.status !== 'void');
   let revenue = 0, cogs = 0, credit = 0; const prod = {}, day = {};
   for (const s of sales) {
     revenue += s.total; credit += Math.max(0, s.total - s.paid);
@@ -27,7 +29,7 @@ async function computeReport(shopId, p) {
   for (; d < end; d.setDate(d.getDate() + 1)) days.push({ n: d.getDate(), v: day[d.toDateString()] || 0 });
   const top = Object.entries(prod).sort((a, b) => b[1].rev - a[1].rev).slice(0, 5);
   return { revenue: round2(revenue), cogs: round2(cogs), gross: round2(revenue - cogs), expenses: round2(expenses), net: round2(revenue - cogs - expenses),
-    credit: round2(credit), received: round2(received), purchases: round2(purchases), bills: sales.length, days, top };
+    refunds: round2(refunds), credit: round2(credit), received: round2(received), purchases: round2(purchases), bills: sales.length, days, top };
 }
 async function lowStockList(shopId) {
   const all = await db.products.where('[shop_id+name]').between([shopId, ''], [shopId, '\uffff']).filter(p => !p.deleted_at && p.is_active !== false && p.min_stock > 0).toArray();
@@ -47,7 +49,7 @@ async function renderReports() {
     <div class="today"><div class="cal">${ic('chart', 24)}</div><div class="grow"><div class="muted">${t('rp_net')} · ${r.bills} ${t('bills_n')}</div>
       <div class="big" style="${r.net < 0 ? 'color:var(--err)' : ''}">${r.net < 0 ? t('rp_loss') + ' ' : ''}Rs ${money(Math.abs(r.net))}</div><div class="muted" style="font-size:12px">${t('rp_cash_note')}</div></div></div>
     <div class="card totals">${row(t('rp_sales'), r.revenue)}${row('− ' + t('rp_cogs'), r.cogs)}${row(t('rp_gross'), r.gross)}${row('− ' + t('mod_expenses'), r.expenses)}${row(t('rp_net'), r.net, r.net < 0 ? 'grand neg' : 'grand')}</div>
-    <div class="card totals">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}</div>
+    <div class="card totals">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}${r.refunds > 0 ? row(t('rp_refunds'), r.refunds) : ''}</div>
     ${r.days.length > 1 ? `<div class="card"><div class="sa-sec">${t('rp_daily')}</div><div class="sa-bars">${r.days.map(d => `<div><i style="height:${Math.max(3, Math.round(d.v / mx * 80))}%"></i><span style="font-size:9px">${d.n}</span></div>`).join('')}</div></div>` : ''}
     <div class="card"><div class="sa-sec">${t('rp_top')}</div>${r.top.map(([n, x]) => `<div class="lrow"><div class="grow"><b>${esc(n)}</b><div class="muted">${x.qty} ${t('rp_sold')}</div></div><b>Rs ${money(x.rev)}</b></div>`).join('') || `<div class="muted">${t('rp_none')}</div>`}</div>
     ${low.length ? `<div class="card"><div class="sa-sec">${t('rp_low')}</div>${low.map(({ p, st }) => `<div class="lrow"><div class="grow"><b>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</b></div><span class="bal owe">${st} / ${p.min_stock}</span></div>`).join('')}</div>` : ''}`;

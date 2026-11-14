@@ -153,6 +153,72 @@ async function saveSale(sale, items) {
     });
 }
 
+// Cancel a sale (bill return): the sale stays for history with status 'void', stock is put back through
+// reverse stock movements (ledger), and the customer's balance / reports ignore it automatically.
+async function voidSale(saleId, reason = '') {
+  return db.transaction('rw', db.sales, db.sale_items, db.stock_movements, db.sync_queue, db.app_settings, async () => {
+    const sale = await db.sales.get(saleId);
+    if (!sale) throw new Error('Sale not found');
+    if (sale.status === 'void') throw new Error('Already cancelled');
+    const now = new Date().toISOString();
+    const rec = { ...sale, status: 'void', void_reason: (reason || '').trim() || null, voided_at: now,
+                  refunded: round2((sale.refunded || 0) + (sale.paid || 0)),
+                  version: sale.version + 1, updated_at: now, sync_status: 'pending' };
+    await db.sales.put(rec); await enqueue('sales', rec, 'update');
+    const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
+    for (const it of items) {
+      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty)),
+                                   reason: 'sale_void', ref_type: 'sale', ref_id: saleId });
+      await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
+    }
+    return rec;
+  });
+}
+
+// Partial return: lines = [{ item_id, qty }]. Reduces the sale line, the sale totals (discount/tax scaled in proportion),
+// puts stock back (ledger) and reduces `paid` only by what must be refunded (credit part is just removed from the udhaar).
+async function returnSaleItems(saleId, lines, reason = '') {
+  lines = (lines || []).filter(l => l.qty > 0);
+  if (!lines.length) throw new Error('Nothing to return');
+  return db.transaction('rw', db.sales, db.sale_items, db.stock_movements, db.sync_queue, db.app_settings, async () => {
+    const sale = await db.sales.get(saleId);
+    if (!sale) throw new Error('Sale not found');
+    if (sale.status === 'void') throw new Error('Already cancelled');
+    const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
+    const byId = Object.fromEntries(items.map(i => [i.id, i]));
+    const now = new Date().toISOString();
+    let value = 0;
+    for (const l of lines) {
+      const it = byId[l.item_id]; if (!it) throw new Error('Item not found');
+      const q = round3(l.qty);
+      if (q > it.qty + 1e-9) throw new Error('Return quantity is more than sold');
+      const amount = round2(q * it.unit_price);
+      value = round2(value + amount);
+      const upd = { ...it, qty: round3(it.qty - q), returned_qty: round3((it.returned_qty || 0) + q),
+                    line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };
+      await db.sale_items.put(upd); await enqueue('sale_items', upd, 'update');
+      byId[it.id] = upd;
+      const mv = await newRecord({ product_id: it.product_id, qty_change: q, reason: 'sale_return', ref_type: 'sale', ref_id: saleId });
+      await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
+    }
+    const ratio = sale.subtotal > 0 ? value / sale.subtotal : 1;
+    const subtotal = round2(sale.subtotal - value);
+    const discount = round2(sale.discount * (1 - ratio));
+    const tax = round2(sale.tax * (1 - ratio));
+    const total = round2(subtotal - discount + tax);
+    const paid = round2(Math.min(sale.paid, total));
+    const allGone = Object.values(byId).every(i => i.qty <= 0);
+    const rec = { ...sale, subtotal, discount, tax, total, paid,
+                  returned_total: round2((sale.returned_total || 0) + (sale.total - total)),
+                  refunded: round2((sale.refunded || 0) + (sale.paid - paid)),
+                  status: allGone ? 'void' : sale.status, void_reason: allGone ? ((reason || '').trim() || 'full return') : sale.void_reason,
+                  note_return: (reason || '').trim() || sale.note_return || null,
+                  version: sale.version + 1, updated_at: now, sync_status: 'pending' };
+    await db.sales.put(rec); await enqueue('sales', rec, 'update');
+    return rec;
+  });
+}
+
 async function getSaleWithItems(saleId) {
   const sale = await db.sales.get(saleId);
   if (!sale) return null;

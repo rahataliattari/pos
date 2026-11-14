@@ -50,6 +50,7 @@ async function syncRun(opts = {}) {
       const pulled = await syncPull(sb, shop);
       SYNC.lastError = null; SYNC.lastOk = new Date().toISOString();
       await setSetting('last_sync_at', SYNC.lastOk);
+      await syncCheckExpiry(sb, shop);
       await syncTrimLogs();
       return { pushed, pulled };
     });
@@ -110,6 +111,9 @@ async function syncPush(sb, shop) {
             });
           } else if (out.status === 'conflict') {
             await syncResolveConflict(table, out.id, out.server, g.seqs);
+          } else if (out.status === 'denied') {       // role not allowed on the server: stop retrying, show as failed
+            await db.sync_queue.bulkUpdate(g.seqs.map(seq => ({ key: seq, changes: { status: 'failed', last_error: 'denied' } })));
+            await logSync('warn', `denied by server (role) on ${table}`, out.id);
           }
           total++; progressed = true;
         }
@@ -196,6 +200,76 @@ function syncUi() {
     : SYNC.lastError === 'auth' ? t('sync_auth')
     : SYNC.lastError ? t('sync_error') + ': ' + SYNC.lastError
     : SYNC.lastOk ? t('sync_ok') + ' · ' + fmtDate(SYNC.lastOk) : t('sync_idle');
+}
+
+// ───────── Subscription expiry ─────────
+async function syncCheckExpiry(sb, shop) {
+  try {
+    const { data } = await sb.from('shops').select('expires_at').eq('id', shop).maybeSingle();
+    if (!data) return;
+    S.session.expires_at = data.expires_at; await setSetting('session', S.session);
+    const d = syncDaysLeft();
+    if (d !== null && d <= 7 && !syncCheckExpiry._warned) { syncCheckExpiry._warned = true; toast(syncExpiryText(), 6000); }
+  } catch (e) {}
+}
+function syncDaysLeft() {
+  if (!S.session || !S.session.expires_at) return null;
+  return Math.ceil((new Date(S.session.expires_at).getTime() - Date.now()) / 86400000);
+}
+function syncExpiryText() {
+  const d = syncDaysLeft();
+  return d === null ? '' : d < 0 ? t('sub_expired') : t('sub_days').replace('{n}', d);
+}
+
+// ───────── Conflict review ─────────
+const conflictLabel = r => r ? (r.name || r.invoice_no || r.product_name || (r.id || '').slice(0, 8)) : '—';
+async function syncShowConflicts() {
+  const list = await db.conflicts.filter(c => !c.resolved_at).toArray();
+  openModal(`<h3>${t('sync_conflicts')}</h3>` + (list.length ? list.map(c => `
+    <div class="card" style="margin-bottom:8px"><b>${esc(c.table_name)}</b> · ${esc(conflictLabel(c.server || c.local))}
+      <div class="muted">${t('cf_local')}: ${esc(fmtDate(c.local && c.local.updated_at))} · ${t('cf_server')}: ${esc(fmtDate(c.server && c.server.updated_at))}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn secondary grow" data-cf-ok="${c.id}">${t('cf_keep_server')}</button>
+        <button class="btn grow" data-cf-local="${c.id}">${t('cf_keep_local')}</button>
+      </div></div>`).join('') : `<div class="muted">${t('cf_none')}</div>`) +
+    `<button class="btn secondary block" id="btn-close-modal">${t('cancel')}</button>`);
+}
+async function syncResolveChoice(id, keepLocal) {
+  const c = await db.conflicts.get(id); if (!c) return;
+  await db.transaction('rw', db.table(c.table_name), db.conflicts, db.sync_queue, async () => {
+    if (keepLocal && c.local) {
+      const rec = { ...c.local, version: Math.max(c.local.version, c.server ? c.server.version : 0) + 1,
+                    updated_at: new Date().toISOString(), sync_status: 'pending' };
+      await db.table(c.table_name).put(rec); await enqueue(c.table_name, rec, 'update');
+    }
+    await db.conflicts.update(id, { resolved_at: new Date().toISOString(), resolution: keepLocal ? 'local_kept' : 'server_kept' });
+  });
+  syncSchedule(500); syncShowConflicts();
+}
+
+// ───────── Restore from an exported backup (JSON) ─────────
+async function syncImportFile(file) {
+  const shop = await getSetting('shop_id'); if (!shop) throw new Error('No shop');
+  const obj = JSON.parse(await file.text());
+  if (!obj || !obj.tables) throw new Error(t('import_bad'));
+  let n = 0;
+  for (const table of BUSINESS_TABLES) {
+    const rows = (obj.tables[table] || []).filter(r => r && r.id && r.shop_id === shop);
+    for (let i = 0; i < rows.length; i += 300) {
+      const chunk = rows.slice(i, i + 300);
+      await db.transaction('rw', db.table(table), db.sync_queue, async () => {
+        const locals = await db.table(table).bulkGet(chunk.map(r => r.id));
+        for (let k = 0; k < chunk.length; k++) {
+          const l = locals[k], r = chunk[k];
+          if (l && l.version >= r.version) continue;               // keep what is already here if it is as new or newer
+          const rec = { ...r, sync_status: 'pending' };
+          await db.table(table).put(rec); await enqueue(table, rec, 'insert'); n++;
+        }
+      });
+    }
+  }
+  syncSchedule(500);
+  return n;
 }
 
 window.addEventListener('pos-sync-ready', syncStart);
