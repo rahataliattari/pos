@@ -94,10 +94,11 @@ async function boot() {
 }
 
 // ───────── Login ─────────
-// Mobile number (03xx..., +92 3xx..., 923xx...) -> internal email. An input containing '@' is used as an email as-is.
+// Login is by MOBILE NUMBER ONLY (03xx..., +92 3xx..., 923xx...). Supabase Auth needs an e-mail-shaped id internally, so the number is
+// turned into a hidden technical id <92number>@LOGIN_DOMAIN; nobody ever types or sees an e-mail. Anything with '@' is rejected.
 function loginIdToEmail(v) {
   v = (v || '').trim();
-  if (v.includes('@')) return v.toLowerCase();
+  if (v.includes('@')) throw new Error(t('bad_phone'));
   let d = v.replace(/\D/g, '');
   if (d.startsWith('00')) d = d.slice(2);
   if (d.startsWith('0')) d = '92' + d.slice(1);
@@ -116,7 +117,8 @@ document.addEventListener('click', ev => {
   const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show);
 });
 const homeHello = () => (S.session && S.session.user_name) || t('greeting');   // Home header: the signed-in person's name
-const displayLogin = e => String(e || '').replace('@' + (window.POS_CONFIG && POS_CONFIG.LOGIN_DOMAIN), '');
+// Shows the login id as the mobile number (0300…), never the technical e-mail form.
+const displayLogin = e => { const m = /^(\d+)@/.exec(String(e || '')); return m ? (m[1].startsWith('92') ? '0' + m[1].slice(2) : m[1]) : String(e || '').split('@')[0]; };
 
 function applyStaticText() {
   $('login-title').textContent = t('app_name');

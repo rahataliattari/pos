@@ -203,9 +203,10 @@ async function saPushNow() {
 }
 function saPush() { const p = saQ.then(saPushNow); saQ = p.catch(() => {}); return p; }   // serialised: one push at a time
 async function saFail(e) {
-  const msg = (e && e.message) || t('err_generic');
-  toast(msg, 6000);
-  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" style="word-break:break-word;user-select:text;padding:10px;background:#f3f4f6;border-radius:10px">${esc(msg)}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
+  let msg = (e && e.message) || t('err_generic');
+  if (/row-level security|jwt|not authenticated/i.test(msg)) msg += '\n\nسپر ایڈمن اجازت نہیں ملی: موجودہ لاگ اِن پلیٹ فارم ایڈمن نہیں ہے یا سیشن ختم ہو گیا۔ لاگ آؤٹ کر کے ایڈمن اکاؤنٹ سے دوبارہ لاگ اِن کریں۔';
+  toast(msg.split('\n')[0], 6000);
+  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" style="white-space:pre-wrap;word-break:break-word;user-select:text;padding:10px;background:#f3f4f6;border-radius:10px">${esc(msg)}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
  try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
 function saCommit() {            // save + wait; true on success (callers show credentials only then)
   if (!SA_LIVE()) { saSave(); return Promise.resolve(true); }
