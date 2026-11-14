@@ -14,7 +14,8 @@ const S = {
   custPage: 0, custQuery: '', saleCust: null,
   purSeg: 'list', purPage: 0, supPage: 0, supQuery: '', pur: null,   // purchases screen + draft purchase
     // customers list + customer chosen for the current bill
-  sb: null                // supabase client (login only, for now)
+  sb: null,               // supabase client
+  isAdmin: false
 };
 
 const $ = id => document.getElementById(id);
@@ -84,7 +85,7 @@ async function boot() {
   await loadCfg();
   S.session = await getSetting('session');
   $('boot').hidden = true;
-  if (S.session) await showApp(); else showLogin();
+  if (S.session) await showApp(); else { showLogin(); restoreAdmin(); }
   if (window.POS_DEMO && location.hash === '#superadmin' && S.session) showSuperAdmin();
   window.addEventListener('online', refreshStatus);
   window.addEventListener('offline', refreshStatus);
@@ -139,10 +140,16 @@ async function doLogin(e) {
     if (error) throw new Error(t('login_failed'));
     const user = data.user;
     // Membership is decided by the SERVER (RLS), never by the client.
-    const { data: rows, error: e2 } = await sb.from('shop_members').select('shop_id, role, shops(name)').eq('user_id', user.id);
+    let isAdm = false;
+    try { isAdm = (await sb.rpc('is_platform_admin')).data === true; } catch (x) {}
+    const { data: all, error: e2 } = await sb.from('shop_members').select('shop_id, role, active, shops(name, suspended, archived, expires_at)').eq('user_id', user.id);
     if (e2) throw new Error(e2.message);
-    if (!rows || !rows.length) throw new Error(t('no_shop'));
-    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', role: r.role });
+    if (isAdm && (!all || !all.length)) return enterAdminOnly();
+    if (!all || !all.length) throw new Error(t('no_shop'));
+    // blocked shops (suspended / archived / expired) and deactivated members can't log in; Super Admin is never blocked
+    const rows = isAdm ? all : all.filter(r => r.active !== false && r.shops && !r.shops.suspended && !r.shops.archived && new Date(r.shops.expires_at).getTime() >= Date.now());
+    if (!rows.length) { try { await sb.auth.signOut(); } catch (x) {} throw new Error(t('sa_shop_blocked')); }
+    const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', role: r.role, admin: isAdm });
     if (rows.length === 1) return await finishLogin(make(rows[0]));
     $('login-form').hidden = true;
     const box = $('shop-choice'); box.hidden = false;
@@ -151,6 +158,17 @@ async function doLogin(e) {
     box.onclick = ev => { const b = ev.target.closest('[data-shop]'); if (b) finishLogin(make(rows[+b.dataset.shop])); };
   } catch (ex) { err.textContent = ex.message || t('err_generic'); err.hidden = false; }
   finally { $('btn-login').disabled = false; }
+}
+function enterAdminOnly() {   // platform admin with no shop of their own: straight to Super Admin
+  S.isAdmin = true; $('login').hidden = true; $('login-form').hidden = false; $('shop-choice').hidden = true; $('in-pass').value = '';
+  return showSuperAdmin();
+}
+async function restoreAdmin() {   // page reload: Supabase keeps the auth session, so no need to log in again
+  if (window.POS_DEMO || !navigator.onLine || typeof supabase === 'undefined') return;
+  try {
+    const sb = getSb(); const { data } = await sb.auth.getSession(); if (!data.session) return;
+    if ((await sb.rpc('is_platform_admin')).data === true) enterAdminOnly();
+  } catch (e) {}
 }
 async function finishLogin(session) {
   await setSetting('session', session);
@@ -179,6 +197,7 @@ async function showApp() {
   renderBillShell(); renderCart();
   switchTab(S.tab);
   refreshStatus();
+  if (!window.POS_DEMO && navigator.onLine) saLoadAnnouncement().catch(() => {});
   if (showApp._timer) return;
   showApp._timer = setInterval(async () => { if (S.session) { const p = await pendingCount(), f = await failedCount();
     $('chip-pend').hidden = !p; $('chip-pend').textContent = `${t('pending')}: ${p}`;
@@ -570,7 +589,7 @@ async function renderSettings() {
       <label>${t('paper_width')}</label>
       <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
     </div>
-    ${window.POS_DEMO ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
+    ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
     <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
 }

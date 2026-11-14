@@ -1,6 +1,7 @@
 // Universal POS — Super Admin panel (platform owner: shops, users, subscriptions, announcements, audit log).
 // Loaded BEFORE app.js. Uses globals from app.js / db.js / i18n.js at call time.
-// DATA LAYER: for now everything lives in the demo store below (localStorage). The Supabase connection comes later.
+// DATA LAYER: demo build -> localStorage store below. Live build (window.POS_DEMO unset) -> Supabase (see 'Live adapter').
+// Users are created/reset/deleted through the 'admin-users' Edge Function (needs the service-role key, which never reaches the browser).
 const DAY = 864e5, SAK = 'pos_sa_demo_v1';
 
 const SAT = {
@@ -42,6 +43,7 @@ const SAT = {
   sa_a_user_new: ['نیا صارف', 'User added'], sa_a_user_edit: ['صارف میں ترمیم', 'User edited'], sa_a_user_del: ['صارف حذف', 'User deleted'], sa_a_pw_reset: ['پاس ورڈ ری سیٹ', 'Password reset'],
   sa_a_plan_edit: ['پلان میں ترمیم', 'Plan edited'], sa_a_ann_new: ['نیا اعلان', 'Announcement added'], sa_a_settings: ['سیٹنگز تبدیل', 'Settings changed']
 };
+SAT.sa_shop_blocked = ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.'];
 for (const k in SAT) { I18N.ur[k] = SAT[k][0]; I18N.en[k] = SAT[k][1]; }
 Object.assign(ICONS, {
   shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
@@ -113,30 +115,119 @@ function saSeed() {
 }
 function saLoad() {
   if (SAD) return SAD;
+  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '' } });
   try { const r = localStorage.getItem(SAK); if (r) SAD = JSON.parse(r); } catch (e) {}
   if (!SAD) { SAD = saSeed(); saSave(); }
   return SAD;
 }
-function saSave() { try { localStorage.setItem(SAK, JSON.stringify(SAD)); } catch (e) {} }
+function saSave() { if (SA_LIVE()) { saPush().catch(saFail); return; } try { localStorage.setItem(SAK, JSON.stringify(SAD)); } catch (e) {} }
 function saLog(action, target, detail) {
   SAD.audit = [{ id: uuid(), at: saIso(0), actor: 'Super Admin', action, target: target || '', detail: detail || '' }, ...SAD.audit].slice(0, 300);
-  saSave();
+  if (!SA_LIVE()) saSave();
 }
 function saAnnouncement() {
-  if (!window.POS_DEMO) return '';
+  if (!window.POS_DEMO) return window.SA_ANN || '';
   try { const a = saLoad().announcements.find(x => x.active); return a ? a.text : ''; } catch (e) { return ''; }
 }
 
+// ───────── Live adapter (Supabase) ─────────
+// SAD stays the in-memory working copy the UI already uses. saFetch() fills it from the server; saPush() diffs it against the
+// last-synced snapshot and writes only what changed. RLS (is_platform_admin) is the real gatekeeper; the client check is UX only.
+const SA_LIVE = () => !window.POS_DEMO;
+const SA_TABLES = { plans: 'plans', shops: 'shops', users: 'shop_members', payments: 'sub_payments', audit: 'audit_log', announcements: 'announcements' };
+const SA_COLS = {
+  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products'],
+  shops: ['id', 'name', 'owner_name', 'phone', 'city', 'plan_id', 'trial', 'suspended', 'suspend_reason', 'archived', 'created_at', 'expires_at', 'last_seen', 'bills_30d', 'sales_30d', 'notes'],
+  users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
+  payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
+  audit: ['id', 'at', 'actor', 'action', 'target', 'detail'],
+  announcements: ['id', 'text', 'active', 'at']
+};
+let SAB = null, saQ = Promise.resolve();
+const saKey = (t, r) => JSON.stringify(SA_COLS[t].map(c => (r[c] === undefined ? null : r[c])));
+const saPick = (t, r) => Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]]));
+function saSnap() {
+  SAB = {};
+  for (const t of Object.keys(SA_COLS)) { SAB[t] = new Map(); for (const r of SAD[t]) SAB[t].set(r.id, { k: saKey(t, r), r: { ...r } }); }
+  SAB.settings = JSON.stringify(SAD.settings);
+}
+async function saFetch() {
+  const sb = getSb(), q = (t, o) => { let x = sb.from(SA_TABLES[t]).select('*'); if (o) x = x.order(o, { ascending: false }); return x; };
+  const res = await Promise.all([q('plans'), q('shops', 'created_at'), q('users', 'created_at'), q('payments', 'at'), q('audit', 'at').limit(300), q('announcements', 'at'),
+    sb.from('platform_settings').select('*').eq('id', 1).maybeSingle()]);
+  const bad = res.find(r => r.error); if (bad) throw new Error(bad.error.message);
+  const [plans, shops, users, payments, audit, announcements] = res.slice(0, 6).map(r => r.data || []);
+  const st = res[6].data || {};
+  SAD = { plans, shops, users, payments, audit, announcements,
+    settings: { trial_days: st.trial_days ?? 14, default_plan: st.default_plan || 'standard', support_phone: st.support_phone || '' } };
+  saSnap();
+}
+async function saFn(body) {
+  const { data, error } = await getSb().functions.invoke('admin-users', { body });
+  if (error) { let m = error.message; try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+const saUp = async (t, rows) => { if (!rows.length) return; const { error } = await getSb().from(SA_TABLES[t]).upsert(rows); if (error) throw new Error(error.message); };
+async function saPushNow() {
+  if (!SA_LIVE() || !SAD || !SAB) return;
+  const d = SAD, changed = t => d[t].filter(r => { const o = SAB[t].get(r.id); return !o || o.k !== saKey(t, r); });
+  await saUp('plans', changed('plans').map(r => saPick('plans', r)));
+  await saUp('shops', changed('shops').map(r => saPick('shops', r)));            // parents before users
+  const sb = getSb();
+  for (const u of d.users) {                                                      // users: auth account first (Edge Function)
+    const o = SAB.users.get(u.id);
+    if (!o) {
+      const r = await saFn({ action: 'create', member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw });
+      u.user_id = r.user_id; delete u._pw;
+      if (!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: true });
+    } else if (o.k !== saKey('users', u)) {
+      if (o.r.phone !== u.phone) await saFn({ action: 'phone', user_id: u.user_id, phone: u.phone });
+      if (!!o.r.active !== !!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: !u.active });
+      const { error } = await sb.from('shop_members').update({ name: u.name, phone: u.phone, role: u.role, shop_id: u.shop_id, active: u.active }).eq('id', u.id);
+      if (error) throw new Error(error.message);
+    }
+  }
+  for (const [id] of SAB.users) if (!d.users.some(u => u.id === id)) await saFn({ action: 'delete', member_id: id });
+  await saUp('payments', changed('payments').map(r => saPick('payments', r)));
+  await saUp('audit', changed('audit').map(r => saPick('audit', r)));
+  await saUp('announcements', changed('announcements').map(r => saPick('announcements', r)));
+  for (const [id] of SAB.announcements) if (!d.announcements.some(a => a.id === id)) { const { error } = await sb.from('announcements').delete().eq('id', id); if (error) throw new Error(error.message); }
+  if (JSON.stringify(d.settings) !== SAB.settings) { const { error } = await sb.from('platform_settings').upsert({ id: 1, ...d.settings }); if (error) throw new Error(error.message); }
+  saSnap();
+}
+function saPush() { const p = saQ.then(saPushNow); saQ = p.catch(() => {}); return p; }   // serialised: one push at a time
+async function saFail(e) { toast((e && e.message) || t('err_generic'), 6000); try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
+function saCommit() {            // save + wait; true on success (callers show credentials only then)
+  if (!SA_LIVE()) { saSave(); return Promise.resolve(true); }
+  return saPush().then(() => true, async e => { await saFail(e); return false; });
+}
+async function saLoadAnnouncement() {   // shop users see the active announcement in the sync bar
+  if (window.POS_DEMO) return;
+  const { data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1);
+  window.SA_ANN = data && data[0] ? data[0].text : '';
+  $('syncnote').textContent = window.SA_ANN || t('sync_note');
+}
+
 // ───────── Shell ─────────
-function showSuperAdmin() {
-  saLoad();
+async function showSuperAdmin() {
+  if (SA_LIVE()) {
+    toast('…', 8000);
+    try { await saFetch(); } catch (e) { return toast((e && e.message) || t('err_generic'), 5000); }
+    $('toast').hidden = true;
+  } else saLoad();
   $('app').hidden = true; $('login').hidden = true; $('sa').hidden = false;
   document.documentElement.dataset.theme = 'admin';
   const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = '#1c2541';
   saRender();
 }
-function exitSuperAdmin() {
-  $('sa').hidden = true; $('app').hidden = false;
+async function exitSuperAdmin() {
+  $('sa').hidden = true;
+  if (!S.session) {   // admin without a shop: exit = sign out
+    try { if (S.sb) await S.sb.auth.signOut(); } catch (e) {}
+    S.isAdmin = false; SAD = null; applyTheme(); return showLogin();
+  }
+  $('app').hidden = false;
   applyTheme(); applyStaticText(); renderBillShell(); switchTab(S.tab);
 }
 function saRender() {
@@ -146,7 +237,7 @@ function saRender() {
       <div class="avatar">${ic('shield', 24)}</div>
       <div class="hinfo"><div class="hello">${t('sa_title')}</div><div class="shop">${t('sa_sub')}</div></div>
       <button class="langbtn" data-sa="lang" type="button">${LANG === 'ur' ? 'EN' : 'اردو'}</button>
-      <button class="langbtn" data-sa="exit" type="button">${ic('home', 16)} ${t('sa_exit')}</button>
+      <button class="langbtn" data-sa="exit" type="button">${ic('home', 16)} ${S.session ? t('sa_exit') : t('logout')}</button>
     </div></header>
     <main id="sa-main">${saView()}</main>
     <nav class="bottom">${tabs.map(([k, l, i]) => `<button data-sa="tab|${k}" class="${SAS.tab === k ? 'active' : ''}"><span class="ico">${ic(i, 22)}</span><span>${t(l)}</span></button>`).join('')}</nav>`;
@@ -245,8 +336,8 @@ function saShopForm(id) {
     const trial = !!f.trial, ns = { id: uuid(), name: f.name.trim(), owner_name: f.owner_name.trim(), phone, city: f.city.trim(), plan_id: f.plan_id, trial,
       suspended: false, suspend_reason: '', archived: false, created_at: saIso(0), expires_at: saIso(trial ? d.settings.trial_days : 0), last_seen: saIso(0), bills_30d: 0, sales_30d: 0, notes: f.notes.trim() };
     const pw = saPass();
-    d.shops.push(ns); d.users.push({ id: uuid(), shop_id: ns.id, name: ns.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, temp_pw: true });
-    saLog('shop_new', ns.name); saSave(); saRender(); saShowCreds(ns.owner_name, phone, pw);
+    d.shops.push(ns); d.users.push({ id: uuid(), shop_id: ns.id, name: ns.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw });
+    saLog('shop_new', ns.name); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(ns.owner_name, phone, pw); } });
   };
 }
 function saShowCreds(name, phone, pw) {
@@ -324,8 +415,8 @@ function saUserForm(id, shopId) {
     if (id && saOnlyOwner(u) && (f.role !== 'owner' || f.shop_id !== u.shop_id || !active)) return toast(t('sa_last_owner'), 4000);
     if ((!id || f.shop_id !== u.shop_id) && d.users.filter(x => x.shop_id === f.shop_id).length >= saPlan(d.shops.find(s => s.id === f.shop_id).plan_id).max_users) return toast(t('sa_limit_users'), 4000);
     if (id) { Object.assign(u, { name: f.name.trim(), phone, shop_id: f.shop_id, role: f.role, active }); saLog('user_edit', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender(); return; }
-    const nu = { id: uuid(), shop_id: f.shop_id, name: f.name.trim(), phone, role: f.role, active, created_at: saIso(0), last_login: null };
-    d.users.push(nu); saLog('user_new', nu.name, saShopName(nu.shop_id)); saSave(); saRender(); saShowCreds(nu.name, phone, saPass());
+    const pw = saPass(), nu = { id: uuid(), shop_id: f.shop_id, name: f.name.trim(), phone, role: f.role, active, created_at: saIso(0), last_login: null, _pw: pw };
+    d.users.push(nu); saLog('user_new', nu.name, saShopName(nu.shop_id)); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, pw); } });
   };
 }
 
@@ -372,7 +463,7 @@ function saMoreView() {
       <label>${t('sa_set_plan')}</label><select id="sa-set-plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.default_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
       <label>${t('sa_set_phone')}</label><input id="sa-set-phone" inputmode="tel" dir="ltr" value="${esc(d.settings.support_phone)}"></div>
     <button class="btn secondary block" data-sa="export" style="margin-bottom:10px">${ic('download', 18)} ${t('sa_export')}</button>
-    <button class="btn danger block" data-sa="resetsa">${t('sa_reset_demo')}</button>`;
+    ${SA_LIVE() ? '' : '<button class="btn danger block" data-sa="resetsa">' + t('sa_reset_demo') + '</button>'}`;
 }
 function saAnnForm() {
   openModal(`<h2>${t('sa_ann_add')}</h2><form id="sa-form"><label>${t('sa_ann_text')}</label><input name="text" required maxlength="160">
@@ -412,10 +503,12 @@ const SA_ACT = {
     if (!confirm(t('sa_confirm_deluser'))) return;
     SAD.users = SAD.users.filter(x => x.id !== id); saLog('user_del', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender();
   },
-  resetpw: id => {
+  resetpw: async id => {
     const u = SAD.users.find(x => x.id === id);
     if (!confirm(t('sa_confirm_reset'))) return;
-    saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, saPass());
+    const pw = saPass();
+    if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
+    saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, pw);
   },
   copy: pw => { try { navigator.clipboard.writeText(pw); toast(t('sa_copied')); } catch (e) { toast(pw, 5000); } },
   bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),
