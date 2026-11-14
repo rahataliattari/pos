@@ -1,9 +1,9 @@
 // Service worker: makes the app shell and libraries available offline.
 // Bump CACHE when any shell file changes.
-const CACHE = 'pos-shell-v6';
+const CACHE = 'pos-shell-v7';
 
 const SHELL = [
-  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'customers.js', 'purchases.js', 'print.js', 'expenses.js', 'reports.js', 'superadmin.js', 'app.js',
+  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'customers.js', 'purchases.js', 'print.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'app.js',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png'
 ];
 const LIBS = [

@@ -590,6 +590,7 @@ async function renderSettings() {
       <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
     </div>
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
+    <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
     <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
 }

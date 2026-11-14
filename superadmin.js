@@ -452,7 +452,9 @@ function saPlanForm(id) {
 
 // ───────── More: announcements / log / settings ─────────
 function saMoreView() {
-  const d = SAD, seg = `<div class="seg">${[['ann', 'sa_ann'], ['log', 'sa_log'], ['set', 'sa_settings']].map(([k, l]) => `<button class="${SAS.mseg === k ? 'on' : ''}" data-sa="mseg|${k}">${t(l)}</button>`).join('')}</div>`;
+  const d = SAD, seg = `<div class="seg">${[['ann', 'sa_ann'], ['log', 'sa_log'], ['set', 'sa_settings'], ['help', 'sa_help']].map(([k, l]) => `<button class="${SAS.mseg === k ? 'on' : ''}" data-sa="mseg|${k}">${t(l)}</button>`).join('')}</div>`;
+  if (SAS.mseg === 'help') return seg + helpHtml('superadmin') +
+    `<h3 style="margin:16px 4px 8px">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted" style="margin:10px 4px 6px"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
   if (SAS.mseg === 'ann') return seg + `<button class="btn block" data-sa="annadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
     (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
       <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_ann_none')}</div>`);
