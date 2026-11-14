@@ -601,45 +601,60 @@ async function renderSales(append = false) {
 
 // ───────── Settings screen ─────────
 async function renderSettings() {
-  const c = S.cfg, own = isOwner(), dis = own ? '' : 'disabled';
-  $('view-settings').innerHTML = `
-    <div class="card">
-      <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
-      <div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
-    </div>
-    <div class="card">
-      ${!window.POS_DEMO ? `<label>${t('change_pw')}</label><input id="set-oldpw" type="password" placeholder="${t('cur_password')}"><input id="set-newpw" type="password" placeholder="${t('new_password')}" style="margin-top:8px"><button class="btn block" id="btn-pw" style="margin:8px 0">${t('save')}</button>` : ''}
-      ${own && !window.POS_DEMO ? `<label>${t('my_phone')}</label><input id="set-newphone" inputmode="tel" dir="ltr" placeholder="03xx xxxxxxx"><input id="set-phonepw" type="password" placeholder="${t('cur_password')}" style="margin-top:8px"><button class="btn block" id="btn-phone" style="margin:8px 0">${t('save')}</button>` : ''}
-      ${own && !window.POS_DEMO ? `<label>${t('shop_name')}</label><input id="set-shopname" value="${esc(S.session.shop_name)}" maxlength="80"><button class="btn block" id="btn-shopname" style="margin:8px 0">${t('save')}</button>` : ''}
-      <label>${t('language')}</label>
+  const c = S.cfg, own = isOwner(), dis = own ? '' : 'disabled', live = !window.POS_DEMO;
+  // remember which sections are open so a re-render (after saving something) doesn't collapse them
+  S.setOpen = S.setOpen || new Set();
+  const cur = document.querySelectorAll('#view-settings details[data-sec]');
+  if (cur.length) { S.setOpen = new Set([...cur].filter(d => d.open).map(d => d.dataset.sec)); }
+  const sec = (id, icon, title, body) => `<details class="sset" data-sec="${id}" ${S.setOpen.has(id) ? 'open' : ''}><summary>${ic(icon, 20)} <span class="grow">${title}</span></summary><div class="sbody">${body}</div></details>`;
+  const nConf = live ? await db.conflicts.filter(x => !x.resolved_at).count() : 0, nFail = live ? await failedCount() : 0, nPend = live ? await pendingCount() : 0;
+
+  const account = (live ? `<label>${t('change_pw')}</label><input id="set-oldpw" type="password" placeholder="${t('cur_password')}"><input id="set-newpw" type="password" placeholder="${t('new_password')}" style="margin-top:8px"><button class="btn block" id="btn-pw" style="margin:8px 0">${t('save')}</button>` : '')
+    + (own && live ? `<label>${t('my_phone')}</label><input id="set-newphone" inputmode="tel" dir="ltr" placeholder="03xx xxxxxxx"><input id="set-phonepw" type="password" placeholder="${t('cur_password')}" style="margin-top:8px"><button class="btn block" id="btn-phone" style="margin:8px 0">${t('save')}</button>` : '')
+    + (own && live ? `<label>${t('shop_name')}</label><input id="set-shopname" value="${esc(S.session.shop_name)}" maxlength="80"><button class="btn block" id="btn-shopname" style="margin:8px 0">${t('save')}</button>` : '');
+
+  const look = `<label>${t('language')}</label>
       <select id="set-lang"><option value="ur" ${c.lang === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${c.lang === 'en' ? 'selected' : ''}>English</option></select>
       <label>${t('theme')}</label>
-      <select id="set-theme"><option value="green" ${c.theme !== 'orange' ? 'selected' : ''}>${t('theme_green')}</option><option value="orange" ${c.theme === 'orange' ? 'selected' : ''}>${t('theme_orange')}</option></select>
-      ${own ? '' : `<div class="muted" style="margin-top:8px">${t('owner_only')}</div>`}
+      <select id="set-theme"><option value="green" ${c.theme !== 'orange' ? 'selected' : ''}>${t('theme_green')}</option><option value="orange" ${c.theme === 'orange' ? 'selected' : ''}>${t('theme_orange')}</option></select>`;
+
+  const billing = (own ? '' : `<div class="muted">${t('owner_only')}</div>`) + `
       <label>${t('tax_rate')}</label><input id="set-tax" type="number" inputmode="decimal" step="any" min="0" value="${c.tax_rate}" ${dis}>
       <label><input type="checkbox" id="set-cdisc" style="width:auto;min-height:0" ${c.cashier_discount ? 'checked' : ''} ${dis}> ${t('cashier_discount')}</label>
-      <label><input type="checkbox" id="set-cprice" style="width:auto;min-height:0" ${c.cashier_price ? 'checked' : ''} ${dis}> ${t('cashier_price')}</label>
-      <label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}">
+      <label><input type="checkbox" id="set-cprice" style="width:auto;min-height:0" ${c.cashier_price ? 'checked' : ''} ${dis}> ${t('cashier_price')}</label>`;
+
+  const receipt = `<label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}">
       <label>${t('receipt_footer')}</label><input id="set-rf" value="${esc(c.receipt_footer)}">
       <label>${t('set_phone')}</label><input id="set-sp" inputmode="tel" dir="ltr" value="${esc(c.shop_phone)}">
       <label>${t('set_addr')}</label><input id="set-sa" value="${esc(c.shop_address)}">
       <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}">
       <label>${t('paper_width')}</label>
-      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
-    </div>
-    ${window.POS_DEMO ? '' : `<div class="card"><b>${t('sync_title')}</b>
-      <div class="muted" id="sync-state"></div>
-      <div class="muted">${t('pending')}: ${await pendingCount()} · ${t('sync_failed_n')}: ${await failedCount()} · ${t('sync_conflicts')}: ${await db.conflicts.filter(c => !c.resolved_at).count()}</div>
+      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>`;
+
+  const data = (live ? `<div class="muted" id="sync-state"></div>
+      <div class="muted">${t('pending')}: ${nPend} · ${t('sync_failed_n')}: ${nFail} · ${t('sync_conflicts')}: ${nConf}</div>
       ${syncDaysLeft() !== null ? `<div class="${syncDaysLeft() <= 7 ? 'warn' : 'muted'}">${syncExpiryText()}</div>` : ''}
       <button class="btn block" id="btn-sync-now" style="margin-top:8px">${t('sync_now')}</button>
-      ${(await db.conflicts.filter(c => !c.resolved_at).count()) ? `<button class="btn secondary block" id="btn-conflicts" style="margin-top:8px">${t('cf_review')}</button>` : ''}
-      ${(await failedCount()) ? `<button class="btn secondary block" id="btn-sync-retry" style="margin-top:8px">${t('sync_retry')}</button>` : ''}
-    </div>`}
+      ${nConf ? `<button class="btn secondary block" id="btn-conflicts" style="margin-top:8px">${t('cf_review')}</button>` : ''}
+      ${nFail ? `<button class="btn secondary block" id="btn-sync-retry" style="margin-top:8px">${t('sync_retry')}</button>` : ''}
+      <button class="btn secondary block" id="btn-import" style="margin-top:8px">${ic('download', 18)} ${t('import_data')}</button><input type="file" id="import-file" accept=".json,application/json" hidden>` : '')
+    + `<button class="btn secondary block" id="btn-export" style="margin-top:8px">${ic('download', 18)} ${t('export_data')}</button>`;
+
+  const warnDot = (live && (nFail || nConf || (syncDaysLeft() !== null && syncDaysLeft() <= 7))) ? ' <span class="bal owe">!</span>' : '';
+  $('view-settings').innerHTML = `
+    <div class="card">
+      <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
+      <div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
+    </div>
+    ${account ? sec('account', 'user', t('set_sec_account'), account) : ''}
+    ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
+    ${sec('receipt', 'print', t('set_sec_receipt'), receipt)}
+    ${sec('look', 'settings', t('set_sec_look'), look)}
+    ${sec('data', 'download', t('set_sec_data') + warnDot, data)}
+    <div style="margin-top:12px">
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
     <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
-    ${window.POS_DEMO ? '' : `<button class="btn secondary block" id="btn-import" style="margin-bottom:10px">${ic('download', 18)} ${t('import_data')}</button><input type="file" id="import-file" accept=".json,application/json" hidden>`}
-    <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
-    <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
+    <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button></div>`;
   if (typeof syncUi === 'function') syncUi();
 }
 
