@@ -121,3 +121,7 @@ function setLang(l) {
   document.documentElement.lang = LANG;
   document.documentElement.dir = LANG === 'ur' ? 'rtl' : 'ltr';
 }
+
+// Removing a cancelled bill from the sales history
+Object.assign(I18N.ur, { del_void_sale: 'منسوخ شدہ بل ہمیشہ کے لیے حذف کریں', del_void_confirm: 'یہ منسوخ شدہ بل فروخت کی تاریخ سے ہٹا دیا جائے گا۔ اسٹاک پہلے ہی واپس آ چکا ہے۔ جاری رکھیں؟' });
+Object.assign(I18N.en, { del_void_sale: 'Delete this cancelled bill', del_void_confirm: 'This cancelled bill will be removed from the sales history. Stock was already put back. Continue?' });

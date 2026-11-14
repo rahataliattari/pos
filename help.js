@@ -139,5 +139,6 @@ function openHelp(role) {
     <div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
 }
 document.addEventListener('click', ev => {
-  if (ev.target.closest('#btn-help') && window.S && S.session) openHelp(S.session.admin && !['owner', 'manager', 'cashier'].includes(S.session.role) ? 'superadmin' : S.session.role);
+  // `S` is a top-level const in app.js (not a window property), so check it with typeof, not window.S.
+  if (ev.target.closest('#btn-help') && typeof S !== 'undefined' && S.session) openHelp(S.session.admin && !['owner', 'manager', 'cashier'].includes(S.session.role) ? 'superadmin' : S.session.role);
 });

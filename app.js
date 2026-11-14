@@ -500,6 +500,7 @@ async function showReceipt(saleId) {
       <button class="btn secondary grow" data-close>${t('new_sale')}</button>
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
+      + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
       : canEditProducts() ? `<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
@@ -508,6 +509,11 @@ async function showReceipt(saleId) {
     const reason = prompt(t('void_reason')) ;
     if (reason === null) return;
     try { await voidSale(saleId, reason); toast(t('saved')); closeModal(); if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome(); }
+    catch (e) { toast(e.message || t('err_generic'), 4000); }
+  };
+  if ($('btn-delvoid')) $('btn-delvoid').onclick = async () => {
+    if (!confirm(t('del_void_confirm'))) return;
+    try { await deleteVoidSale(saleId); toast(t('saved')); closeModal(); if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome(); refreshStatus(); }
     catch (e) { toast(e.message || t('err_generic'), 4000); }
   };
   $('btn-print').onclick = () => doPrint(html, S.cfg.paper);

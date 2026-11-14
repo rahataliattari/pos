@@ -229,7 +229,29 @@ async function getSaleWithItems(saleId) {
 function listSales(shopId, page = 0, pageSize = 30) {
   return db.sales.where('[shop_id+created_at]')
     .between([shopId, ''], [shopId, '￿'])
-    .reverse().offset(page * pageSize).limit(pageSize).toArray();
+    .reverse().filter(s => !s.deleted_at).offset(page * pageSize).limit(pageSize).toArray();
+}
+
+// Remove a CANCELLED bill from the sales history. Only a bill that is already void can be removed.
+// It is a soft delete (deleted_at) so it syncs to the server and disappears on every phone.
+// Stock was already put back when the bill was cancelled, so nothing else changes; reports keep counting
+// the cash that was refunded for it.
+async function deleteVoidSale(saleId) {
+  return db.transaction('rw', db.sales, db.sale_items, db.sync_queue, db.app_settings, async () => {
+    const sale = await db.sales.get(saleId);
+    if (!sale) throw new Error('Sale not found');
+    if (sale.status !== 'void') throw new Error('Only a cancelled bill can be removed');
+    if (sale.deleted_at) return sale;
+    const now = new Date().toISOString();
+    const rec = { ...sale, deleted_at: now, version: sale.version + 1, updated_at: now, sync_status: 'pending' };
+    await db.sales.put(rec); await enqueue('sales', rec, 'update');
+    const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
+    for (const it of items) {
+      const upd = { ...it, deleted_at: now, version: it.version + 1, updated_at: now, sync_status: 'pending' };
+      await db.sale_items.put(upd); await enqueue('sale_items', upd, 'update');
+    }
+    return rec;
+  });
 }
 
 // ───────── Products & stock ─────────
