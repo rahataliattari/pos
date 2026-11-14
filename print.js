@@ -23,8 +23,8 @@ function receiptHtml(sale, items, cust) {
   const meta = kv(t('invoice'), esc(sale.invoice_no)) + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
-        `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
-    : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty} × ${money(i.unit_price)}</div>`).join('');
+        `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
+    : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
   const pay = kv(t('paid'), money(sale.paid)) + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
@@ -37,7 +37,7 @@ function receiptHtml(sale, items, cust) {
 }
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
-    ...items.map(i => `${iname(i)}  ${i.qty} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
+    ...items.map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
     `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}`,
     ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', S.cfg.receipt_footer || t('thanks')].join('\n');
 }

@@ -4,7 +4,7 @@
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', paper: 58, lang: 'ur', theme: 'green' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, lang: 'ur', theme: 'green' },
   cart: [],
   tab: 'home',
   billQuery: '', billPage: 0, tiles: [], tileStocks: {},
@@ -221,6 +221,7 @@ async function showApp() {
   switchTab(S.tab);
   refreshStatus();
   if (typeof syncStart === 'function') syncStart();
+  if (typeof catalogFirstRun === 'function') catalogFirstRun().catch(() => {});
   if (!window.POS_DEMO && navigator.onLine) saLoadAnnouncement().catch(() => {});
   if (showApp._timer) return;
   showApp._timer = setInterval(async () => { if (S.session) { const p = await pendingCount(), f = await failedCount();
@@ -329,10 +330,10 @@ async function addToCartById(id) {
 async function addToCart(p, clearSearch = false) {
   const line = cartLine(p.id);
   if (line) line.qty = Math.round((line.qty + 1) * 1000) / 1000;
-  else S.cart.push({ product_id: p.id, product_name: p.name, unit: p.unit || '', unit_price: p.sale_price, cost_price: p.cost_price || 0, qty: 1 });
+  else S.cart.push({ product_id: p.id, product_name: p.name, unit: p.unit || '', unit_name: p.unit || '', unit_factor: 1, units: p.units || [], base_price: p.sale_price, base_cost: p.cost_price || 0, unit_price: p.sale_price, cost_price: p.cost_price || 0, qty: 1 });
   const stock = await getStock(S.session.shop_id, p.id);
   const l = cartLine(p.id);
-  l.warn = stock - l.qty < 0;
+  l.warn = stock - l.qty * (l.unit_factor || 1) < 0;
   S.tileStocks[p.id] = stock;
   if (clearSearch && S.billQuery) { S.billQuery = ''; const s = $('bill-search'); if (s) s.value = ''; loadTiles(); }
   refreshBill(); persistCart();
@@ -388,6 +389,7 @@ function renderCart() {
     <div class="line">
       <div>
         <div>${esc(l.product_name)}</div>
+        ${l.units && l.units.length ? `<select data-cunit="${i}" style="margin-top:4px"><option value="-1">${esc(l.unit)}</option>${l.units.map((u, k) => `<option value="${k}" ${u.name === l.unit_name ? 'selected' : ''}>${esc(u.name)} (${u.factor} ${esc(l.unit)})</option>`).join('')}</select>` : ''}
         <div class="row" style="margin-top:4px">
           ${canPrice() ? `<input type="number" inputmode="decimal" step="any" min="0" value="${l.unit_price}" data-price="${i}" style="width:90px">` : `<span class="muted">${money(l.unit_price)}</span>`}
           <span class="muted">× ${l.qty} = <b>${money(l.qty * l.unit_price)}</b></span>
@@ -452,7 +454,7 @@ async function completeSale() {
       customer_id: S.saleCust ? S.saleCust.id : null,
       discount: tt.discount, tax_rate: num(S.cfg.tax_rate), paid: num(S.paid),
       payment_method: 'cash', created_by: S.session.user_id
-    }, S.cart.filter(l => l.qty > 0).map(l => ({ product_id: l.product_id, product_name: l.product_name, qty: l.qty, unit_price: l.unit_price, cost_price: l.cost_price })));
+    }, S.cart.filter(l => l.qty > 0).map(l => ({ product_id: l.product_id, product_name: l.product_name, qty: l.qty, unit_name: l.unit_name || null, unit_factor: l.unit_factor || 1, unit_price: l.unit_price, cost_price: l.cost_price })));
     S.cart = []; S.discount = 0; S.paid = 0; S.paidManual = false; S.saleCust = null;
     await setSetting('cart_draft', []);
     S.tiles.length && Object.keys(S.tileStocks).length && loadTiles();
@@ -466,7 +468,7 @@ async function showReturnForm(saleId) {
   const r = await getSaleWithItems(saleId); if (!r) return;
   openModal(`<h2>${t('return_items')}</h2>
     ${r.items.filter(i => i.qty > 0).map(i => `<div class="card"><div class="row"><div class="grow"><b>${esc(i.product_name)}</b>
-      <div class="muted">${t('qty')}: ${i.qty} × ${money(i.unit_price)}</div></div>
+      <div class="muted">${t('qty')}: ${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div></div>
       <input type="number" inputmode="decimal" step="any" min="0" max="${i.qty}" value="0" data-ret="${i.id}" style="width:90px"></div></div>`).join('')}
     <div class="row" style="margin-top:10px"><button class="btn grow" id="btn-ret-ok">${t('save')}</button>
       <button class="btn secondary grow" data-close>${t('cancel')}</button></div>`);
@@ -549,7 +551,7 @@ async function renderProducts(append = false) {
     v.innerHTML = `
       <div class="row"><input id="prod-search" class="grow" type="search" placeholder="${t('search_ph')}" value="${esc(S.productQuery)}">
         ${canEditProducts() ? `<button class="btn" id="btn-addprod">+ ${t('add_product')}</button>` : ''}</div>
-      ${canEditProducts() ? '' : `<div class="muted" style="margin:6px 0">${t('read_only')}</div>`}
+      ${canEditProducts() ? `${typeof catalogStart === 'function' ? `<button class="btn secondary block" id="btn-catalog" style="margin-top:8px">${t('cat_from')}</button>` : ''}` : `<div class="muted" style="margin:6px 0">${t('read_only')}</div>`}
       <div id="prod-list" style="margin-top:8px"></div><div id="prod-more"></div>`;
   }
   const list = await listProducts(S.session.shop_id, S.productQuery, S.productPage, 30);
@@ -557,9 +559,10 @@ async function renderProducts(append = false) {
   const html = list.map(p => `
     <div class="card" ${canEditProducts() ? `data-edit="${p.id}"` : ''}>
       <div class="row"><div class="grow"><b>${esc(p.name)}</b>${p.name_ur ? ` <span class="muted">${esc(p.name_ur)}</span>` : ''}
-        <div class="muted">${p.barcode ? esc(p.barcode) + ' · ' : ''}${t('stock')}: ${stocks[p.id]} ${esc(p.unit || '')}</div></div>
+        <div class="muted">${p.barcode ? esc(p.barcode) + ' · ' : ''}${t('stock')}: ${stocks[p.id]} ${esc(p.unit || '')}${(p.units || []).map(u => ` · 1 ${esc(u.name)} = ${u.factor} ${esc(p.unit || '')}`).join('')}</div></div>
         <div class="price">${money(p.sale_price)}</div></div>
       ${p.min_stock && stocks[p.id] <= p.min_stock ? `<div class="warn">${t('stock')}: ${stocks[p.id]} ≤ ${p.min_stock}</div>` : ''}
+      ${!p.sale_price ? `<div class="warn">${t('cat_no_price')}</div>` : ''}
     </div>`).join('');
   const target = $('prod-list');
   if (!append) target.innerHTML = html || `<div class="muted" style="text-align:center;padding:20px">${t('no_products')}</div>`;
@@ -579,6 +582,14 @@ async function openProductForm(id) {
         <div class="grow"><label>${t('sale_price')}</label><input name="sale_price" type="number" inputmode="decimal" step="any" min="0" required value="${p.sale_price ?? ''}"></div></div>
       <div class="row"><div class="grow"><label>${t('unit')}</label><input name="unit" value="${esc(p.unit || 'pcs')}"></div>
         <div class="grow"><label>${t('min_stock')}</label><input name="min_stock" type="number" inputmode="decimal" step="any" min="0" value="${p.min_stock ?? ''}"></div></div>
+      <label>${t('units_extra')}</label><div class="muted">${t('units_hint')}</div>
+      ${[0, 1, 2].map(k => { const u = (p.units || [])[k] || {}; return `<div class="row" style="margin-top:4px">
+        <input name="u_name_${k}" placeholder="${t('unit_name_ph')}" value="${esc(u.name || '')}" class="grow">
+        <input name="u_factor_${k}" type="number" inputmode="decimal" step="any" min="0" placeholder="${t('unit_factor_ph')}" value="${u.factor ?? ''}" style="width:80px">
+        <input name="u_price_${k}" type="number" inputmode="decimal" step="any" min="0" placeholder="${t('sale_price')}" value="${u.price ?? ''}" style="width:90px"></div>`; }).join('')}
+      ${id ? '' : `<label>${t('variants_title')}</label><div class="muted">${t('variants_hint')}</div>
+        <div class="row" style="margin-top:4px"><input name="v_sizes" class="grow" placeholder="${t('variants_sizes_ph')}">
+          <input name="v_colors" class="grow" placeholder="${t('variants_colors_ph')}"></div>`}
       ${id ? `<div class="muted" style="margin-top:8px">${t('stock')}: ${stock}</div>
               <label>${t('stock_adjust')}</label><input name="adjust" type="number" inputmode="decimal" step="any">
               <label>${t('adjust_note')}</label><input name="adjust_note">`
@@ -593,9 +604,21 @@ async function openProductForm(id) {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
     try {
-      await saveProduct({ ...(id ? { id } : {}), name: f.name, name_ur: f.name_ur, barcode: f.barcode,
-        cost_price: f.cost_price, sale_price: f.sale_price, unit: f.unit, min_stock: f.min_stock },
-        { openingStock: f.opening, adjust: f.adjust, adjustNote: f.adjust_note });
+      const base = { name: f.name, name_ur: f.name_ur, barcode: f.barcode,
+        cost_price: f.cost_price, sale_price: f.sale_price, unit: f.unit, min_stock: f.min_stock,
+        units: [0, 1, 2].map(k => ({ name: f['u_name_' + k], factor: f['u_factor_' + k], price: f['u_price_' + k] })) };
+      const combos = id ? [] : variantCombos(f.v_sizes, f.v_colors);
+      if (combos.length > 40) throw new Error(t('variants_too_many'));
+      if (combos.length) {
+        // one normal product per size/colour (own stock, own barcode, own price) — all share variant_group
+        if (!String(f.name || '').trim()) throw new Error('Name required');
+        const group = uuid();
+        for (const label of combos)
+          await saveProduct({ ...base, name: `${f.name.trim()} - ${label}`, name_ur: f.name_ur ? `${f.name_ur.trim()} - ${label}` : '',
+            barcode: '', variant_group: group, variant_label: label }, { openingStock: f.opening });
+      } else {
+        await saveProduct({ ...(id ? { id } : {}), ...base }, { openingStock: f.opening, adjust: f.adjust, adjustNote: f.adjust_note });
+      }
       closeModal(); toast(t('saved')); S.productPage = 0; renderProducts(); refreshStatus();
     } catch (ex) { toast(ex.message || t('err_generic'), 4000); }
   };
@@ -845,3 +868,46 @@ document.addEventListener('change', async ev => {
 $('login-form').addEventListener('submit', doLogin);
 
 boot();
+
+// ───────── Selling units (Stage 2) ─────────
+Object.assign(I18N.ur, {
+  units_extra: 'دیگر اکائیاں (اختیاری)', units_hint: 'نام، بنیادی اکائی کی تعداد، قیمت (خالی ہو تو خود حساب ہوگا)',
+  unit_name_ph: 'مثلاً کارٹن', unit_factor_ph: 'تعداد'
+});
+Object.assign(I18N.en, {
+  units_extra: 'Other units (optional)', units_hint: 'Name, how many base units it holds, price (blank = calculated)',
+  unit_name_ph: 'e.g. carton', unit_factor_ph: 'Qty'
+});
+// Bill: change the selling unit of a line (stock still goes down in the base unit — see saveSale).
+document.addEventListener('change', ev => {
+  const el = ev.target; if (!el.dataset || el.dataset.cunit == null) return;
+  const l = S.cart[+el.dataset.cunit]; if (!l) return;
+  const u = +el.value >= 0 ? l.units[+el.value] : null;
+  l.unit_name = u ? u.name : l.unit; l.unit_factor = u ? u.factor : 1;
+  l.unit_price = u && u.price != null ? u.price : round2(l.base_price * l.unit_factor);
+  l.cost_price = round2(l.base_cost * l.unit_factor);
+  getStock(S.session.shop_id, l.product_id).then(st => { l.warn = st - l.qty * l.unit_factor < 0; refreshBill(); });
+  refreshBill(); persistCart();
+});
+
+// ───────── Variants (Stage 4): size × colour -> one product each ─────────
+Object.assign(I18N.ur, {
+  variants_title: 'سائز / رنگ کے ویریئنٹس (اختیاری)',
+  variants_hint: 'کاما سے الگ کر کے لکھیں۔ ہر سائز/رنگ کی الگ پروڈکٹ بنے گی، اسٹاک الگ ہوگا۔ بارکوڈ بعد میں ہر ایک میں ڈالیں۔',
+  variants_sizes_ph: 'سائز: S, M, L', variants_colors_ph: 'رنگ: سفید, کالا',
+  variants_too_many: 'ایک ساتھ 40 سے زیادہ ویریئنٹس نہیں بن سکتے'
+});
+Object.assign(I18N.en, {
+  variants_title: 'Size / colour variants (optional)',
+  variants_hint: 'Separate with commas. Each size/colour becomes its own product with its own stock. Add barcodes later.',
+  variants_sizes_ph: 'Sizes: S, M, L', variants_colors_ph: 'Colours: White, Black',
+  variants_too_many: 'Cannot create more than 40 variants at once'
+});
+function variantCombos(sizes, colors) {
+  const split = s => [...new Set(String(s || '').split(/[,،\n]/).map(x => x.trim()).filter(Boolean))];
+  const S_ = split(sizes), C_ = split(colors);
+  if (!S_.length && !C_.length) return [];
+  if (!S_.length) return C_;
+  if (!C_.length) return S_;
+  return S_.flatMap(s => C_.map(c => `${s} / ${c}`));
+}

@@ -22,6 +22,11 @@ db.version(1).stores({
   app_settings:    'key'
 });
 
+// Stage: shared catalog (read-only, local only — NOT in BUSINESS_TABLES, never synced)
+db.version(2).stores({
+  catalog_items: 'id, type, [type+cat]'
+});
+
 const BUSINESS_TABLES = ['categories','products','customers','suppliers','sales','sale_items',
   'purchases','purchase_items','payments','expenses','stock_movements'];
 
@@ -105,6 +110,7 @@ async function saveSale(sale, items) {
   for (const it of items) {
     if (!(it.qty > 0)) throw new Error('Invalid quantity');
     if (!(it.unit_price >= 0)) throw new Error('Invalid price');
+    if (it.unit_factor != null && !(Number(it.unit_factor) > 0)) throw new Error('Invalid unit');
   }
   const subtotal = round2(items.reduce((s, it) => s + round2(it.qty * it.unit_price), 0));
   const discount = round2(sale.discount || 0);
@@ -133,6 +139,8 @@ async function saveSale(sale, items) {
           product_id: it.product_id,
           product_name: it.product_name,
           qty: round3(it.qty),
+          unit_name: it.unit_name || null,
+          unit_factor: unitFactor(it),
           unit_price: round2(it.unit_price),
           cost_price: round2(it.cost_price || 0),
           discount: 0,
@@ -143,7 +151,7 @@ async function saveSale(sale, items) {
 
         const mv = await newRecord({
           product_id: it.product_id,
-          qty_change: -round3(Math.abs(it.qty)),
+          qty_change: -round3(Math.abs(it.qty) * unitFactor(it)),
           reason: 'sale', ref_type: 'sale', ref_id: saleRec.id
         });
         await db.stock_movements.add(mv);
@@ -167,7 +175,7 @@ async function voidSale(saleId, reason = '') {
     await db.sales.put(rec); await enqueue('sales', rec, 'update');
     const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
     for (const it of items) {
-      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty)),
+      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty) * unitFactor(it)),
                                    reason: 'sale_void', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
     }
@@ -198,7 +206,7 @@ async function returnSaleItems(saleId, lines, reason = '') {
                     line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };
       await db.sale_items.put(upd); await enqueue('sale_items', upd, 'update');
       byId[it.id] = upd;
-      const mv = await newRecord({ product_id: it.product_id, qty_change: q, reason: 'sale_return', ref_type: 'sale', ref_id: saleId });
+      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(q * unitFactor(it)), reason: 'sale_return', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
     }
     const ratio = sale.subtotal > 0 ? value / sale.subtotal : 1;
@@ -299,6 +307,22 @@ function listProducts(shopId, q, page = 0, pageSize = 30) {
     .filter(productMatcher(q)).offset(page * pageSize).limit(pageSize).toArray();
 }
 
+// Extra selling units of a product: [{ name, factor, price|null }]. factor = how many BASE units one of this unit holds
+// (carton = 12 pcs -> factor 12). Stock is always kept in the base unit (product.unit).
+function normalizeUnits(list, baseUnit) {
+  const seen = new Set([String(baseUnit || '').trim().toLowerCase()]), out = [];
+  for (const u of Array.isArray(list) ? list : []) {
+    const name = String((u && u.name) || '').trim(), factor = round3(Number(u && u.factor));
+    if (!name || !(factor > 0) || !isFinite(factor) || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    const price = u.price === '' || u.price == null ? null : round2(Number(u.price));
+    out.push({ name, factor, price: price != null && isFinite(price) && price >= 0 ? price : null });
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+const unitFactor = it => (Number(it && it.unit_factor) > 0 ? Number(it.unit_factor) : 1);
+
 // Create or update a product. opts: { openingStock, adjust, adjustNote }
 async function saveProduct(data, opts = {}) {
   const name = (data.name || '').trim();
@@ -314,6 +338,8 @@ async function saveProduct(data, opts = {}) {
     min_stock: round3(Number(data.min_stock) || 0),
     is_active: data.is_active !== false
   };
+  if (data.variant_group) { fields.variant_group = data.variant_group; fields.variant_label = String(data.variant_label || '').trim() || null; }
+  if (data.units !== undefined) fields.units = normalizeUnits(data.units, fields.unit);   // undefined = keep what the product has
   if (fields.sale_price < 0 || fields.cost_price < 0) throw new Error('Invalid price');
 
   return db.transaction('rw', db.products, db.stock_movements, db.sync_queue, db.app_settings, async () => {
@@ -326,7 +352,7 @@ async function saveProduct(data, opts = {}) {
       await db.products.put(rec);
       await enqueue('products', rec, 'update');
     } else {
-      rec = await newRecord({ category_id: null, deleted_at: null, ...fields });
+      rec = await newRecord({ category_id: null, deleted_at: null, units: [], ...fields });
       await db.products.add(rec);
       await enqueue('products', rec, 'insert');
     }
@@ -602,6 +628,7 @@ async function savePurchase(purchase, items) {
   for (const it of items) {
     if (!(it.qty > 0)) throw new Error('Invalid quantity');
     if (!(it.unit_cost >= 0)) throw new Error('Invalid price');
+    if (it.unit_factor != null && !(Number(it.unit_factor) > 0)) throw new Error('Invalid unit');
   }
   const total = round2(items.reduce((s, it) => s + round2(it.qty * it.unit_cost), 0));
   const paid = round2(purchase.paid == null ? total : purchase.paid);
@@ -618,17 +645,19 @@ async function savePurchase(purchase, items) {
     for (const it of items) {
       const line = await newRecord({
         purchase_id: rec.id, product_id: it.product_id, product_name: it.product_name,
-        qty: round3(it.qty), unit_cost: round2(it.unit_cost), line_total: round2(it.qty * it.unit_cost)
+        qty: round3(it.qty), unit_name: it.unit_name || null, unit_factor: unitFactor(it),
+        unit_cost: round2(it.unit_cost), line_total: round2(it.qty * it.unit_cost)
       });
       await db.purchase_items.add(line);
       await enqueue('purchase_items', line);
-      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty)), reason: 'purchase', ref_type: 'purchase', ref_id: rec.id });
+      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty) * unitFactor(it)), reason: 'purchase', ref_type: 'purchase', ref_id: rec.id });
       await db.stock_movements.add(mv);
       await enqueue('stock_movements', mv);
       if (purchase.update_cost) {
         const old = await db.products.get(it.product_id);
-        if (old && old.cost_price !== round2(it.unit_cost)) {
-          const up = { ...old, cost_price: round2(it.unit_cost), version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
+        const baseCost = round2(it.unit_cost / unitFactor(it));      // product cost is always per BASE unit
+        if (old && old.cost_price !== baseCost) {
+          const up = { ...old, cost_price: baseCost, version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
           await db.products.put(up);
           await enqueue('products', up, 'update');
         }

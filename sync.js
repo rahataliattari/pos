@@ -187,7 +187,7 @@ async function syncPull(sb, shop) {
 // ───────── Receipt settings (shop-wide: header, footer, phone, address, NTN) ─────────
 // These live on the server (shops.settings) so every phone of the shop shows the same receipt text.
 // Paper size, language and theme stay per-device on purpose (they depend on the phone/printer).
-const SHOP_CFG_KEYS = ['receipt_header', 'receipt_footer', 'shop_phone', 'shop_address', 'shop_tax_no'];
+const SHOP_CFG_KEYS = ['receipt_header', 'receipt_footer', 'shop_phone', 'shop_address', 'shop_tax_no', 'business_type'];
 const shopCfgCanWrite = () => S.session && ['owner', 'manager'].includes(S.session.role);
 
 async function shopCfgChanged() {                  // call after the user edits one of SHOP_CFG_KEYS
