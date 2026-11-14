@@ -574,6 +574,7 @@ async function renderSettings() {
       <div class="muted" dir="ltr" style="text-align:start">${t('device_id')}: ${esc(await getDeviceId())}</div>
     </div>
     <div class="card">
+      ${own && !window.POS_DEMO ? `<label>${t('shop_name')}</label><input id="set-shopname" value="${esc(S.session.shop_name)}" maxlength="80"><button class="btn block" id="btn-shopname" style="margin:8px 0">${t('save')}</button>` : ''}
       <label>${t('language')}</label>
       <select id="set-lang"><option value="ur" ${c.lang === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${c.lang === 'en' ? 'selected' : ''}>English</option></select>
       <label>${t('theme')}</label>
@@ -652,6 +653,18 @@ document.addEventListener('click', async ev => {
   const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
+  if (el.closest('#btn-shopname')) {
+    const name = $('set-shopname').value.trim();
+    if (name.length < 2) return toast(t('err_generic'));
+    if (!(await pingServer())) return toast(t('login_need_online'), 3500);
+    try {
+      const { error } = await getSb().rpc('rename_my_shop', { p_shop: S.session.shop_id, p_name: name });
+      if (error) throw error;
+      S.session.shop_name = name; await setSetting('session', S.session);
+      $('hdr-shop').textContent = name; toast(t('saved'));
+    } catch (e) { toast(t('err_generic') + ': ' + (e.message || ''), 4000); }
+    return;
+  }
   if (el.closest('#btn-sync-now')) { toast(t('sync_running')); const r = await syncRun(); syncUi(); if (r && r.offline) toast(t('offline')); renderSettings(); return; }
   if (el.closest('#btn-sync-retry')) { await syncRetryFailed(); renderSettings(); return; }
   if (el.closest('#btn-export')) {
