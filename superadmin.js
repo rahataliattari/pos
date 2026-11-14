@@ -178,7 +178,12 @@ async function saPushNow() {
   for (const u of d.users) {                                                      // users: auth account first (Edge Function)
     const o = SAB.users.get(u.id);
     if (!o) {
-      const r = await saFn({ action: 'create', email: loginIdToEmail(u.phone), member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw });
+      let r;
+      try { r = await saFn({ action: 'create', email: loginIdToEmail(u.phone), member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw }); }
+      catch (e) {                                   // a brand-new shop whose owner account failed must not stay behind as an empty shop
+        if (!SAB.shops.has(u.shop_id)) { try { await sb.from('shops').delete().eq('id', u.shop_id); } catch (x) {} }
+        throw e;
+      }
       u.user_id = r.user_id; delete u._pw;
       if (!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: true });
     } else if (o.k !== saKey('users', u)) {
@@ -197,7 +202,11 @@ async function saPushNow() {
   saSnap();
 }
 function saPush() { const p = saQ.then(saPushNow); saQ = p.catch(() => {}); return p; }   // serialised: one push at a time
-async function saFail(e) { toast((e && e.message) || t('err_generic'), 6000); try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
+async function saFail(e) {
+  const msg = (e && e.message) || t('err_generic');
+  toast(msg, 6000);
+  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" style="word-break:break-word;user-select:text;padding:10px;background:#f3f4f6;border-radius:10px">${esc(msg)}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
+ try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
 function saCommit() {            // save + wait; true on success (callers show credentials only then)
   if (!SA_LIVE()) { saSave(); return Promise.resolve(true); }
   return saPush().then(() => true, async e => { await saFail(e); return false; });
@@ -308,7 +317,7 @@ function saShopDetail(id) {
       <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
       ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}</div>
     <div class="row" style="margin-top:10px"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
-    ${us.map(u => `<div class="lrow" style="cursor:pointer" data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span></div>`).join('')}
+    ${us.map(u => `<div class="lrow" style="cursor:pointer" data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('')}
     <div class="sa-sec" style="margin-top:10px">${t('sa_pay_tab')}</div>
     ${pay.map(saPayRow).join('') || `<div class="muted">${t('sa_no_payments')}</div>`}
     <div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
@@ -394,7 +403,7 @@ function saUsersList() {
   const list = SAD.users.filter(u => !q || [u.name, u.phone, saShopName(u.shop_id)].join(' ').toLowerCase().includes(q)).sort((a, b) => (a.name < b.name ? -1 : 1)).slice(0, 80);
   box.innerHTML = list.map(u => `<div class="card custcard" data-sa="useredit|${u.id}"><div class="avatar sm">${ic('user', 20)}</div>
     <div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div>
-    <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_no_users')}</div>`;
+    <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_no_users')}</div>`;
 }
 const saOnlyOwner = u => u.role === 'owner' && !SAD.users.some(x => x.id !== u.id && x.shop_id === u.shop_id && x.role === 'owner');
 function saUserForm(id, shopId) {
