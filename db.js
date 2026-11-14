@@ -268,6 +268,300 @@ async function softDeleteProduct(id) {
   });
 }
 
+// Totals for a time range (e.g. today) without loading every sale into memory.
+async function salesSummary(shopId, fromIso, toIso) {
+  let count = 0, total = 0;
+  await db.sales.where('[shop_id+created_at]').between([shopId, fromIso], [shopId, toIso])
+    .each(s => { if (s.status !== 'void') { count++; total += s.total; } });
+  return { count, total: round2(total) };
+}
+
+// ───────── Customers & credit (udhaar) ─────────
+// Balance a customer owes = opening balance
+//   + Σ unpaid part of each completed sale (total − paid, never negative)
+//   + Σ manual "charge" entries
+//   − Σ "receipt" entries (money received later).
+// Nothing is stored as a running total: it is always computed from the records, so it can never drift.
+
+function customerMatcher(q) {
+  const s = (q || '').trim().toLowerCase();
+  return c => {
+    if (c.deleted_at) return false;
+    if (!s) return true;
+    return (c.name || '').toLowerCase().includes(s) || (c.phone || '').includes(s);
+  };
+}
+
+function listCustomers(shopId, q, page = 0, pageSize = 30) {
+  return db.customers.where('[shop_id+name]').between([shopId, ''], [shopId, '￿'])
+    .filter(customerMatcher(q)).offset(page * pageSize).limit(pageSize).toArray();
+}
+
+async function saveCustomer(data) {
+  const name = (data.name || '').trim();
+  if (!name) throw new Error('Name required');
+  const fields = {
+    name,
+    phone: (data.phone || '').replace(/[^\d+]/g, '') || null,
+    address: (data.address || '').trim() || null,
+    note: (data.note || '').trim() || null
+  };
+  if (data.opening_balance !== undefined) fields.opening_balance = round2(Number(data.opening_balance) || 0);
+  return db.transaction('rw', db.customers, db.sync_queue, db.app_settings, async () => {
+    let rec;
+    if (data.id) {
+      const old = await db.customers.get(data.id);
+      if (!old) throw new Error('Customer not found');
+      rec = { ...old, ...fields, version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
+      await db.customers.put(rec);
+      await enqueue('customers', rec, 'update');
+    } else {
+      rec = await newRecord({ opening_balance: 0, deleted_at: null, ...fields });
+      await db.customers.add(rec);
+      await enqueue('customers', rec, 'insert');
+    }
+    return rec;
+  });
+}
+
+async function getCustomerBalance(shopId, customerId) {
+  const c = await db.customers.get(customerId);
+  let bal = c ? (c.opening_balance || 0) : 0;
+  await db.sales.where('[shop_id+customer_id]').equals([shopId, customerId])
+    .each(s => { if (s.status !== 'void') bal += Math.max(0, round2(s.total - s.paid)); });
+  await db.payments.where('[shop_id+party_id]').equals([shopId, customerId])
+    .each(p => { if (p.party_type === 'customer' && !p.voided) bal += p.kind === 'charge' ? p.amount : -p.amount; });
+  return round2(bal);
+}
+
+async function getCustomerBalances(shopId, ids) {
+  const arr = await Promise.all(ids.map(id => getCustomerBalance(shopId, id)));
+  const map = {};
+  ids.forEach((id, i) => { map[id] = arr[i]; });
+  return map;
+}
+
+// Total udhaar across the shop (only customers who owe money are counted).
+async function creditSummary(shopId) {
+  const all = await db.customers.where('[shop_id+name]').between([shopId, ''], [shopId, '￿'])
+    .filter(c => !c.deleted_at).toArray();
+  const bals = await getCustomerBalances(shopId, all.map(c => c.id));
+  let total = 0, count = 0;
+  for (const id in bals) if (bals[id] > 0) { total += bals[id]; count++; }
+  return { total: round2(total), count, customers: all.length };
+}
+
+// kind: 'receipt' (customer paid us) | 'charge' (add udhaar manually, e.g. an old paper-ledger entry)
+async function addCustomerPayment(customerId, amount, kind = 'receipt', note = '', method = 'cash') {
+  amount = round2(Number(amount));
+  if (!(amount > 0)) throw new Error('Invalid amount');
+  if (!['receipt', 'charge'].includes(kind)) throw new Error('Invalid kind');
+  return db.transaction('rw', db.payments, db.sync_queue, db.app_settings, async () => {
+    const rec = await newRecord({
+      party_type: 'customer', party_id: customerId, kind, amount,
+      method, note: (note || '').trim() || null, voided: false
+    });
+    await db.payments.add(rec);
+    await enqueue('payments', rec);
+    return rec;
+  });
+}
+
+// Soft delete: refused while the customer still owes money (or is owed), so no udhaar is ever lost by accident.
+async function softDeleteCustomer(shopId, id) {
+  const bal = await getCustomerBalance(shopId, id);
+  if (bal !== 0) throw new Error('BALANCE_NOT_ZERO');
+  return db.transaction('rw', db.customers, db.sync_queue, async () => {
+    const old = await db.customers.get(id);
+    if (!old) return;
+    const rec = { ...old, deleted_at: new Date().toISOString(), version: old.version + 1,
+                  updated_at: new Date().toISOString(), sync_status: 'pending' };
+    await db.customers.put(rec);
+    await enqueue('customers', rec, 'update');
+  });
+}
+
+// Full ledger, oldest → newest with a running balance. The caller reverses/slices for display.
+async function getCustomerLedger(shopId, customerId) {
+  const c = await db.customers.get(customerId);
+  const rows = [];
+  const open = c ? (c.opening_balance || 0) : 0;
+  if (open) rows.push({ type: 'opening', at: c.created_at, delta: open });
+  await db.sales.where('[shop_id+customer_id]').equals([shopId, customerId]).each(s => {
+    if (s.status === 'void') return;
+    rows.push({ type: 'sale', at: s.created_at, delta: Math.max(0, round2(s.total - s.paid)), total: s.total, paid: s.paid, ref: s.invoice_no, id: s.id });
+  });
+  await db.payments.where('[shop_id+party_id]').equals([shopId, customerId]).each(p => {
+    if (p.party_type !== 'customer' || p.voided) return;
+    rows.push({ type: p.kind, at: p.created_at, delta: p.kind === 'charge' ? p.amount : -p.amount, note: p.note });
+  });
+  rows.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  let run = 0;
+  for (const r of rows) { run = round2(run + r.delta); r.running = run; }
+  return rows;
+}
+
+// ───────── Suppliers & purchases ─────────
+// Amount we owe a supplier = opening balance + Σ unpaid part of purchases + Σ "charge" entries − Σ "payment" entries.
+// Like customer balances it is always computed from the records, never stored.
+
+function listSuppliers(shopId, q, page = 0, pageSize = 30) {
+  return db.suppliers.where('[shop_id+name]').between([shopId, ''], [shopId, '￿'])
+    .filter(customerMatcher(q)).offset(page * pageSize).limit(pageSize).toArray();
+}
+
+async function saveSupplier(data) {
+  const name = (data.name || '').trim();
+  if (!name) throw new Error('Name required');
+  const fields = {
+    name,
+    phone: (data.phone || '').replace(/[^\d+]/g, '') || null,
+    address: (data.address || '').trim() || null,
+    note: (data.note || '').trim() || null
+  };
+  if (data.opening_balance !== undefined) fields.opening_balance = round2(Number(data.opening_balance) || 0);
+  return db.transaction('rw', db.suppliers, db.sync_queue, db.app_settings, async () => {
+    let rec;
+    if (data.id) {
+      const old = await db.suppliers.get(data.id);
+      if (!old) throw new Error('Supplier not found');
+      rec = { ...old, ...fields, version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
+      await db.suppliers.put(rec);
+      await enqueue('suppliers', rec, 'update');
+    } else {
+      rec = await newRecord({ opening_balance: 0, deleted_at: null, ...fields });
+      await db.suppliers.add(rec);
+      await enqueue('suppliers', rec, 'insert');
+    }
+    return rec;
+  });
+}
+
+async function getSupplierBalance(shopId, supplierId) {
+  const c = await db.suppliers.get(supplierId);
+  let bal = c ? (c.opening_balance || 0) : 0;
+  await db.purchases.where('[shop_id+supplier_id]').equals([shopId, supplierId])
+    .each(p => { if (p.status !== 'void') bal += Math.max(0, round2(p.total - p.paid)); });
+  await db.payments.where('[shop_id+party_id]').equals([shopId, supplierId])
+    .each(p => { if (p.party_type === 'supplier' && !p.voided) bal += p.kind === 'charge' ? p.amount : -p.amount; });
+  return round2(bal);
+}
+
+async function getSupplierBalances(shopId, ids) {
+  const arr = await Promise.all(ids.map(id => getSupplierBalance(shopId, id)));
+  const map = {};
+  ids.forEach((id, i) => { map[id] = arr[i]; });
+  return map;
+}
+
+async function payableSummary(shopId) {
+  const all = await db.suppliers.where('[shop_id+name]').between([shopId, ''], [shopId, '￿'])
+    .filter(c => !c.deleted_at).toArray();
+  const bals = await getSupplierBalances(shopId, all.map(c => c.id));
+  let total = 0, count = 0;
+  for (const id in bals) if (bals[id] > 0) { total += bals[id]; count++; }
+  return { total: round2(total), count, suppliers: all.length };
+}
+
+// kind: 'payment' (we paid the supplier) | 'charge' (add an old amount we owe)
+async function addSupplierPayment(supplierId, amount, kind = 'payment', note = '', method = 'cash') {
+  amount = round2(Number(amount));
+  if (!(amount > 0)) throw new Error('Invalid amount');
+  if (!['payment', 'charge'].includes(kind)) throw new Error('Invalid kind');
+  return db.transaction('rw', db.payments, db.sync_queue, db.app_settings, async () => {
+    const rec = await newRecord({ party_type: 'supplier', party_id: supplierId, kind, amount, method, note: (note || '').trim() || null, voided: false });
+    await db.payments.add(rec);
+    await enqueue('payments', rec);
+    return rec;
+  });
+}
+
+async function softDeleteSupplier(shopId, id) {
+  const bal = await getSupplierBalance(shopId, id);
+  if (bal !== 0) throw new Error('BALANCE_NOT_ZERO');
+  return db.transaction('rw', db.suppliers, db.sync_queue, async () => {
+    const old = await db.suppliers.get(id);
+    if (!old) return;
+    const rec = { ...old, deleted_at: new Date().toISOString(), version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
+    await db.suppliers.put(rec);
+    await enqueue('suppliers', rec, 'update');
+  });
+}
+
+async function getSupplierLedger(shopId, supplierId) {
+  const c = await db.suppliers.get(supplierId);
+  const rows = [];
+  const open = c ? (c.opening_balance || 0) : 0;
+  if (open) rows.push({ type: 'opening', at: c.created_at, delta: open });
+  await db.purchases.where('[shop_id+supplier_id]').equals([shopId, supplierId]).each(p => {
+    if (p.status === 'void') return;
+    rows.push({ type: 'purchase', at: p.created_at, delta: Math.max(0, round2(p.total - p.paid)), total: p.total, paid: p.paid, ref: p.ref_no, id: p.id });
+  });
+  await db.payments.where('[shop_id+party_id]').equals([shopId, supplierId]).each(p => {
+    if (p.party_type !== 'supplier' || p.voided) return;
+    rows.push({ type: p.kind, at: p.created_at, delta: p.kind === 'charge' ? p.amount : -p.amount, note: p.note });
+  });
+  rows.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  let run = 0;
+  for (const r of rows) { run = round2(run + r.delta); r.running = run; }
+  return rows;
+}
+
+// purchase: { supplier_id, paid, note, created_by, update_cost }   items: [{ product_id, product_name, qty, unit_cost }]
+// One transaction: purchase + lines + stock increase (+ optional cost-price update). All or nothing.
+async function savePurchase(purchase, items) {
+  if (!items || !items.length) throw new Error('Cart is empty');
+  for (const it of items) {
+    if (!(it.qty > 0)) throw new Error('Invalid quantity');
+    if (!(it.unit_cost >= 0)) throw new Error('Invalid price');
+  }
+  const total = round2(items.reduce((s, it) => s + round2(it.qty * it.unit_cost), 0));
+  const paid = round2(purchase.paid == null ? total : purchase.paid);
+  if (paid < 0) throw new Error('Invalid paid amount');
+  return db.transaction('rw', db.purchases, db.purchase_items, db.products, db.stock_movements, db.sync_queue, db.app_settings, async () => {
+    const rec = await newRecord({
+      ref_no: 'P' + (await nextInvoiceNo()),
+      supplier_id: purchase.supplier_id || null,
+      total, paid, status: 'completed', note: (purchase.note || '').trim() || null,
+      created_by: purchase.created_by || null
+    });
+    await db.purchases.add(rec);
+    await enqueue('purchases', rec);
+    for (const it of items) {
+      const line = await newRecord({
+        purchase_id: rec.id, product_id: it.product_id, product_name: it.product_name,
+        qty: round3(it.qty), unit_cost: round2(it.unit_cost), line_total: round2(it.qty * it.unit_cost)
+      });
+      await db.purchase_items.add(line);
+      await enqueue('purchase_items', line);
+      const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty)), reason: 'purchase', ref_type: 'purchase', ref_id: rec.id });
+      await db.stock_movements.add(mv);
+      await enqueue('stock_movements', mv);
+      if (purchase.update_cost) {
+        const old = await db.products.get(it.product_id);
+        if (old && old.cost_price !== round2(it.unit_cost)) {
+          const up = { ...old, cost_price: round2(it.unit_cost), version: old.version + 1, updated_at: new Date().toISOString(), sync_status: 'pending' };
+          await db.products.put(up);
+          await enqueue('products', up, 'update');
+        }
+      }
+    }
+    return rec;
+  });
+}
+
+function listPurchases(shopId, page = 0, pageSize = 30) {
+  return db.purchases.where('[shop_id+created_at]').between([shopId, ''], [shopId, '￿'])
+    .reverse().offset(page * pageSize).limit(pageSize).toArray();
+}
+
+async function getPurchaseWithItems(id) {
+  const p = await db.purchases.get(id);
+  if (!p) return null;
+  const items = await db.purchase_items.where('[shop_id+purchase_id]').equals([p.shop_id, id]).toArray();
+  return { purchase: p, items };
+}
+
 // ───────── Status & export ─────────
 function pendingCount() { return db.sync_queue.where('status').equals('pending').count(); }
 function failedCount()  { return db.sync_queue.where('status').equals('failed').count(); }

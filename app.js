@@ -4,19 +4,23 @@
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', paper: 58, lang: 'ur' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', paper: 58, lang: 'ur', theme: 'green' },
   cart: [],
-  tab: 'bill',
+  tab: 'home',
+  billQuery: '', billPage: 0, tiles: [], tileStocks: {},
   online: false,
   productPage: 0, productQuery: '',
   salesPage: 0,
+  custPage: 0, custQuery: '', saleCust: null,
+  purSeg: 'list', purPage: 0, supPage: 0, supQuery: '', pur: null,   // purchases screen + draft purchase
+    // customers list + customer chosen for the current bill
   sb: null                // supabase client (login only, for now)
 };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-const fmtDate = iso => { try { return new Date(iso).toLocaleString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; } };
+const fmtDate = iso => { try { return new Date(iso).toLocaleString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23' }); } catch (e) { return iso; } };
 const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 
 function toast(msg, ms = 2500) {
@@ -34,7 +38,7 @@ const canPrice = () => S.session && (S.session.role !== 'cashier' || S.cfg.cashi
 
 // ───────── Connectivity: real server check, not just navigator.onLine ─────────
 async function pingServer() {
-  if (!navigator.onLine) return false;
+  if (window.POS_DEMO || !navigator.onLine) return false;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 5000);
   try {
@@ -52,13 +56,19 @@ async function refreshStatus() {
   if (!S.session) return;
   const p = await pendingCount(), f = await failedCount();
   $('chip-pend').hidden = !p; $('chip-pend').textContent = `${t('pending')}: ${p}`;
-  $('chip-fail').hidden = !f; $('chip-fail').textContent = `✕ ${f}`;
+  $('chip-fail').hidden = !f; $('chip-fail').innerHTML = `${ic('x', 12)} ${f}`;
 }
 
 // ───────── Settings ─────────
 async function loadCfg() {
   for (const k of Object.keys(S.cfg)) S.cfg[k] = await getSetting('cfg_' + k, S.cfg[k]);
   setLang(S.cfg.lang);
+  applyTheme();
+}
+function applyTheme() {
+  const th = S.cfg.theme === 'orange' ? 'orange' : 'green';
+  document.documentElement.dataset.theme = th;
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'orange' ? '#f4510b' : '#0f7b3f';
 }
 async function saveCfg(k, v) { S.cfg[k] = v; await setSetting('cfg_' + k, v); }
 
@@ -69,15 +79,17 @@ async function boot() {
     return;
   }
   try { await db.open(); } catch (e) { $('boot').textContent = 'Database error: ' + e.message; return; }
+  if (window.POS_DEMO_INIT) await window.POS_DEMO_INIT();   // demo build only (see demo/)
   if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) {} }
   await loadCfg();
   S.session = await getSetting('session');
   $('boot').hidden = true;
   if (S.session) await showApp(); else showLogin();
+  if (window.POS_DEMO && location.hash === '#superadmin' && S.session) showSuperAdmin();
   window.addEventListener('online', refreshStatus);
   window.addEventListener('offline', refreshStatus);
   setInterval(refreshStatus, 20000);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && !window.POS_DEMO) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
 // ───────── Login ─────────
@@ -98,10 +110,11 @@ function applyStaticText() {
   $('login-title').textContent = t('app_name');
   $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
-  $('syncnote').textContent = t('sync_note');
+  $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
-  $('nav').innerHTML = [['bill', 'tab_bill'], ['products', 'tab_products'], ['sales', 'tab_sales'], ['settings', 'tab_settings']]
-    .map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? 'active' : ''}">${t(l)}</button>`).join('');
+  $('hdr-avatar').innerHTML = ic('store', 24);
+  $('nav').innerHTML = [['home', 'tab_home', 'home'], ['products', 'tab_inventory', 'box'], ['bill', 'tab_sale', 'cart'], ['sales', 'tab_sales', 'receipt'], ['settings', 'tab_more', 'settings']]
+    .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
 }
 function showLogin() { $('app').hidden = true; $('login').hidden = false; applyStaticText(); }
 
@@ -147,11 +160,12 @@ async function finishLogin(session) {
   await showApp();
 }
 async function doLogout() {
+  if (window.POS_DEMO) { if (confirm(t('logout_confirm'))) window.POS_DEMO_RESET(); return; }
   if (!confirm(t('logout_confirm'))) return;
   try { if (S.sb) await S.sb.auth.signOut(); } catch (e) {}
   // Local business data is kept on purpose: pending records must never be deleted before server confirmation.
   await delSetting('session'); await delSetting('shop_id');
-  S.session = null; S.cart = [];
+  S.session = null; S.cart = []; S.saleCust = null; S.pur = null;
   showLogin();
 }
 
@@ -168,70 +182,148 @@ async function showApp() {
   if (showApp._timer) return;
   showApp._timer = setInterval(async () => { if (S.session) { const p = await pendingCount(), f = await failedCount();
     $('chip-pend').hidden = !p; $('chip-pend').textContent = `${t('pending')}: ${p}`;
-    $('chip-fail').hidden = !f; $('chip-fail').textContent = `✕ ${f}`; } }, 5000);
+    $('chip-fail').hidden = !f; $('chip-fail').innerHTML = `${ic('x', 12)} ${f}`; } }, 5000);
 }
 
+const TAB_TITLE = { home: null, bill: 'tab_bill', products: 'tab_products', sales: 'tab_sales', customers: 'customers', purchases: 'mod_purchases', expenses: 'mod_expenses', reports: 'mod_reports', settings: 'tab_settings' };
+const VIEWS = ['home', 'bill', 'products', 'sales', 'customers', 'purchases', 'expenses', 'reports', 'settings'];
 function switchTab(tab) {
+  if (tab === 'purchases' && !canPurchase()) return toast(t('owner_mgr_only'), 3000);
+  if ((tab === 'expenses' || tab === 'reports') && !canReports()) return toast(t('owner_mgr_only'), 3000);
   S.tab = tab;
-  for (const k of ['bill', 'products', 'sales', 'settings']) $('view-' + k).hidden = k !== tab;
+  for (const k of VIEWS) $('view-' + k).hidden = k !== tab;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $('hdr-hello').textContent = TAB_TITLE[tab] ? t(TAB_TITLE[tab]) : t('greeting');
+  if (tab === 'home') renderHome();
+  if (tab === 'bill') loadTiles();
   if (tab === 'products') { S.productPage = 0; renderProducts(); }
   if (tab === 'sales') { S.salesPage = 0; renderSales(); }
+  if (tab === 'customers') { S.custPage = 0; renderCustomers(); }
+  if (tab === 'purchases') { S.purPage = 0; S.supPage = 0; renderPurchases(); }
+  if (tab === 'expenses') renderExpenses();
+  if (tab === 'reports') renderReports();
   if (tab === 'settings') renderSettings();
+  renderBillBar();
+  $('view-' + tab).scrollIntoView && document.querySelector('main').scrollTo(0, 0);
 }
 
 async function toggleLang() {
   await saveCfg('lang', LANG === 'ur' ? 'en' : 'ur');
   setLang(S.cfg.lang); applyStaticText();
-  renderBillShell(); renderCart(); switchTab(S.tab);
+  renderBillShell(); switchTab(S.tab);
 }
 
-// ───────── Billing ─────────
+// ───────── Home ─────────
+async function renderHome() {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  const sum = await salesSummary(S.session.shop_id, start.toISOString(), end.toISOString());
+  const cs = await creditSummary(S.session.shop_id);
+  const ps = canPurchase() ? await payableSummary(S.session.shop_id) : { suppliers: 0 };
+  const mods = [
+    { tab: 'bill', ic: 'cart', l: 'tab_bill' }, { tab: 'products', ic: 'box', l: 'tab_products' },
+    { tab: 'sales', ic: 'receipt', l: 'tab_sales' }, { tab: 'customers', ic: 'users', l: 'mod_customers' },
+    { tab: 'expenses', ic: 'wallet', l: 'mod_expenses' }, { tab: 'purchases', ic: 'truck', l: 'mod_purchases' },
+    { tab: 'reports', ic: 'chart', l: 'mod_reports' }, { tab: 'settings', ic: 'settings', l: 'tab_settings' }
+  ];
+  const dateStr = new Date().toLocaleDateString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'full' });
+  $('view-home').innerHTML = `
+    <div class="today"><div class="cal">${ic('calendar', 24)}</div>
+      <div class="grow"><div class="muted">${esc(dateStr)}</div>
+        <div class="big">Rs ${money(sum.total)}</div>
+        <div class="muted">${t('today_sales')} · ${sum.count} ${t('bills_n')}</div></div></div>
+    ${cs.customers ? `<div class="udcard" data-tab="customers" style="cursor:pointer"><div class="udic">${ic('wallet', 24)}</div>
+      <div class="grow"><div class="muted">${t('total_udhaar')}</div><div class="big">Rs ${money(cs.total)}</div>
+        <div class="muted">${cs.count} ${t('owes_n')}</div></div></div>` : ''}
+    ${ps.suppliers ? `<div class="udcard pay" data-tab="purchases" style="cursor:pointer"><div class="udic">${ic('truck', 24)}</div>
+      <div class="grow"><div class="muted">${t('total_payable')}</div><div class="big">Rs ${money(ps.total)}</div>
+        <div class="muted">${ps.count} ${t('owed_n')}</div></div></div>` : ''}
+    <div class="mods">${mods.map(m => m.soon
+      ? `<button class="mod soon" disabled><span class="soonb">${t('soon')}</span><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`
+      : `<button class="mod" data-tab="${m.tab}"><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`).join('')}</div>`;
+}
+
+// ───────── Billing: search + product tiles ─────────
 function renderBillShell() {
   $('view-bill').innerHTML = `
-    <div class="row">
-      <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off">
-      <button class="btn secondary" id="btn-scan" type="button">${t('scan')}</button>
+    <div class="searchbar">
+      <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
+      <button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>
+      ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
-    <div class="results" id="bill-results" hidden></div>
-    <div class="card" id="bill-cart"></div>
-    <div class="card" id="bill-pay"></div>`;
+    <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
 }
 
-let searchTimer;
-async function doBillSearch(q) {
-  const box = $('bill-results');
-  if (!q.trim()) { box.hidden = true; box.innerHTML = ''; return; }
-  const list = await searchProducts(S.session.shop_id, q, 20);
-  const stocks = await getStocks(S.session.shop_id, list.map(p => p.id));
-  box.hidden = false;
-  box.innerHTML = list.length ? list.map(p => `
-    <div class="result" data-add="${p.id}">
-      <div><div>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</div>
-        <div class="muted">${t('stock')}: ${stocks[p.id]} ${esc(p.unit || '')}${p.barcode ? ' · ' + esc(p.barcode) : ''}</div></div>
-      <div class="price">${money(p.sale_price)}</div>
-    </div>`).join('') : `<div class="result muted">${t('no_results')}</div>`;
+function cartLine(id) { return S.cart.find(l => l.product_id === id); }
+
+function renderTiles() {
+  const box = $('tiles'); if (!box) return;
+  box.innerHTML = S.tiles.length ? S.tiles.map(p => {
+    const l = cartLine(p.id), st = S.tileStocks[p.id];
+    return `<div class="tile ${l ? 'sel' : ''}" data-add="${p.id}">
+      <div class="tprice">${money(p.sale_price)}</div>
+      <div class="tname">${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</div>
+      <div class="tstock ${st <= 0 ? 'low' : ''}">${t('stock')}: ${st} ${esc(p.unit || '')}</div>
+      ${l ? `<div class="tstep"><button data-tinc="${p.id}" type="button">${ic('plus', 18)}</button><span>${l.qty}</span><button data-tdec="${p.id}" type="button">${ic('minus', 18)}</button></div>` : ''}
+    </div>`; }).join('')
+    : `<div class="muted" style="grid-column:1/-1;text-align:center;padding:24px">${S.billQuery ? t('no_results') : t('no_products')}</div>`;
+}
+
+async function loadTiles(append = false) {
+  if (!$('tiles')) renderBillShell();
+  if (!append) { S.billPage = 0; S.tiles = []; }
+  const list = await listProducts(S.session.shop_id, S.billQuery, S.billPage, 30);
+  Object.assign(S.tileStocks, await getStocks(S.session.shop_id, list.map(p => p.id)));
+  S.tiles.push(...list);
+  renderTiles();
+  const more = $('tiles-more'); if (more) more.innerHTML = list.length === 30 ? `<button class="btn secondary block" id="btn-moretiles">${t('more')}</button>` : '';
 }
 
 async function addToCartById(id) {
   const p = await db.products.get(id);
   if (p) await addToCart(p);
 }
-async function addToCart(p) {
-  const line = S.cart.find(l => l.product_id === p.id);
+async function addToCart(p, clearSearch = false) {
+  const line = cartLine(p.id);
   if (line) line.qty = Math.round((line.qty + 1) * 1000) / 1000;
   else S.cart.push({ product_id: p.id, product_name: p.name, unit: p.unit || '', unit_price: p.sale_price, cost_price: p.cost_price || 0, qty: 1 });
   const stock = await getStock(S.session.shop_id, p.id);
-  const l = S.cart.find(x => x.product_id === p.id);
+  const l = cartLine(p.id);
   l.warn = stock - l.qty < 0;
-  const s = $('bill-search'); if (s) { s.value = ''; } $('bill-results').hidden = true;
-  renderCart(); persistCart();
+  S.tileStocks[p.id] = stock;
+  if (clearSearch && S.billQuery) { S.billQuery = ''; const s = $('bill-search'); if (s) s.value = ''; loadTiles(); }
+  refreshBill(); persistCart();
+}
+function decById(id) {
+  const l = cartLine(id); if (!l) return;
+  l.qty = Math.max(0, Math.round((l.qty - 1) * 1000) / 1000);
+  if (l.qty === 0) S.cart.splice(S.cart.indexOf(l), 1);
+  refreshBill(); persistCart();
 }
 
 async function handleBarcode(code) {
   const p = await findByBarcode(S.session.shop_id, code.trim());
-  if (p) { await addToCart(p); toast(p.name); }
+  if (p) { await addToCart(p, true); toast(p.name); }
   else toast(t('no_results') + ': ' + code);
+}
+
+// Checkout bar (sticky) + checkout sheet
+function renderBillBar() {
+  const bar = $('billbar');
+  const show = S.tab === 'bill' && S.cart.length > 0;
+  bar.hidden = !show; if (!show) return;
+  const tt = cartTotals();
+  bar.innerHTML = `<div class="bb-info"><div>${ic('cart', 18)} ${S.cart.length} ${t('items_n')}</div><div class="bb-total">Rs ${money(tt.total)}</div></div>
+    <button class="btn" id="btn-checkout" type="button">${t('checkout')}</button>`;
+}
+function refreshBill() {
+  renderBillBar(); renderTiles();
+  if ($('bill-cart')) { if (!S.cart.length) closeModal(); else renderCart(); }
+}
+function openCheckout() {
+  if (!S.cart.length) return;
+  openModal(`<h2>${t('checkout')}</h2><div id="bill-cart"></div><div id="bill-pay" style="margin-top:8px"></div>`);
+  renderCart();
 }
 
 function cartTotals() {
@@ -243,7 +335,7 @@ function cartTotals() {
 
 function renderCart() {
   const box = $('bill-cart'), pay = $('bill-pay');
-  if (!box) return;
+  if (!box || !pay) return;
   if (!S.cart.length) {
     box.innerHTML = `<div class="muted" style="text-align:center;padding:16px">${t('cart_empty')}</div>`;
     pay.hidden = true; return;
@@ -260,10 +352,10 @@ function renderCart() {
         ${l.warn ? `<div class="warn">${t('stock_warn')}</div>` : ''}
       </div>
       <div class="qtybox">
-        <button type="button" data-dec="${i}">−</button>
+        <button type="button" data-dec="${i}">${ic('minus', 18)}</button>
         <input type="number" inputmode="decimal" step="any" min="0" value="${l.qty}" data-qty="${i}">
-        <button type="button" data-inc="${i}">+</button>
-        <button type="button" data-rm="${i}" style="color:var(--err)">✕</button>
+        <button type="button" data-inc="${i}">${ic('plus', 18)}</button>
+        <button type="button" data-rm="${i}" style="color:var(--err)" aria-label="${t('delete')}">${ic('x', 18)}</button>
       </div>
     </div>`).join('');
   renderPay();
@@ -275,6 +367,10 @@ function renderPay() {
   if (S.paidManual !== true) S.paid = tt.total;
   const bal = Math.round((tt.total - num(S.paid)) * 100) / 100;
   pay.innerHTML = `
+    <div class="custrow" id="btn-pickcust" role="button" tabindex="0"><span class="lic">${ic('user', 18)}</span>
+      <div class="grow">${S.saleCust ? `<b>${esc(S.saleCust.name)}</b>` : `<span class="muted">${t('walk_in')}</span>`}</div>
+      <span class="btn secondary sm">${S.saleCust ? t('change_customer') : t('pick_customer')}</span></div>
+    <div class="warn" id="cust-warn" ${bal > 0 && !S.saleCust ? '' : 'hidden'}>${t('need_customer')}</div>
     <div class="totals">
       <div><span>${t('subtotal')}</span><span>${money(tt.subtotal)}</span></div>
       ${canDiscount() ? `<div><span>${t('discount')}</span><input id="in-discount" type="number" inputmode="decimal" step="any" min="0" value="${S.discount || ''}" style="width:110px"></div>` : ''}
@@ -290,9 +386,11 @@ function updateTotalsOnly() {
   const tt = cartTotals();
   if (!S.paidManual) S.paid = tt.total;
   const g = $('grand'); if (g) g.textContent = money(tt.total);
+  renderBillBar();
   const ip = $('in-paid'); if (ip && !S.paidManual) ip.value = S.paid;
   const bal = Math.round((tt.total - num(S.paid)) * 100) / 100;
   const b = $('bal-line'); if (b) b.textContent = bal > 0 ? t('balance') + ': ' + money(bal) : bal < 0 ? t('change') + ': ' + money(-bal) : '';
+  const w = $('cust-warn'); if (w) w.hidden = !(bal > 0 && !S.saleCust);
 }
 
 let persistTimer;
@@ -302,69 +400,49 @@ function persistCart() {
 }
 
 async function completeSale() {
+  const tt = cartTotals();
+  // Unpaid part of a bill is udhaar: it must belong to a named customer.
+  if (num(S.paid) < tt.total && !S.saleCust) { const w = $('cust-warn'); if (w) w.hidden = false; return toast(t('need_customer'), 3500); }
   const btn = $('btn-complete'); btn.disabled = true;
   try {
-    const tt = cartTotals();
     const sale = await saveSale({
+      customer_id: S.saleCust ? S.saleCust.id : null,
       discount: tt.discount, tax_rate: num(S.cfg.tax_rate), paid: num(S.paid),
       payment_method: 'cash', created_by: S.session.user_id
     }, S.cart.filter(l => l.qty > 0).map(l => ({ product_id: l.product_id, product_name: l.product_name, qty: l.qty, unit_price: l.unit_price, cost_price: l.cost_price })));
-    S.cart = []; S.discount = 0; S.paid = 0; S.paidManual = false;
+    S.cart = []; S.discount = 0; S.paid = 0; S.paidManual = false; S.saleCust = null;
     await setSetting('cart_draft', []);
-    renderCart(); refreshStatus();
+    S.tiles.length && Object.keys(S.tileStocks).length && loadTiles();
+    refreshBill(); refreshStatus();
     await showReceipt(sale.id);
   } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); btn.disabled = false; }
 }
 
 // ───────── Receipt ─────────
-function receiptHtml(sale, items) {
-  const c = S.cfg;
-  return `<div class="receipt">
-    <div class="c"><b>${esc(S.session.shop_name)}</b></div>
-    ${c.receipt_header ? `<div class="c">${esc(c.receipt_header)}</div>` : ''}
-    <hr>
-    <div>${esc(t('invoice'))}: ${esc(sale.invoice_no)}</div>
-    <div>${esc(fmtDate(sale.created_at))}</div>
-    <hr>
-    <table>${items.map(i => `<tr><td colspan="2">${esc(i.product_name)}</td></tr>
-      <tr><td>${i.qty} × ${money(i.unit_price)}</td><td class="r">${money(i.line_total)}</td></tr>`).join('')}</table>
-    <hr>
-    <table>
-      <tr><td>${t('subtotal')}</td><td class="r">${money(sale.subtotal)}</td></tr>
-      ${sale.discount ? `<tr><td>${t('discount')}</td><td class="r">-${money(sale.discount)}</td></tr>` : ''}
-      ${sale.tax ? `<tr><td>${t('tax')}</td><td class="r">${money(sale.tax)}</td></tr>` : ''}
-      <tr><td><b>${t('total')}</b></td><td class="r"><b>${money(sale.total)}</b></td></tr>
-      <tr><td>${t('paid')}</td><td class="r">${money(sale.paid)}</td></tr>
-      ${sale.paid < sale.total ? `<tr><td>${t('balance')}</td><td class="r">${money(sale.total - sale.paid)}</td></tr>` : ''}
-    </table>
-    <hr>
-    <div class="c">${esc(c.receipt_footer || t('thanks'))}</div>
-  </div>`;
-}
-
 async function showReceipt(saleId) {
   const r = await getSaleWithItems(saleId);
   if (!r) return;
-  const html = receiptHtml(r.sale, r.items);
-  openModal(`<h2>${t('receipt')}</h2>${html}
+  (await db.products.bulkGet(r.items.map(i => i.product_id))).forEach((p, k) => { r.items[k].name_ur = (p && p.name_ur) || ''; });
+  let cust = null;
+  if (r.sale.customer_id) {
+    const c = await db.customers.get(r.sale.customer_id);
+    if (c) cust = { name: c.name, phone: c.phone, balance: await getCustomerBalance(S.session.shop_id, c.id) };
+  }
+  const html = receiptHtml(r.sale, r.items, cust), wa = cust && waNumber(cust.phone);
+  openModal(`<h2>${t('receipt')}</h2><div class="rcwrap">${html}</div>
     <div class="row" style="margin-top:12px">
-      <button class="btn grow" id="btn-print">${t('print')}</button>
+      <button class="btn grow" id="btn-print">${ic('print', 18)} ${t('print')}</button>
+      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(receiptText(r.sale, r.items, cust))}">${ic('chat', 18)} ${t('rc_wa')}</a>` : ''}
       <button class="btn secondary grow" data-close>${t('new_sale')}</button>
     </div>`);
-  $('btn-print').onclick = () => {
-    $('receipt-print').innerHTML = html;
-    document.documentElement.style.setProperty('--paper', (S.cfg.paper || 58) + 'mm');
-    document.body.classList.add('printing');
-    window.print();
-    setTimeout(() => document.body.classList.remove('printing'), 500);
-  };
+  $('btn-print').onclick = () => doPrint(html, S.cfg.paper);
 }
 
 // ───────── Barcode camera scan (where BarcodeDetector exists) ─────────
 let scanStream = null, scanTimer = null;
 async function startScan() {
   if (!('BarcodeDetector' in window) || !navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
-  openModal(`<h2>${t('scan')}</h2><video id="scanvideo" playsinline muted></video>
+  openModal(`<h2>${t('scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
     <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -451,11 +529,15 @@ async function renderSales(append = false) {
   const v = $('view-sales');
   if (!append) v.innerHTML = `<h3 style="margin:0 0 8px">${t('sales_hist')}</h3><div id="sales-list"></div><div id="sales-more"></div>`;
   const list = await listSales(S.session.shop_id, S.salesPage, 30);
+  const cmap = {};
+  const cids = [...new Set(list.map(s => s.customer_id).filter(Boolean))];
+  (await db.customers.bulkGet(cids)).forEach(c => { if (c) cmap[c.id] = c.name; });
   const html = list.map(s => `
     <div class="card" data-sale="${s.id}">
       <div class="row"><div class="grow"><b>${esc(s.invoice_no)}</b><div class="muted">${esc(fmtDate(s.created_at))}</div></div>
         <div class="price">${money(s.total)}</div></div>
-      <div class="muted">${s.sync_status === 'synced' ? '✓' : '⏳ ' + t('pending')}</div>
+      ${s.customer_id && cmap[s.customer_id] ? `<div class="muted">${ic('user', 14)} ${esc(cmap[s.customer_id])}${s.paid < s.total ? ` · <span class="owe-t">${t('udhaar')}: ${money(s.total - s.paid)}</span>` : ''}</div>` : ''}
+      <div class="muted">${s.sync_status === 'synced' ? ic('check', 14) : ic('clock', 14) + ' ' + t('pending')}</div>
     </div>`).join('');
   if (!append) $('sales-list').innerHTML = html || `<div class="muted" style="text-align:center;padding:20px">${t('no_sales')}</div>`;
   else $('sales-list').insertAdjacentHTML('beforeend', html);
@@ -474,17 +556,23 @@ async function renderSettings() {
     <div class="card">
       <label>${t('language')}</label>
       <select id="set-lang"><option value="ur" ${c.lang === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${c.lang === 'en' ? 'selected' : ''}>English</option></select>
+      <label>${t('theme')}</label>
+      <select id="set-theme"><option value="green" ${c.theme !== 'orange' ? 'selected' : ''}>${t('theme_green')}</option><option value="orange" ${c.theme === 'orange' ? 'selected' : ''}>${t('theme_orange')}</option></select>
       ${own ? '' : `<div class="muted" style="margin-top:8px">${t('owner_only')}</div>`}
       <label>${t('tax_rate')}</label><input id="set-tax" type="number" inputmode="decimal" step="any" min="0" value="${c.tax_rate}" ${dis}>
       <label><input type="checkbox" id="set-cdisc" style="width:auto;min-height:0" ${c.cashier_discount ? 'checked' : ''} ${dis}> ${t('cashier_discount')}</label>
       <label><input type="checkbox" id="set-cprice" style="width:auto;min-height:0" ${c.cashier_price ? 'checked' : ''} ${dis}> ${t('cashier_price')}</label>
       <label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}">
       <label>${t('receipt_footer')}</label><input id="set-rf" value="${esc(c.receipt_footer)}">
+      <label>${t('set_phone')}</label><input id="set-sp" inputmode="tel" dir="ltr" value="${esc(c.shop_phone)}">
+      <label>${t('set_addr')}</label><input id="set-sa" value="${esc(c.shop_address)}">
+      <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}">
       <label>${t('paper_width')}</label>
-      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option></select>
+      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
     </div>
-    <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${t('export_data')}</button>
-    <button class="btn danger block" id="btn-logout">${t('logout')}</button>`;
+    ${window.POS_DEMO ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
+    <button class="btn secondary block" id="btn-export" style="margin-bottom:10px">${ic('download', 18)} ${t('export_data')}</button>
+    <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button>`;
 }
 
 // ───────── Event wiring (delegation) ─────────
@@ -493,10 +581,15 @@ document.addEventListener('click', async ev => {
   const tab = el.closest('[data-tab]'); if (tab) return switchTab(tab.dataset.tab);
   if (el.closest('[data-close]')) return closeModal();
   if (el === $('modal')) return closeModal();
+  const tinc = el.closest('[data-tinc]'); if (tinc) return addToCartById(tinc.dataset.tinc);
+  const tdec = el.closest('[data-tdec]'); if (tdec) return decById(tdec.dataset.tdec);
   const add = el.closest('[data-add]'); if (add) return addToCartById(add.dataset.add);
-  const inc = el.closest('[data-inc]'); if (inc) { const l = S.cart[+inc.dataset.inc]; l.qty = Math.round((l.qty + 1) * 1000) / 1000; renderCart(); return persistCart(); }
-  const dec = el.closest('[data-dec]'); if (dec) { const l = S.cart[+dec.dataset.dec]; l.qty = Math.max(0, Math.round((l.qty - 1) * 1000) / 1000); if (l.qty === 0) S.cart.splice(+dec.dataset.dec, 1); renderCart(); return persistCart(); }
-  const rm = el.closest('[data-rm]'); if (rm) { S.cart.splice(+rm.dataset.rm, 1); renderCart(); return persistCart(); }
+  const inc = el.closest('[data-inc]'); if (inc) { const l = S.cart[+inc.dataset.inc]; l.qty = Math.round((l.qty + 1) * 1000) / 1000; refreshBill(); return persistCart(); }
+  const dec = el.closest('[data-dec]'); if (dec) { const l = S.cart[+dec.dataset.dec]; l.qty = Math.max(0, Math.round((l.qty - 1) * 1000) / 1000); if (l.qty === 0) S.cart.splice(+dec.dataset.dec, 1); refreshBill(); return persistCart(); }
+  const rm = el.closest('[data-rm]'); if (rm) { S.cart.splice(+rm.dataset.rm, 1); refreshBill(); return persistCart(); }
+  if (el.closest('#btn-checkout')) return openCheckout();
+  if (el.closest('#btn-moretiles')) { S.billPage++; return loadTiles(true); }
+  if (el.closest('#btn-addprod2')) return openProductForm(null);
   if (el.closest('#btn-scan')) return startScan();
   if (el.closest('#btn-complete')) return completeSale();
   if (el.closest('#btn-addprod')) return openProductForm(null);
@@ -504,6 +597,31 @@ document.addEventListener('click', async ev => {
   if (el.closest('#btn-moreprod')) { S.productPage++; return renderProducts(true); }
   const sale = el.closest('[data-sale]'); if (sale) return showReceipt(sale.dataset.sale);
   if (el.closest('#btn-moresales')) { S.salesPage++; return renderSales(true); }
+  const sg = el.closest('[data-purseg]'); if (sg) { S.purSeg = sg.dataset.purseg; S.purPage = 0; S.supPage = 0; return renderPurchases(); }
+  if (el.closest('#btn-newpur')) { if (!S.pur) S.pur = newPur(); return openPurchaseForm(); }
+  if (el.closest('#btn-addsup')) return openSupplierForm(null);
+  if (el.closest('#btn-morepur')) { S.purPage++; return renderPurchases(true); }
+  if (el.closest('#btn-moresup')) { S.supPage++; return renderPurchases(true); }
+  if (el.closest('#btn-picksup')) return openSupplierPicker();
+  if (el.closest('#btn-savepur')) return savePurchaseNow();
+  if (el.closest('[data-purcancel]')) { S.pur = null; return closeModal(); }
+  const pa = el.closest('[data-puradd]'); if (pa) return addPurLine(pa.dataset.puradd);
+  const prm = el.closest('[data-prm]'); if (prm) { S.pur.lines.splice(+prm.dataset.prm, 1); S.pur.paidManual = false; return renderPurLines(); }
+  const sp = el.closest('[data-suppay]'); if (sp) { const [sid, kind] = sp.dataset.suppay.split('|'); return openSupplierPayForm(sid, kind); }
+  const os = el.closest('[data-opensup]'); if (os) return openSupplierDetail(os.dataset.opensup);
+  const es = el.closest('[data-editsup]'); if (es) return openSupplierForm(es.dataset.editsup);
+  const ds = el.closest('[data-delsup]'); if (ds) return deleteSupplier(ds.dataset.delsup);
+  const su = el.closest('[data-sup]'); if (su) return openSupplierDetail(su.dataset.sup);
+  const pu = el.closest('[data-pur]'); if (pu) return showPurchase(pu.dataset.pur);
+  if (el.closest('#btn-pickcust')) return openCustomerPicker();
+  if (el.closest('#btn-addcust')) return openCustomerForm(null);
+  if (el.closest('#btn-morecust')) { S.custPage++; return renderCustomers(true); }
+  if (el.closest('#btn-moreledger')) { custShown += 25; return renderLedger(); }
+  const pay = el.closest('[data-pay]'); if (pay) { const [cid, kind] = pay.dataset.pay.split('|'); return openPaymentForm(cid, kind); }
+  const oc = el.closest('[data-opencust]'); if (oc) return openCustomerDetail(oc.dataset.opencust);
+  const ec = el.closest('[data-editcust]'); if (ec) return openCustomerForm(ec.dataset.editcust);
+  const dc = el.closest('[data-delcust]'); if (dc) return deleteCustomer(dc.dataset.delcust);
+  const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
   if (el.closest('#btn-export')) {
@@ -518,9 +636,16 @@ document.addEventListener('click', async ev => {
   }
 });
 
+let searchTimer;
 document.addEventListener('input', ev => {
   const el = ev.target;
-  if (el.id === 'bill-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => doBillSearch(el.value), 120); }
+  if (el.id === 'bill-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.billQuery = el.value; loadTiles(); }, 150); }
+  else if (el.id === 'cust-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.custQuery = el.value; S.custPage = 0; renderCustomers(); }, 200); }
+  else if (el.id === 'sup-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.supQuery = el.value; S.supPage = 0; renderPurchases(); }, 200); }
+  else if (el.id === 'pur-search') { S.pur.q = el.value; clearTimeout(searchTimer); searchTimer = setTimeout(purResults, 150); }
+  else if (el.dataset.pqty != null) { S.pur.lines[+el.dataset.pqty].qty = num(el.value); const l = S.pur.lines[+el.dataset.pqty]; const c = $('pl-' + el.dataset.pqty); if (c) c.textContent = money(l.qty * l.unit_cost); updatePurTotals(); }
+  else if (el.dataset.pcost != null) { const l = S.pur.lines[+el.dataset.pcost]; l.unit_cost = num(el.value); const c = $('pl-' + el.dataset.pcost); if (c) c.textContent = money(l.qty * l.unit_cost); updatePurTotals(); }
+  else if (el.id === 'pur-paid') { S.pur.paid = num(el.value); S.pur.paidManual = true; updatePurTotals(); }
   else if (el.id === 'prod-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.productQuery = el.value; S.productPage = 0; renderProducts(); }, 200); }
   else if (el.dataset.qty != null) { S.cart[+el.dataset.qty].qty = num(el.value); persistCart(); updateTotalsOnly(); }
   else if (el.dataset.price != null) { S.cart[+el.dataset.price].unit_price = num(el.value); persistCart(); updateTotalsOnly(); }
@@ -535,19 +660,24 @@ document.addEventListener('keydown', async ev => {
     if (!code) return;
     // Hardware/Bluetooth barcode scanners type the code and press Enter.
     const p = await findByBarcode(S.session.shop_id, code);
-    if (p) { await addToCart(p); ev.target.value = ''; }
+    if (p) { await addToCart(p, true); ev.target.value = ''; }
   }
 });
 
 document.addEventListener('change', async ev => {
   const id = ev.target.id;
-  if (id === 'set-lang') { await saveCfg('lang', ev.target.value); setLang(ev.target.value); applyStaticText(); renderBillShell(); renderCart(); renderSettings(); }
+  if (id === 'set-lang') { await saveCfg('lang', ev.target.value); setLang(ev.target.value); applyStaticText(); renderBillShell(); switchTab('settings'); }
+  else if (id === 'pur-upcost') { S.pur.updateCost = ev.target.checked; }
+  else if (id === 'set-theme') { await saveCfg('theme', ev.target.value); applyTheme(); }
   else if (isOwner() && id === 'set-tax') { await saveCfg('tax_rate', Math.max(0, num(ev.target.value))); }
   else if (isOwner() && id === 'set-cdisc') { await saveCfg('cashier_discount', ev.target.checked); }
   else if (isOwner() && id === 'set-cprice') { await saveCfg('cashier_price', ev.target.checked); }
   else if (id === 'set-rh') { await saveCfg('receipt_header', ev.target.value); }
   else if (id === 'set-rf') { await saveCfg('receipt_footer', ev.target.value); }
-  else if (id === 'set-paper') { await saveCfg('paper', +ev.target.value); }
+  else if (id === 'set-sp') { await saveCfg('shop_phone', ev.target.value.trim()); }
+  else if (id === 'set-sa') { await saveCfg('shop_address', ev.target.value.trim()); }
+  else if (id === 'set-sn') { await saveCfg('shop_tax_no', ev.target.value.trim()); }
+  else if (id === 'set-paper') { await saveCfg('paper', ev.target.value === 'a4' ? 'a4' : +ev.target.value); }
 });
 
 $('login-form').addEventListener('submit', doLogin);

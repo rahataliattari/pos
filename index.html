@@ -28,21 +28,34 @@
 
   <div id="app" hidden>
     <header class="top">
-      <div class="shop" id="hdr-shop"></div>
-      <span class="chip" id="chip-net"><span class="dot" id="net-dot"></span><span id="net-text"></span></span>
-      <span class="chip pend" id="chip-pend" hidden></span>
-      <span class="chip fail" id="chip-fail" hidden></span>
-      <button class="langbtn" id="btn-lang" type="button">EN</button>
+      <div class="hrow">
+        <div class="avatar" id="hdr-avatar"></div>
+        <div class="hinfo"><div class="hello" id="hdr-hello"></div><div class="shop" id="hdr-shop"></div></div>
+        <button class="langbtn" id="btn-lang" type="button">EN</button>
+      </div>
+      <div class="hrow chips">
+        <span class="chip" id="chip-net"><span class="dot" id="net-dot"></span><span id="net-text"></span></span>
+        <span class="chip pend" id="chip-pend" hidden></span>
+        <span class="chip fail" id="chip-fail" hidden></span>
+      </div>
     </header>
     <div id="syncnote"></div>
     <main>
-      <section id="view-bill"></section>
+      <section id="view-home"></section>
+      <section id="view-bill" hidden></section>
       <section id="view-products" hidden></section>
       <section id="view-sales" hidden></section>
+      <section id="view-customers" hidden></section>
+      <section id="view-purchases" hidden></section>
+      <section id="view-expenses" hidden></section>
+      <section id="view-reports" hidden></section>
       <section id="view-settings" hidden></section>
     </main>
+    <div id="billbar" hidden></div>
     <nav class="bottom" id="nav"></nav>
   </div>
+
+  <div id="sa" hidden></div>
 
   <div id="modal" hidden><div class="sheet" id="sheet"></div></div>
   <div id="toast" hidden></div>
@@ -52,8 +65,15 @@
   <script src="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="config.js"></script>
+  <script src="icons.js"></script>
   <script src="i18n.js"></script>
   <script src="db.js"></script>
+  <script src="customers.js"></script>
+  <script src="purchases.js"></script>
+  <script src="print.js"></script>
+  <script src="expenses.js"></script>
+  <script src="reports.js"></script>
+  <script src="superadmin.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
