@@ -32,7 +32,12 @@ const SAT = {
   sa_renew_title: ['سبسکرپشن تجدید', 'Renew subscription'], sa_pick_shop: ['دکان', 'Shop'], sa_new_expiry: ['نئی میعاد', 'New expiry'],
   sa_pay_tab: ['ادائیگیاں', 'Payments'], sa_plans_tab: ['پلانز', 'Plans'], sa_col_month: ['اس ماہ کی وصولی', 'Collected this month'], sa_col_total: ['کل وصولی', 'Total collected'],
   sa_add_payment: ['ادائیگی درج کریں', 'Record payment'], sa_plan_edit: ['پلان میں ترمیم', 'Edit plan'], sa_name_en: ['انگریزی نام', 'English name'], sa_name_ur2: ['اردو نام', 'Urdu name'],
-  sa_price: ['ماہانہ قیمت (Rs)', 'Monthly price (Rs)'], sa_max_users: ['زیادہ سے زیادہ صارفین', 'Max users'], sa_max_products: ['زیادہ سے زیادہ پروڈکٹس (0 = لامحدود)', 'Max products (0 = unlimited)'],
+  sa_price: ['ماہانہ قیمت (Rs)', 'Monthly price (Rs)'], sa_max_users: ['زیادہ سے زیادہ صارفین', 'Max users'], sa_bill_qr: ['بل پر تصدیقی QR کوڈ', 'Verification QR on bills'], sa_barcodes: ['بارکوڈ (فیلڈ، کیمرہ اور اسکینر)', 'Barcodes (field, camera & scanner)'],
+  sa_max_devices: ['ہر آئی ڈی کتنی ڈیوائسز پر چل سکے (0 = لامحدود)', 'Devices allowed per login ID (0 = unlimited)'], sa_devices: ['ڈیوائسز', 'Devices'], sa_dev_blocked: ['بند', 'Blocked'],
+  sa_dev_reset: ['گم/چوری: ڈیوائسز ری سیٹ', 'Lost/stolen: reset devices'], sa_dev_block: ['یہ ڈیوائس بند کریں', 'Block this device'], sa_dev_none: ['ابھی کوئی ڈیوائس رجسٹر نہیں', 'No device registered yet'],
+  sa_dev_confirm: ['پرانی ڈیوائس بند ہو جائے گی (بعد میں "اجازت دیں" سے کھولی جا سکتی ہے) اور اس آئی ڈی کے سب لاگ اِن ختم ہوں گے۔ صارف نئی ڈیوائس پر لاگ اِن کر سکے گا۔ جاری رکھیں؟ (احتیاط کیلئے پاس ورڈ بھی ری سیٹ کریں)', 'The old device will be blocked (you can allow it again later) and every login of this ID ends. The user can then log in on a new device. Continue? (Also reset the password to be safe)'],
+  sa_a_dev_reset: ['ڈیوائسز ری سیٹ', 'Devices reset'], sa_a_dev_allow: ['ڈیوائس کو اجازت', 'Device allowed'],
+  sa_dev_allow: ['اجازت دیں', 'Allow'], sa_dev_full: ['حد پوری ہے: پہلے کوئی اور ڈیوائس بند کریں یا پلان کی حد بڑھائیں', 'Limit reached: block another device first or raise the plan limit'], sa_max_products: ['زیادہ سے زیادہ پروڈکٹس (0 = لامحدود)', 'Max products (0 = unlimited)'],
   sa_unlimited: ['لامحدود', 'Unlimited'], sa_per_month: ['ماہانہ', '/ month'], sa_shops_on_plan: ['دکانیں', 'shops'], sa_products: ['پروڈکٹس', 'products'],
   sa_ann: ['اعلانات', 'Announcements'], sa_log: ['لاگ', 'Log'], sa_settings: ['سیٹنگز', 'Settings'], sa_ann_text: ['اعلان کا متن (تمام دکانوں کو نظر آئے گا)', 'Announcement text (shown to all shops)'],
   sa_ann_add: ['نیا اعلان', 'New announcement'], sa_ann_none: ['کوئی اعلان نہیں', 'No announcements'], sa_ann_on: ['چل رہا ہے', 'Showing'], sa_ann_off: ['بند', 'Off'],
@@ -72,9 +77,9 @@ const saExpTxt = s => { const d = saDays(s.expires_at); return d >= 0 ? `${d} ${
 
 function saSeed() {
   const plans = [
-    { id: 'basic', name: 'Basic', name_ur: 'بنیادی', price: 1500, max_users: 2, max_products: 500 },
-    { id: 'standard', name: 'Standard', name_ur: 'اسٹینڈرڈ', price: 3000, max_users: 5, max_products: 3000 },
-    { id: 'premium', name: 'Premium', name_ur: 'پریمیم', price: 5000, max_users: 15, max_products: 0 }
+    { id: 'basic', name: 'Basic', name_ur: 'بنیادی', price: 1500, max_users: 2, max_products: 500, bill_qr: false, barcodes: false, max_devices: 1 },
+    { id: 'standard', name: 'Standard', name_ur: 'اسٹینڈرڈ', price: 3000, max_users: 5, max_products: 3000, bill_qr: false, barcodes: true, max_devices: 1 },
+    { id: 'premium', name: 'Premium', name_ur: 'پریمیم', price: 5000, max_users: 15, max_products: 0, bill_qr: true, barcodes: true, max_devices: 1 }
   ];
   const R = [ // name, owner, phone, city, plan, expiresInDays, flag, bills30, sales30, ageDays
     ['الفلاح جنرل اسٹور', 'محمد الفلاح', '03001112233', 'لاہور', 'standard', 48, '', 412, 1840000, 300],
@@ -138,7 +143,7 @@ function saAnnouncement() {
 const SA_LIVE = () => !window.POS_DEMO;
 const SA_TABLES = { plans: 'plans', shops: 'shops', users: 'shop_members', payments: 'sub_payments', audit: 'audit_log', announcements: 'announcements' };
 const SA_COLS = {
-  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products'],
+  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products', 'bill_qr', 'barcodes', 'max_devices'],
   shops: ['id', 'name', 'owner_name', 'phone', 'city', 'plan_id', 'trial', 'suspended', 'suspend_reason', 'archived', 'created_at', 'expires_at', 'last_seen', 'bills_30d', 'sales_30d', 'notes'],
   users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
   payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
@@ -405,11 +410,23 @@ function saUsersView() {
 function saUsersList() {
   const q = SAS.uq.trim().toLowerCase(), box = $('sa-ulist'); if (!box) return;
   const list = SAD.users.filter(u => !q || [u.name, u.phone, saShopName(u.shop_id)].join(' ').toLowerCase().includes(q)).sort((a, b) => (a.name < b.name ? -1 : 1)).slice(0, 80);
-  box.innerHTML = list.map(u => `<div class="card custcard" data-sa="useredit|${u.id}"><div class="avatar sm">${ic('user', 20)}</div>
+  box.innerHTML = list.map(u => `<div class="card custcard" data-sa="useredit|${u.id}"><div class="avatar sm">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : ic('user', 20)}</div>
     <div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div>
     <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_no_users')}</div>`;
 }
 const saOnlyOwner = u => u.role === 'owner' && !SAD.users.some(x => x.id !== u.id && x.shop_id === u.shop_id && x.role === 'owner');
+async function saLoadDevices(u) {
+  const box = $('sa-dev'); if (!box) return;
+  try {
+    const { data, error } = await getSb().from('user_devices').select('id,device_name,first_seen,last_seen,revoked').eq('user_id', u.user_id).eq('shop_id', u.shop_id).order('last_seen', { ascending: false });
+    if (error) throw error;
+    const sh = SAD.shops.find(s => s.id === u.shop_id), max = sh ? (saPlan(sh.plan_id).max_devices ?? 1) : 1, used = data.filter(d => !d.revoked).length;
+    box.innerHTML = `<label style="margin-top:14px">${t('sa_devices')} (${used}/${max === 0 ? '∞' : max})</label>`
+      + (data.map(d => `<div class="lrow"><span class="lic">${ic('phone', 16)}</span><div class="grow"><b dir="ltr" style="unicode-bidi:plaintext">${esc(d.device_name || '—')}</b><div class="muted">${esc(fmtDate(d.last_seen))}</div></div>`
+        + (d.revoked ? `<span class="bal zero">${t('sa_dev_blocked')}</span><button class="btn secondary sm" type="button" data-sa="devallow|${u.id}|${d.id}" style="margin-inline-start:6px">${t('sa_dev_allow')}</button>` : `<button class="btn secondary sm" type="button" data-sa="devreset|${u.id}|${d.id}" aria-label="${t('sa_dev_block')}" title="${t('sa_dev_block')}">${ic('trash', 16)}</button>`) + '</div>').join('') || `<div class="muted">${t('sa_dev_none')}</div>`)
+      + `<button class="btn danger block" type="button" data-sa="devreset|${u.id}" style="margin-top:8px">${t('sa_dev_reset')}</button>`;
+  } catch (e) { box.innerHTML = ''; }       // device table not created yet (11_device_limit.sql): show nothing
+}
 function saUserForm(id, shopId) {
   const d = SAD, live = d.shops.filter(s => !s.archived);
   const u = id ? d.users.find(x => x.id === id) : { shop_id: shopId || (live[0] || {}).id, role: 'cashier', active: true };
@@ -420,7 +437,9 @@ function saUserForm(id, shopId) {
     <label>${t('role')}</label><select name="role">${['owner', 'manager', 'cashier'].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${t(r)}</option>`).join('')}</select>
     <label><input type="checkbox" name="active" ${u.active ? 'checked' : ''} style="width:auto;min-height:0"> ${t('sa_active_acc')}</label>
     <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div>
-    ${id ? `<div class="row" style="margin-top:8px"><button class="btn secondary grow" type="button" data-sa="resetpw|${id}">${ic('key', 18)} ${t('sa_reset_pw')}</button><button class="btn danger" type="button" data-sa="userdel|${id}">${ic('trash', 18)}</button></div>` : ''}</form>`);
+    ${id ? `<div class="row" style="margin-top:8px"><button class="btn secondary grow" type="button" data-sa="resetpw|${id}">${ic('key', 18)} ${t('sa_reset_pw')}</button><button class="btn danger" type="button" data-sa="userdel|${id}">${ic('trash', 18)}</button></div>` : ''}
+    ${id && SA_LIVE() && u.user_id ? '<div id="sa-dev"></div>' : ''}</form>`);
+  if (id && SA_LIVE() && u.user_id) saLoadDevices(u);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries()), phone = saPhone(f.phone), active = !!f.active;
@@ -441,7 +460,7 @@ function saBillView() {
   if (SAS.bseg === 'plans') return seg + d.plans.map(p => {
     const n = d.shops.filter(s => !s.archived && s.plan_id === p.id).length;
     return `<div class="card custcard" data-sa="planedit|${p.id}"><div class="avatar sm">${ic('wallet', 20)}</div><div class="grow"><b>${esc(saPlanName(p))}</b>
-      <div class="muted">${p.max_users} ${t('sa_t_users')} · ${p.max_products ? p.max_products + ' ' + t('sa_products') : t('sa_unlimited')}</div><div class="muted">${n} ${t('sa_shops_on_plan')}</div></div>
+      <div class="muted">${p.max_users} ${t('sa_t_users')} · ${p.max_products ? p.max_products + ' ' + t('sa_products') : t('sa_unlimited')}</div><div class="muted">${n} ${t('sa_shops_on_plan')}${' · ' + (p.max_devices === 0 ? '∞' : (p.max_devices ?? 1)) + ' ' + t('sa_devices')}${p.barcodes ? ' · ▮▯ ✓' : ''}${p.bill_qr ? ' · QR ✓' : ''}</div></div>
       <span class="bal adv">Rs ${money(p.price)}</span></div>`; }).join('');
   return seg + `<div class="sa-kpis" style="grid-template-columns:repeat(2,1fr)"><div><b>Rs ${money(mon)}</b><span>${t('sa_col_month')}</span></div><div><b>Rs ${money(tot)}</b><span>${t('sa_col_total')}</span></div></div>
     <button class="btn block" data-sa="payadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_add_payment')}</button>
@@ -454,11 +473,14 @@ function saPlanForm(id) {
     <label>${t('sa_price')}</label><input name="price" type="number" inputmode="decimal" min="0" required value="${p.price}">
     <div class="row"><div class="grow"><label>${t('sa_max_users')}</label><input name="max_users" type="number" min="1" required value="${p.max_users}"></div>
       <div class="grow"><label>${t('sa_max_products')}</label><input name="max_products" type="number" min="0" required value="${p.max_products}"></div></div>
+    <label>${t('sa_max_devices')}</label><input name="max_devices" type="number" min="0" required value="${p.max_devices ?? 1}">
+    <label style="margin-top:10px"><input type="checkbox" name="bill_qr" style="width:auto;min-height:0" ${p.bill_qr ? 'checked' : ''}> ${t('sa_bill_qr')}</label>
+    <label style="margin-top:6px"><input type="checkbox" name="barcodes" style="width:auto;min-height:0" ${p.barcodes ? 'checked' : ''}> ${t('sa_barcodes')}</label>
     <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
-    Object.assign(p, { name: f.name.trim(), name_ur: f.name_ur.trim(), price: Math.max(0, num(f.price)), max_users: Math.max(1, Math.round(num(f.max_users))), max_products: Math.max(0, Math.round(num(f.max_products))) });
+    Object.assign(p, { name: f.name.trim(), name_ur: f.name_ur.trim(), price: Math.max(0, num(f.price)), max_users: Math.max(1, Math.round(num(f.max_users))), max_products: Math.max(0, Math.round(num(f.max_products))), bill_qr: f.bill_qr === 'on', barcodes: f.barcodes === 'on', max_devices: Math.max(0, Math.round(num(f.max_devices))) });
     saLog('plan_edit', p.name); saSave(); closeModal(); toast(t('saved')); saRender();
   };
 }
@@ -533,6 +555,19 @@ const SA_ACT = {
     const pw = saPass();
     if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw, email: loginIdToEmail(u.phone) }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
     saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, pw);
+  },
+  devreset: async (id, dev) => {
+    const u = SAD.users.find(x => x.id === id); if (!u || !u.user_id) return;
+    if (!confirm(t('sa_dev_confirm'))) return;
+    try { const { error } = await getSb().rpc('admin_reset_devices', { p_user: u.user_id, p_shop: u.shop_id, p_device: dev || null }); if (error) throw error; }
+    catch (e) { return toast(e.message || t('err_generic'), 5000); }
+    saLog('dev_reset', u.name, saShopName(u.shop_id)); saSave(); toast(t('saved')); saLoadDevices(u);
+  },
+  devallow: async (id, dev) => {
+    const u = SAD.users.find(x => x.id === id); if (!u || !dev) return;
+    try { const { error } = await getSb().rpc('admin_allow_device', { p_device: dev }); if (error) throw error; }
+    catch (e) { return toast(/device_limit/.test(e.message || '') ? t('sa_dev_full') : (e.message || t('err_generic')), 5000); }
+    saLog('dev_allow', u.name, saShopName(u.shop_id)); saSave(); toast(t('saved')); saLoadDevices(u);
   },
   copy: pw => { try { navigator.clipboard.writeText(pw); toast(t('sa_copied')); } catch (e) { toast(pw, 5000); } },
   bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),

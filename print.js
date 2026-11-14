@@ -4,18 +4,51 @@ const PRT = {
   rc_sale_invoice: ['سیل انوائس', 'SALES INVOICE'], rc_report: ['کاروباری رپورٹ', 'BUSINESS REPORT'], rc_item: ['آئٹم', 'Item'], rc_qty: ['مقدار', 'Qty'], rc_price: ['قیمت', 'Price'], rc_amount: ['رقم', 'Amount'],
   rc_paid: ['ادا شدہ', 'PAID'], rc_due: ['ادھار باقی', 'BALANCE DUE'], rc_items: ['آئٹمز', 'Items'], rc_saved: ['آپ کی بچت', 'You saved'], rc_wa: ['واٹس ایپ', 'WhatsApp'],
   rc_powered: ['یونیورسل پی او ایس سے تیار', 'Powered by Universal POS'], rc_period: ['مدت', 'Period'], rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
-  set_phone: ['دکان کا فون', 'Shop phone'], set_addr: ['دکان کا پتہ', 'Shop address'], set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'], rc_print_report: ['رپورٹ پرنٹ', 'Print report']
+  set_phone: ['دکان کا فون', 'Shop phone'], set_addr: ['دکان کا پتہ', 'Shop address'], set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'], rc_print_report: ['رپورٹ پرنٹ', 'Print report'],
+  rc_verify: ['بل کی تصدیق کیلئے اسکین کریں', 'Scan to verify this bill'], rc_verify_note: ['صرف تصدیق کیلئے — ادائیگی کیلئے نہیں', 'For verification only — not for payment'], rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'], rc_code: ['کوڈ', 'Code'], rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کیلئے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
 };
 for (const k in PRT) { I18N.ur[k] = PRT[k][0]; I18N.en[k] = PRT[k][1]; }
 
 const iname = i => (LANG === 'ur' && i.name_ur ? i.name_ur : i.product_name);
 const kv = (l, v, cls = '', plain = false) => `<div class="kv ${cls}"><span>${l}</span><b${plain ? '' : ' class="num"'}>${v}</b></div>`;
-function rcHead(title) {
+
+// ───────── Bill verification QR (verification only — it carries NO payment / receiving information) ─────────
+// 53-bit string hash (cyrb53): a short tamper-check code printed under the QR so a bill can be matched against the shop's records.
+function billHash(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function billCode(sale) {
+  const s = [S.session.shop_id, sale.id, sale.invoice_no, sale.created_at, round2(sale.total)].join('|');
+  const c = billHash(s).toString(36).toUpperCase().padStart(10, '0').slice(-8);
+  return c.slice(0, 4) + '-' + c.slice(4);
+}
+function billQrText(sale) {
+  const d = new Date(sale.created_at), p2 = n => String(n).padStart(2, '0');
+  const when = isNaN(d) ? '' : `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  return ['UNIVERSAL POS - BILL VERIFICATION', 'Shop: ' + String(S.session.shop_name || '').slice(0, 40), 'Bill: ' + sale.invoice_no, 'Date: ' + when,
+    'Total: Rs ' + round2(sale.total), 'Code: ' + billCode(sale)].join('\n');
+}
+// The bill QR is a plan feature: the demo always has it; live shops get it only when their plan has bill_qr = true.
+const planHasQr = () => !!window.POS_DEMO || !!(S.session && S.session.bill_qr === true);
+function billQrHtml(sale) {
+  if (!planHasQr() || S.cfg.receipt_qr === false) return '';
+  try {
+    return `<div class="qrbox">${qrSvg(billQrText(sale), { size: 120 })}<div class="qrcap">${t('rc_verify')}</div>
+      <div class="qrcode num">${t('rc_code')}: ${billCode(sale)}</div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
+  } catch (e) { return ''; }   // never block printing a bill because of the QR
+}
+
+function rcHead(title, qr = '') {
   const c = S.cfg;
-  return `<div class="hd"><div class="hi"><div class="shopname">${esc(S.session.shop_name)}</div>
+  const top = S.cfg.paper === 'a4' ? '' : qr, side = S.cfg.paper === 'a4' ? qr : '';
+  return `<div class="hd">${top}<div class="hi"><div class="shopname">${esc(S.session.shop_name)}</div>
     ${c.receipt_header ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
     ${c.shop_phone ? `<div class="sub num">${esc(c.shop_phone)}</div>` : ''}${c.shop_tax_no ? `<div class="sub">${t('set_ntn')}: <span class="num">${esc(c.shop_tax_no)}</span></div>` : ''}</div>
-    <div class="doc">${title}</div></div>`;
+    <div class="doc">${title}</div>${side}</div>`;
 }
 
 function receiptHtml(sale, items, cust) {
@@ -28,7 +61,7 @@ function receiptHtml(sale, items, cust) {
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
   const pay = kv(t('paid'), money(sale.paid)) + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'))}
+  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), billQrHtml(sale))}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>

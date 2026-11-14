@@ -35,7 +35,17 @@ function syncIsAuthError(e) {
   return /not_member|shop_blocked|JWT|401|403|42501|not authenticated/i.test(m);
 }
 
+// Wrapper: the server may stop (or ask to re-register) this device; see device.js
 async function syncRun(opts = {}) {
+  const r = await syncRunOnce(opts);
+  if (r && r.deviceRetry) {                                // e.g. app updated: this device was never registered yet
+    try { await deviceRegister(getSb(), S.session); } catch (e) { return deviceKick(e.deviceBlocked ? e.message : t('err_generic')); }
+    return syncRunOnce(opts);
+  }
+  if (r && r.deviceBlocked) return deviceKick(deviceErrText(r.deviceBlocked));
+  return r;
+}
+async function syncRunOnce(opts = {}) {
   if (SYNC.running || !syncEnabled()) return { skipped: true };
   const locked = async fn => (navigator.locks ? navigator.locks.request('pos-sync', { ifAvailable: true }, l => l ? fn() : { skipped: true }) : fn());
   SYNC.running = true; syncUi();
@@ -56,6 +66,9 @@ async function syncRun(opts = {}) {
       return { pushed, pulled };
     });
   } catch (e) {
+    const dm = String((e && e.message) || e);
+    if (/device_unregistered/.test(dm) && !opts.devTried) { opts.devTried = true; return { deviceRetry: true }; }
+    if (/device_revoked|device_limit|device_unregistered/.test(dm)) return { deviceBlocked: dm };
     SYNC.lastError = syncIsAuthError(e) ? 'auth' : (e.message || String(e));
     try { await logSync('error', 'sync failed', String(e && e.message || e)); } catch (x) {}
     return { error: SYNC.lastError };
@@ -260,9 +273,14 @@ function syncUi() {
 // ───────── Subscription expiry ─────────
 async function syncCheckExpiry(sb, shop) {
   try {
-    const { data } = await sb.from('shops').select('expires_at').eq('id', shop).maybeSingle();
+    const { data } = await sb.from('shops').select('expires_at, plan_id').eq('id', shop).maybeSingle();
     if (!data) return;
     S.session.expires_at = data.expires_at;
+    try {                                            // plan features (e.g. bill QR). On error keep what we already know.
+      const pl = await sb.from('plans').select('bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
+      if (!pl.error && pl.data) { S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
+    } catch (x) {}
+    try { if (typeof avatarPull === 'function') await avatarPull(sb, shop); } catch (x) {}     // profile picture
     try {                                            // sessions saved before names existed: fetch the person's name once
       const m = await sb.from('shop_members').select('name').eq('shop_id', shop).eq('user_id', S.session.user_id).maybeSingle();
       if (m.data && m.data.name && m.data.name !== S.session.user_name) {
@@ -275,6 +293,8 @@ async function syncCheckExpiry(sb, shop) {
     if (d !== null && d <= 7 && !syncCheckExpiry._warned) { syncCheckExpiry._warned = true; toast(syncExpiryText(), 6000); }
   } catch (e) {}
 }
+// Plan features. The demo has everything; live shops get a feature only when their plan switches it on.
+const planHasBarcode = () => !!window.POS_DEMO || !!(S.session && S.session.barcodes === true);
 function syncDaysLeft() {
   if (!S.session || !S.session.expires_at) return null;
   return Math.ceil((new Date(S.session.expires_at).getTime() - Date.now()) / 86400000);

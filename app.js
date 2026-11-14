@@ -4,7 +4,7 @@
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, lang: 'ur', theme: 'green' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, receipt_qr: true, lang: 'ur', theme: 'green' },
   cart: [],
   tab: 'home',
   billQuery: '', billPage: 0, tiles: [], tileStocks: {},
@@ -83,6 +83,7 @@ async function boot() {
   if (window.POS_DEMO_INIT) await window.POS_DEMO_INIT();   // demo build only (see demo/)
   if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) {} }
   await loadCfg();
+  S.deviceId = await getDeviceId();
   S.session = await getSetting('session');
   $('boot').hidden = true;
   if (S.session) await showApp(); else { showLogin(); restoreAdmin(); }
@@ -126,16 +127,22 @@ function applyStaticText() {
   $('btn-login').textContent = t('login');
   $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
-  $('hdr-avatar').innerHTML = ic('store', 24);
+  $('hdr-avatar').innerHTML = avatarHtml(24);
   $('nav').innerHTML = [['home', 'tab_home', 'home'], ['products', 'tab_inventory', 'box'], ['bill', 'tab_sale', 'cart'], ['sales', 'tab_sales', 'receipt'], ['settings', 'tab_more', 'settings']]
     .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
 }
-function showLogin() { $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
+function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
 
 function getSb() {
   if (!S.sb) {
     if (typeof supabase === 'undefined') throw new Error(t('lib_missing'));
-    S.sb = supabase.createClient(POS_CONFIG.SUPABASE_URL, POS_CONFIG.SUPABASE_KEY);
+    // Every request tells the server which device it comes from (inside X-Client-Info, which Supabase's CORS already allows).
+    const devFetch = (url, opts = {}) => {
+      const h = new Headers(opts.headers || {});
+      if (S.deviceId) h.set('X-Client-Info', (h.get('X-Client-Info') || 'supabase-js') + ' dev:' + S.deviceId);
+      return fetch(url, { ...opts, headers: h });
+    };
+    S.sb = supabase.createClient(POS_CONFIG.SUPABASE_URL, POS_CONFIG.SUPABASE_KEY, { global: { fetch: devFetch } });
   }
   return S.sb;
 }
@@ -191,9 +198,19 @@ async function restoreAdmin() {   // page reload: Supabase keeps the auth sessio
   } catch (e) {}
 }
 async function finishLogin(session) {
+  if (!window.POS_DEMO && !session.admin) {         // one ID = the number of devices its plan allows
+    try { await deviceRegister(getSb(), session); }
+    catch (e) {
+      try { await getSb().auth.signOut(); } catch (x) {}
+      $('login-form').hidden = false; $('shop-choice').hidden = true; showLogin();
+      const el = $('login-err'); el.textContent = e.message || t('err_generic'); el.hidden = false;
+      return;
+    }
+  }
   await setSetting('session', session);
   await setSetting('shop_id', session.shop_id);
   S.session = session;
+  if (!window.POS_DEMO && S.sb && navigator.onLine) { try { await syncCheckExpiry(S.sb, session.shop_id); } catch (e) {} }   // learn the plan features (bill QR) right away
   $('login-form').hidden = false; $('shop-choice').hidden = true; $('in-pass').value = '';
   await showApp();
 }
@@ -213,6 +230,7 @@ async function doLogout() {
 // ───────── App shell ─────────
 async function showApp() {
   $('login').hidden = true; $('app').hidden = false;
+  await avatarLoad();
   $('hdr-shop').textContent = S.session.shop_name || t('app_name');
   applyStaticText();
   const draft = await getSetting('cart_draft', []);
@@ -292,7 +310,7 @@ function renderBillShell() {
   $('view-bill').innerHTML = `
     <div class="searchbar">
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
-      <button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>
+      ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
     <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
@@ -559,7 +577,7 @@ async function renderProducts(append = false) {
   const html = list.map(p => `
     <div class="card" ${canEditProducts() ? `data-edit="${p.id}"` : ''}>
       <div class="row"><div class="grow"><b>${esc(p.name)}</b>${p.name_ur ? ` <span class="muted">${esc(p.name_ur)}</span>` : ''}
-        <div class="muted">${p.barcode ? esc(p.barcode) + ' · ' : ''}${t('stock')}: ${stocks[p.id]} ${esc(p.unit || '')}${(p.units || []).map(u => ` · 1 ${esc(u.name)} = ${u.factor} ${esc(p.unit || '')}`).join('')}</div></div>
+        <div class="muted">${p.barcode && planHasBarcode() ? esc(p.barcode) + ' · ' : ''}${t('stock')}: ${stocks[p.id]} ${esc(p.unit || '')}${(p.units || []).map(u => ` · 1 ${esc(u.name)} = ${u.factor} ${esc(p.unit || '')}`).join('')}</div></div>
         <div class="price">${money(p.sale_price)}</div></div>
       ${p.min_stock && stocks[p.id] <= p.min_stock ? `<div class="warn">${t('stock')}: ${stocks[p.id]} ≤ ${p.min_stock}</div>` : ''}
       ${!p.sale_price ? `<div class="warn">${t('cat_no_price')}</div>` : ''}
@@ -573,11 +591,13 @@ async function renderProducts(append = false) {
 async function openProductForm(id) {
   const p = id ? await db.products.get(id) : {};
   const stock = id ? await getStock(S.session.shop_id, id) : 0;
+  // Size/colour variants only make sense for clothing-type shops (or when the shop type isn't chosen yet).
+  const bt = await catalogGetType(S.session.shop_id), showVariants = !bt || bt === 'garments';
   openModal(`<h2>${id ? t('edit_product') : t('add_product')}</h2>
     <form id="prod-form">
       <label>${t('name')}</label><input name="name" required value="${esc(p.name)}">
       <label>${t('name_ur')}</label><input name="name_ur" value="${esc(p.name_ur)}">
-      <label>${t('barcode')}</label><input name="barcode" inputmode="numeric" dir="ltr" value="${esc(p.barcode)}">
+      ${planHasBarcode() ? `<label>${t('barcode')}</label><input name="barcode" inputmode="numeric" dir="ltr" value="${esc(p.barcode)}">` : ''}
       <div class="row"><div class="grow"><label>${t('cost')}</label><input name="cost_price" type="number" inputmode="decimal" step="any" min="0" value="${p.cost_price ?? ''}"></div>
         <div class="grow"><label>${t('sale_price')}</label><input name="sale_price" type="number" inputmode="decimal" step="any" min="0" required value="${p.sale_price ?? ''}"></div></div>
       <div class="row"><div class="grow"><label>${t('unit')}</label><input name="unit" value="${esc(p.unit || 'pcs')}"></div>
@@ -587,7 +607,7 @@ async function openProductForm(id) {
         <input name="u_name_${k}" placeholder="${t('unit_name_ph')}" value="${esc(u.name || '')}" class="grow">
         <input name="u_factor_${k}" type="number" inputmode="decimal" step="any" min="0" placeholder="${t('unit_factor_ph')}" value="${u.factor ?? ''}" style="width:80px">
         <input name="u_price_${k}" type="number" inputmode="decimal" step="any" min="0" placeholder="${t('sale_price')}" value="${u.price ?? ''}" style="width:90px"></div>`; }).join('')}
-      ${id ? '' : `<label>${t('variants_title')}</label><div class="muted">${t('variants_hint')}</div>
+      ${id || !showVariants ? '' : `<label>${t('variants_title')}</label><div class="muted">${t('variants_hint')}</div>
         <div class="row" style="margin-top:4px"><input name="v_sizes" class="grow" placeholder="${t('variants_sizes_ph')}">
           <input name="v_colors" class="grow" placeholder="${t('variants_colors_ph')}"></div>`}
       ${id ? `<div class="muted" style="margin-top:8px">${t('stock')}: ${stock}</div>
@@ -604,7 +624,7 @@ async function openProductForm(id) {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
     try {
-      const base = { name: f.name, name_ur: f.name_ur, barcode: f.barcode,
+      const base = { name: f.name, name_ur: f.name_ur, barcode: planHasBarcode() ? f.barcode : (p.barcode || ''),
         cost_price: f.cost_price, sale_price: f.sale_price, unit: f.unit, min_stock: f.min_stock,
         units: [0, 1, 2].map(k => ({ name: f['u_name_' + k], factor: f['u_factor_' + k], price: f['u_price_' + k] })) };
       const combos = id ? [] : variantCombos(f.v_sizes, f.v_colors);
@@ -679,7 +699,10 @@ async function renderSettings() {
       <label>${t('set_addr')}</label><input id="set-sa" value="${esc(c.shop_address)}" ${rdis}>
       <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}" ${rdis}>
       <label>${t('paper_width')}</label>
-      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>`;
+      <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
+      ${planHasQr()
+        ? `<label style="margin-top:10px"><input type="checkbox" id="set-rqr" style="width:auto;min-height:0" ${c.receipt_qr !== false ? 'checked' : ''}> ${t('rc_qr_show')}</label>`
+        : `<div class="muted" style="margin-top:10px">${ic('shield', 16)} ${t('rc_qr_locked')}</div>`}`;
 
   const data = (live ? `<div class="muted" id="sync-state"></div>
       <div class="muted">${t('pending')}: ${nPend} · ${t('sync_failed_n')}: ${nFail} · ${t('sync_conflicts')}: ${nConf}</div>
@@ -692,9 +715,13 @@ async function renderSettings() {
 
   const warnDot = (live && (nFail || nConf || (syncDaysLeft() !== null && syncDaysLeft() <= 7))) ? ' <span class="bal owe">!</span>' : '';
   $('view-settings').innerHTML = `
-    <div class="card">
-      <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
-      ${S.session.user_name ? `<div><b>${esc(S.session.user_name)}</b></div>` : ''}<div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
+    <div class="card"><div class="row" style="align-items:center;gap:12px">
+      <div><label class="avatar sm" id="set-avatar" for="avatar-file" style="width:64px;height:64px;cursor:pointer" title="${t('pf_change')}" aria-label="${t('pf_change')}">${avatarHtml(30, 'user')}</label><input type="file" id="avatar-file" accept="image/*" hidden></div>
+      <div class="grow">
+        <div>${t('shop')}: <b>${esc(S.session.shop_name)}</b></div>
+        ${S.session.user_name ? `<div><b>${esc(S.session.user_name)}</b></div>` : ''}<div class="muted">${esc(displayLogin(S.session.email))} · ${t('role')}: ${t(S.session.role)}</div>
+        <div style="margin-top:6px"><label class="btn secondary sm" for="avatar-file" style="display:inline-flex;cursor:pointer">${t('pf_change')}</label> <button class="btn secondary sm" type="button" id="btn-avatar-del" ${S.avatar ? '' : 'hidden'}>${t('pf_remove')}</button></div>
+      </div></div>
     </div>
     ${account ? sec('account', 'user', t('set_sec_account'), account) : ''}
     ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
@@ -757,6 +784,7 @@ document.addEventListener('click', async ev => {
   const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
+  if (el.closest('#btn-avatar-del')) { avatarSet(''); return; }
   if (el.closest('#btn-pw')) {
     const oldp = $('set-oldpw').value, newp = $('set-newpw').value;
     if (!oldp) return toast(t('cur_password'), 3000);
@@ -838,6 +866,7 @@ document.addEventListener('keydown', async ev => {
     const code = ev.target.value.trim();
     if (!code) return;
     // Hardware/Bluetooth barcode scanners type the code and press Enter.
+    if (!planHasBarcode()) return;
     const p = await findByBarcode(S.session.shop_id, code);
     if (p) { await addToCart(p, true); ev.target.value = ''; }
   }
@@ -862,6 +891,11 @@ document.addEventListener('change', async ev => {
   else if (id === 'set-sp') { await saveCfg('shop_phone', ev.target.value.trim()); shopCfgChanged(); }
   else if (id === 'set-sa') { await saveCfg('shop_address', ev.target.value.trim()); shopCfgChanged(); }
   else if (id === 'set-sn') { await saveCfg('shop_tax_no', ev.target.value.trim()); shopCfgChanged(); }
+  else if (id === 'avatar-file') {
+    const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+    try { await avatarSet(await avatarResize(f)); } catch (e) { toast(t('pf_bad'), 3500); }
+  }
+  else if (id === 'set-rqr') { await saveCfg('receipt_qr', ev.target.checked); }
   else if (id === 'set-paper') { await saveCfg('paper', ev.target.value === 'a4' ? 'a4' : +ev.target.value); }
 });
 
