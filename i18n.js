@@ -114,7 +114,7 @@ const I18N = {
   }
 };
 
-let LANG = 'ur';
+let LANG = 'en';       // default language; a language chosen on the login page or in Settings is remembered and wins
 function t(key) { return (I18N[LANG] && I18N[LANG][key]) || I18N.en[key] || key; }
 function setLang(l) {
   LANG = l === 'en' ? 'en' : 'ur';

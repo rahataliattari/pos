@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ur" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -304,7 +304,7 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 .rc.a4 .hd .hi { flex: 1; } .rc.a4 .hd .doc { align-self: flex-start; margin-top: 0; }
 .rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 132px; height: 132px; }
 @media print {
-  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .62); height: calc(var(--paper, 58mm) * .62); }
+  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .55); height: calc(var(--paper, 58mm) * .55); }
   #receipt-print .rc.a4 .qrbox .qrsvg { width: 34mm; height: 34mm; }
   #receipt-print .rc .qrnote { color: #000; }
 }
@@ -357,6 +357,14 @@ nav.bottom button { position: relative; }
 #lnk-forgot { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
 .lglang { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--g900); font-weight: 700; cursor: pointer; }
 #login a:focus-visible, #login button:focus-visible { outline: 3px solid var(--g700); outline-offset: 2px; border-radius: 10px; }
+/* Receipt print: never split a line, the QR or the totals across two pages; slightly tighter on thermal paper */
+.rc .li, .rc .qrbox, .rc .grand, .rc .stampwrap { break-inside: avoid; page-break-inside: avoid; }
+.rc .qrbox { margin: 8px auto 4px; }
+@media print {
+  #receipt-print .rc:not(.a4) { line-height: 1.5; }
+  #receipt-print .rc:not(.a4) .sep { margin: 5px 0; }
+  #receipt-print .rc:not(.a4) .shopname { line-height: 1.4; }
+}
 
 </style>
 </head>
@@ -704,7 +712,7 @@ const I18N = {
   }
 };
 
-let LANG = 'ur';
+let LANG = 'en';       // default language; a language chosen on the login page or in Settings is remembered and wins
 function t(key) { return (I18N[LANG] && I18N[LANG][key]) || I18N.en[key] || key; }
 function setLang(l) {
   LANG = l === 'en' ? 'en' : 'ur';
@@ -2846,6 +2854,7 @@ const PRT = {
 };
 for (const k in PRT) { I18N.ur[k] = PRT[k][0]; I18N.en[k] = PRT[k][1]; }
 
+const rcDate = iso => { const d = new Date(iso), p = n => String(n).padStart(2, '0'); return isNaN(d) ? '' : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 const iname = i => (LANG === 'ur' && i.name_ur ? i.name_ur : i.product_name);
 const kv = (l, v, cls = '', plain = false) => `<div class="kv ${cls}"><span>${l}</span><b${plain ? '' : ' class="num"'}>${v}</b></div>`;
 
@@ -2880,28 +2889,30 @@ function billQrHtml(sale) {
 
 function rcHead(title, qr = '') {
   const c = S.cfg;
-  const top = S.cfg.paper === 'a4' ? '' : qr, side = S.cfg.paper === 'a4' ? qr : '';
+  const top = '', side = S.cfg.paper === 'a4' ? qr : '';
+  const sameAsName = (c.receipt_header || '').trim().toLowerCase() === (S.session.shop_name || '').trim().toLowerCase();
   return `<div class="hd">${top}<div class="hi"><div class="shopname">${esc(S.session.shop_name)}</div>
-    ${c.receipt_header ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
+    ${c.receipt_header && !sameAsName ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
     ${c.shop_phone ? `<div class="sub num">${esc(c.shop_phone)}</div>` : ''}${c.shop_tax_no ? `<div class="sub">${t('set_ntn')}: <span class="num">${esc(c.shop_tax_no)}</span></div>` : ''}</div>
     <div class="doc">${title}</div>${side}</div>`;
 }
 
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
-  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
+  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), `<bdi dir="ltr">${esc(rcDate(sale.created_at))}</bdi>`, '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
         `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
-    : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
+    : items.map(i => `<div class="li"><div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div>${i.quick ? '' : `<div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
   const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
   const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), billQrHtml(sale))}
+  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
+    ${a4 ? '' : billQrHtml(sale)}
     <hr class="sep"><div class="sub c">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
     <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
@@ -5056,7 +5067,7 @@ document.addEventListener('keydown', e => {
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, receipt_qr: true, allow_oversell: false, lang: 'ur', theme: 'green' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, receipt_qr: true, allow_oversell: false, lang: 'en', theme: 'green' },
   cart: [],
   tab: 'home',
   billQuery: '', billPage: 0, tiles: [], tileStocks: {},

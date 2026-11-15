@@ -9,6 +9,7 @@ const PRT = {
 };
 for (const k in PRT) { I18N.ur[k] = PRT[k][0]; I18N.en[k] = PRT[k][1]; }
 
+const rcDate = iso => { const d = new Date(iso), p = n => String(n).padStart(2, '0'); return isNaN(d) ? '' : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 const iname = i => (LANG === 'ur' && i.name_ur ? i.name_ur : i.product_name);
 const kv = (l, v, cls = '', plain = false) => `<div class="kv ${cls}"><span>${l}</span><b${plain ? '' : ' class="num"'}>${v}</b></div>`;
 
@@ -43,28 +44,30 @@ function billQrHtml(sale) {
 
 function rcHead(title, qr = '') {
   const c = S.cfg;
-  const top = S.cfg.paper === 'a4' ? '' : qr, side = S.cfg.paper === 'a4' ? qr : '';
+  const top = '', side = S.cfg.paper === 'a4' ? qr : '';
+  const sameAsName = (c.receipt_header || '').trim().toLowerCase() === (S.session.shop_name || '').trim().toLowerCase();
   return `<div class="hd">${top}<div class="hi"><div class="shopname">${esc(S.session.shop_name)}</div>
-    ${c.receipt_header ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
+    ${c.receipt_header && !sameAsName ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
     ${c.shop_phone ? `<div class="sub num">${esc(c.shop_phone)}</div>` : ''}${c.shop_tax_no ? `<div class="sub">${t('set_ntn')}: <span class="num">${esc(c.shop_tax_no)}</span></div>` : ''}</div>
     <div class="doc">${title}</div>${side}</div>`;
 }
 
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
-  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
+  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), `<bdi dir="ltr">${esc(rcDate(sale.created_at))}</bdi>`, '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
         `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
-    : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
+    : items.map(i => `<div class="li"><div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div>${i.quick ? '' : `<div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
   const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
   const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), billQrHtml(sale))}
+  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
+    ${a4 ? '' : billQrHtml(sale)}
     <hr class="sep"><div class="sub c">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
     <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
@@ -87,92 +90,11 @@ function reportPrintHtml(r, low, period) {
     <div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
 
-async function doPrint(html, paper) {
-  const host = $('receipt-print');
+function doPrint(html, paper) {
+  $('receipt-print').innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
-
-  const isA4 = paper === 'a4';
-  const width = Number.parseFloat(paper) || 58;
-  const contentWidth = width <= 58 ? 48 : width <= 80 ? 70 : Math.max(48, width - 10);
-  document.documentElement.style.setProperty('--paper', isA4 ? '100%' : width + 'mm');
-  document.documentElement.style.setProperty('--receipt-content', isA4 ? '100%' : contentWidth + 'mm');
-
-  if (isA4) {
-    host.innerHTML = html;
-    st.textContent = '@page{size:A4;margin:12mm}';
-  } else {
-    // Split long thermal bills into real, independently sized receipt pages.
-    // This prevents Android print services from shrinking one oversized bill to fit.
-    st.textContent = '@page{size:' + width + 'mm 200mm;margin:0}';
-    const source = document.createElement('div');
-    source.innerHTML = html;
-    const original = source.querySelector('.rc');
-    if (!original) { host.innerHTML = html; }
-    else {
-      const nodes = Array.from(original.children);
-      const firstItem = nodes.findIndex(n => n.classList.contains('it'));
-      const sumIndex = nodes.findIndex(n => n.classList.contains('sumbox'));
-      if (firstItem < 0 || sumIndex < 0 || sumIndex <= firstItem) {
-        host.innerHTML = html;
-      } else {
-        const before = nodes.slice(0, firstItem);
-        const between = nodes.slice(firstItem, sumIndex);
-        const after = nodes.slice(sumIndex);
-        const groups = [];
-        for (let i = 0; i < between.length; i++) {
-          if (between[i].classList.contains('it')) {
-            const group = [between[i]];
-            if (between[i + 1] && between[i + 1].classList.contains('q')) group.push(between[++i]);
-            groups.push(group);
-          }
-        }
-        // Keep the trailing separator with the item area, not as a detached page.
-        const trailing = between.filter(n => !n.classList.contains('it') && !n.classList.contains('q'));
-        host.innerHTML = '';
-        host.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;top:0;width:100%;';
-        const maxHeight = 185 * 96 / 25.4; // 185mm of a 200mm roll page, leaving safe printer margins.
-        const makePage = () => {
-          const page = document.createElement('div');
-          page.className = 'rc print-page';
-          page.style.cssText = 'width:' + contentWidth + 'mm;max-width:none;box-sizing:border-box;padding:0 1mm;margin:0 auto;';
-          return page;
-        };
-        const appendClones = (page, list) => list.forEach(n => page.appendChild(n.cloneNode(true)));
-        const pages = [];
-        let page = makePage();
-        appendClones(page, before);
-        host.appendChild(page);
-        const measureWithEnding = p => {
-          const temp = [];
-          [...trailing, ...after].forEach(n => {
-            const c = n.cloneNode(true); p.appendChild(c); temp.push(c);
-          });
-          const h = p.getBoundingClientRect().height;
-          temp.forEach(n => n.remove());
-          return h;
-        };
-        for (const group of groups) {
-          const added = group.map(n => n.cloneNode(true));
-          added.forEach(n => page.appendChild(n));
-          if (measureWithEnding(page) > maxHeight && page.querySelector('.it')) {
-            added.forEach(n => n.remove());
-            if (page.querySelector('.it')) pages.push(page);
-            page = makePage();
-            host.appendChild(page);
-            group.forEach(n => page.appendChild(n.cloneNode(true)));
-          }
-        }
-        appendClones(page, trailing);
-        appendClones(page, after);
-        pages.push(page);
-        pages.forEach((p, i) => { if (i < pages.length - 1) p.classList.add('print-page-break'); });
-        // If a single item is unusually tall, it remains at full size rather than being scaled.
-      }
-    }
-  }
-
-  host.style.cssText = '';
-  document.body.classList.add('printing');
-  window.print();
-  setTimeout(() => { document.body.classList.remove('printing'); host.innerHTML = ''; }, 1000);
+  st.textContent = paper === 'a4' ? '@page{size:A4;margin:12mm}' : `@page{size:${paper || 58}mm auto;margin:2mm}`;
+  document.documentElement.style.setProperty('--paper', paper === 'a4' ? '100%' : (paper || 58) + 'mm');
+  document.body.classList.add('printing'); window.print();
+  setTimeout(() => document.body.classList.remove('printing'), 500);
 }

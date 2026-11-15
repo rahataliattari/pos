@@ -1,8 +1,8 @@
 {
   "name": "Universal POS",
   "short_name": "POS",
-  "lang": "ur",
-  "dir": "rtl",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

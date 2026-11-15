@@ -257,38 +257,7 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 .rc.a4 .rt td.num:last-child, .rc.a4 .rt th:last-child { text-align: end; }
 .rc.a4 .sumbox { width: 46%; margin-inline-start: auto; } .rc.a4 .sec { font-weight: 800; color: var(--g900); margin-top: 14px; font-size: 15px; }
 @media print {
-  /* The print page itself is LTR so auto horizontal margins center reliably
-     even though the app document is Urdu/RTL. The receipt keeps its Urdu direction. */
-  #receipt-print {
-    display: block !important;
-    direction: ltr !important;
-    text-align: center !important;
-    width: 100% !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    position: relative !important;
-    left: auto !important;
-    right: auto !important;
-  }
-  #receipt-print .rc {
-    direction: rtl;
-    display: block !important;
-    box-sizing: border-box !important;
-    float: none !important;
-    position: relative !important;
-    left: auto !important;
-    right: auto !important;
-    transform: none !important;
-    box-shadow: none;
-    max-width: none;
-    width: var(--receipt-content, 48mm);
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding: 0 1mm;
-  }
-  #receipt-print .rc:not(.a4) { break-inside: avoid !important; page-break-inside: avoid !important; }
-  #receipt-print .rc.print-page { height: auto; min-height: 0; overflow: visible !important; }
-  #receipt-print .rc.print-page-break { break-after: page !important; page-break-after: always !important; }
+  #receipt-print .rc { box-shadow: none; max-width: none; width: var(--paper, 58mm); margin: 0; padding: 0 1mm; }
   #receipt-print .rc.a4 { width: 100%; padding: 4mm 0 0; } #receipt-print .rc::after { display: none; }
 }
 .rc td.num, .rc th.num { display: table-cell; }
@@ -325,7 +294,7 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 .rc.a4 .hd .hi { flex: 1; } .rc.a4 .hd .doc { align-self: flex-start; margin-top: 0; }
 .rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 132px; height: 132px; }
 @media print {
-  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .62); height: calc(var(--paper, 58mm) * .62); }
+  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .55); height: calc(var(--paper, 58mm) * .55); }
   #receipt-print .rc.a4 .qrbox .qrsvg { width: 34mm; height: 34mm; }
   #receipt-print .rc .qrnote { color: #000; }
 }
@@ -378,3 +347,11 @@ nav.bottom button { position: relative; }
 #lnk-forgot { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
 .lglang { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--g900); font-weight: 700; cursor: pointer; }
 #login a:focus-visible, #login button:focus-visible { outline: 3px solid var(--g700); outline-offset: 2px; border-radius: 10px; }
+/* Receipt print: never split a line, the QR or the totals across two pages; slightly tighter on thermal paper */
+.rc .li, .rc .qrbox, .rc .grand, .rc .stampwrap { break-inside: avoid; page-break-inside: avoid; }
+.rc .qrbox { margin: 8px auto 4px; }
+@media print {
+  #receipt-print .rc:not(.a4) { line-height: 1.5; }
+  #receipt-print .rc:not(.a4) .sep { margin: 5px 0; }
+  #receipt-print .rc:not(.a4) .shopname { line-height: 1.4; }
+}

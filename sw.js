@@ -1,7 +1,7 @@
 // Service worker: makes the app shell and libraries available offline.
 // IMPORTANT: bump CACHE (v34 -> v35 ...) every time ANY shell file changes. Files are served from the cache only,
 // and a new CACHE version downloads ALL files fresh together, so old and new files are never mixed.
-const CACHE = 'pos-shell-v41';
+const CACHE = 'pos-shell-v40';
 
 const SHELL = [
   './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'quickbill.js', 'scanner.js', 'app.js',
