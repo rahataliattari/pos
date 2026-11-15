@@ -351,7 +351,13 @@ nav.bottom button { position: relative; }
 .rc .li, .rc .qrbox, .rc .grand, .rc .stampwrap { break-inside: avoid; page-break-inside: avoid; }
 .rc .qrbox { margin: 8px auto 4px; }
 @media print {
+  html, body { margin: 0 !important; padding: 0 !important; }
+  body.printing { margin: 0 !important; padding: 0 !important; }
+  body.printing #receipt-print { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+  #receipt-print .rc { margin: 0 auto !important; padding: 0.5mm !important; }
   #receipt-print .rc:not(.a4) { line-height: 1.5; }
-  #receipt-print .rc:not(.a4) .sep { margin: 5px 0; }
-  #receipt-print .rc:not(.a4) .shopname { line-height: 1.4; }
+  #receipt-print .rc:not(.a4) .sep { margin: 3px 0; }
+  #receipt-print .rc:not(.a4) .shopname { line-height: 1.35; }
+  #receipt-print .rc:not(.a4) .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .45) !important; height: calc(var(--paper, 58mm) * .45) !important; }
+  #receipt-print .rc .stamp { transform: none !important; }
 }
