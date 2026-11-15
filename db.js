@@ -112,7 +112,8 @@ async function saveSale(sale, items) {
     if (!(it.unit_price >= 0)) throw new Error('Invalid price');
     if (it.unit_factor != null && !(Number(it.unit_factor) > 0)) throw new Error('Invalid unit');
   }
-  const subtotal = round2(items.reduce((s, it) => s + round2(it.qty * it.unit_price), 0));
+  const lineAmt = it => (it.line_total != null ? round2(it.line_total) : round2(it.qty * it.unit_price));   // line_total is set when sold "by amount" (e.g. Rs 100 of a Rs 1200/kg item)
+  const subtotal = round2(items.reduce((s, it) => s + lineAmt(it), 0));
   const discount = round2(sale.discount || 0);
   if (discount < 0 || discount > subtotal) throw new Error('Invalid discount');
   const tax = round2((subtotal - discount) * (sale.tax_rate || 0) / 100);
@@ -127,6 +128,8 @@ async function saveSale(sale, items) {
         customer_id: sale.customer_id || null,
         subtotal, discount, tax, total, paid,
         payment_method: sale.payment_method || 'cash',
+        pay_split: sale.pay_split || null,
+        edited_from: sale.edited_from || null, edited_from_no: sale.edited_from_no || null,
         status: 'completed',
         created_by: sale.created_by || null
       });
@@ -143,8 +146,8 @@ async function saveSale(sale, items) {
           unit_factor: unitFactor(it),
           unit_price: round2(it.unit_price),
           cost_price: round2(it.cost_price || 0),
-          discount: 0,
-          line_total: round2(it.qty * it.unit_price)
+          discount: round2(it.item_discount || 0),
+          line_total: lineAmt(it)
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
@@ -163,14 +166,14 @@ async function saveSale(sale, items) {
 
 // Cancel a sale (bill return): the sale stays for history with status 'void', stock is put back through
 // reverse stock movements (ledger), and the customer's balance / reports ignore it automatically.
-async function voidSale(saleId, reason = '') {
+async function voidSale(saleId, reason = '', opts = {}) {
   return db.transaction('rw', db.sales, db.sale_items, db.stock_movements, db.sync_queue, db.app_settings, async () => {
     const sale = await db.sales.get(saleId);
     if (!sale) throw new Error('Sale not found');
     if (sale.status === 'void') throw new Error('Already cancelled');
     const now = new Date().toISOString();
     const rec = { ...sale, status: 'void', void_reason: (reason || '').trim() || null, voided_at: now,
-                  refunded: round2((sale.refunded || 0) + (sale.paid || 0)),
+                  refunded: opts.edited ? (sale.refunded || 0) : round2((sale.refunded || 0) + (sale.paid || 0)),   // a bill replaced by its corrected copy hands back no cash
                   version: sale.version + 1, updated_at: now, sync_status: 'pending' };
     await db.sales.put(rec); await enqueue('sales', rec, 'update');
     const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
@@ -200,7 +203,7 @@ async function returnSaleItems(saleId, lines, reason = '') {
       const it = byId[l.item_id]; if (!it) throw new Error('Item not found');
       const q = round3(l.qty);
       if (q > it.qty + 1e-9) throw new Error('Return quantity is more than sold');
-      const amount = round2(q * it.unit_price);
+      const amount = q >= it.qty - 1e-9 ? round2(it.line_total) : round2(q * it.unit_price);   // full return of a "by amount" line gives back exactly what was charged
       value = round2(value + amount);
       const upd = { ...it, qty: round3(it.qty - q), returned_qty: round3((it.returned_qty || 0) + q),
                     line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };

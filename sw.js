@@ -1,9 +1,9 @@
 // Service worker: makes the app shell and libraries available offline.
 // Bump CACHE when any shell file changes.
-const CACHE = 'pos-shell-v32';
+const CACHE = 'pos-shell-v33';
 
 const SHELL = [
-  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'app.js',
+  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'app.js',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png'
 ];
 const LIBS = [
@@ -50,5 +50,24 @@ self.addEventListener('fetch', e => {
     if (res) return res;
     if (req.mode === 'navigate') return (await c.match('index.html')) || Response.error();
     return Response.error();
+  })());
+});
+
+// ───────── Web Push (Stage 9) ─────────
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Universal POS', {
+    body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', tag: d.tag || 'pos', renotify: true, lang: 'ur', dir: 'auto',
+    data: { kind: d.kind || '', ticket_id: d.ticket_id || '' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const data = e.notification.data || {};
+  e.waitUntil((async () => {
+    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { c.postMessage({ type: 'push-open', data }); if ('focus' in c) return c.focus(); }
+    return clients.openWindow('./?push=' + encodeURIComponent(data.kind || '') + '&t=' + encodeURIComponent(data.ticket_id || ''));
   })());
 });

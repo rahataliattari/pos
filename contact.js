@@ -35,6 +35,8 @@ const CTT = {
   ct_q2: ['براہِ کرم ایپ بند کر کے دوبارہ کھولیں، انٹرنیٹ آن کر کے "ابھی سنک کریں" دبائیں اور بتائیں مسئلہ ختم ہوا یا نہیں۔', 'Please close and reopen the app, go online, tap "Sync now" and tell us whether the problem is gone.'],
   ct_q3: ['تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', 'Thanks for the suggestion! We are adding it to our list.'],
   ct_q4: ['مسئلے کی اسکرین کی تصویر واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
+  fp_tab: ['پاس ورڈ درخواستیں', 'Password requests'], fp_done: ['مکمل', 'Done'], fp_mark: ['مکمل کریں', 'Mark done'], fp_none: ['کوئی درخواست نہیں', 'No requests'],
+  fp_nouser: ['یہ نمبر کسی صارف کا نہیں ملا', 'No user has this number'],
   ct_notif_on: ['نوٹیفکیشن آن کریں', 'Enable notifications'],
   ct_notif_note: ['نوٹیفکیشن تب آتا ہے جب ایپ کھلی ہو (یا فون کے پس منظر میں چل رہی ہو)۔ ایپ مکمل بند ہو تو اگلی بار کھولنے پر بیج نظر آئے گا۔', 'Notifications arrive while the app is open (or running in the background). If the app is fully closed, the badge shows next time you open it.'],
   ct_notif_title: ['نیا صارف پیغام', 'New user message'], ct_notif_n: ['{n} نئے پیغام', '{n} new message(s)'],
@@ -47,9 +49,9 @@ Object.assign(ICONS, {
 
 const CT_KINDS = ['problem', 'suggestion', 'question'];
 const CT_TOPICS = ['billing', 'stock', 'sync', 'login', 'subscription', 'other'];
-const CT_APP_VERSION = 'stage8';
+const CT_APP_VERSION = 'stage9';
 const CT_DK = 'pos_ct_demo_v1';
-const CT = { phone: null, userN: 0, adminN: null, mine: [], all: [], f: 'open', view: '', cur: null, ch: null, timer: null };
+const CT = { phone: null, userN: 0, adminN: null, resetN: 0, seg: 'msgs', resets: [], mine: [], all: [], f: 'open', view: '', cur: null, ch: null, timer: null };
 const ctLive = () => !window.POS_DEMO;
 const ctIsAdmin = () => !!(window.POS_DEMO || S.isAdmin || (S.session && S.session.admin));
 const ctFill = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
@@ -63,6 +65,7 @@ function ctSeed() {
       { id: t1, shop_id: 'demo-shop', user_id: 'demo-user', user_name: 'ڈیمو مالک', shop_name: 'ڈیمو جنرل اسٹور', phone: '03001112233', kind: 'suggestion', topic: 'billing', subject: 'رسید پر دکان کا لوگو', meta: 'demo', status: 'answered', admin_unread: false, user_unread: true, created_at: iso(30), updated_at: iso(2) },
       { id: t2, shop_id: 'seed-shop-2', user_id: 'seed-user-2', user_name: 'عبدالرحمان', shop_name: 'رحمان کریانہ ہول سیل', phone: '03331112233', kind: 'problem', topic: 'sync', subject: 'بل سنک نہیں ہو رہے', meta: 'demo', status: 'open', admin_unread: true, user_unread: false, created_at: iso(5), updated_at: iso(5) }
     ],
+    resets: [{ id: uuid(), phone: '923451112233', name: 'ستارہ بی بی', status: 'open', created_at: iso(1) }],
     messages: [
       { id: uuid(), ticket_id: t1, sender: 'user', sender_name: 'ڈیمو مالک', body: 'رسید کے اوپر ہماری دکان کا لوگو بھی چھپنا چاہیے۔', at: iso(30) },
       { id: uuid(), ticket_id: t1, sender: 'admin', sender_name: 'Support', body: 'تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', at: iso(2) },
@@ -70,7 +73,7 @@ function ctSeed() {
     ]
   };
 }
-function ctDemo() { let d = null; try { d = JSON.parse(localStorage.getItem(CT_DK)); } catch (e) {} if (!d) { d = ctSeed(); ctDemoSave(d); } return d; }
+function ctDemo() { let d = null; try { d = JSON.parse(localStorage.getItem(CT_DK)); } catch (e) {} if (!d) { d = ctSeed(); ctDemoSave(d); } if (!d.resets) d.resets = []; return d; }
 function ctDemoSave(d) { try { localStorage.setItem(CT_DK, JSON.stringify(d)); } catch (e) {} }
 const ctByNew = (a, b) => (a.updated_at < b.updated_at ? 1 : -1);
 
@@ -131,12 +134,21 @@ const ctApi = {
     if (!ctLive()) { const d = ctDemo(), tk = d.tickets.find(x => x.id === id); if (tk) { tk.admin_unread = false; ctDemoSave(d); } return; }
     await getSb().from('support_tickets').update({ admin_unread: false }).eq('id', id);
   },
+  async resets() {
+    if (!ctLive()) return ctDemo().resets.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const { data, error } = await getSb().from('password_reset_requests').select('*').order('created_at', { ascending: false }).limit(100);
+    if (error) throw ctErr(error); return data || [];
+  },
+  async resetDone(id, done) {
+    if (!ctLive()) { const d = ctDemo(), r = d.resets.find(x => x.id === id); if (r) r.status = done ? 'done' : 'open'; ctDemoSave(d); return; }
+    const { error } = await getSb().from('password_reset_requests').update({ status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null }).eq('id', id); if (error) throw ctErr(error);
+  },
   async counts() {
-    const out = { user: 0, admin: 0 };
-    if (!ctLive()) { const d = ctDemo(); out.user = d.tickets.filter(x => x.user_unread && x.shop_id === S.session.shop_id).length; out.admin = d.tickets.filter(x => x.admin_unread).length; return out; }
+    const out = { user: 0, admin: 0, reset: 0 };
+    if (!ctLive()) { const d = ctDemo(); out.user = d.tickets.filter(x => x.user_unread && x.shop_id === S.session.shop_id).length; out.admin = d.tickets.filter(x => x.admin_unread).length; out.reset = d.resets.filter(x => x.status === 'open').length; return out; }
     const sb = getSb();
     if (S.session) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('user_id', S.session.user_id).eq('user_unread', true); if (!r.error) out.user = r.count || 0; }
-    if (ctIsAdmin()) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('admin_unread', true); if (!r.error) out.admin = r.count || 0; }
+    if (ctIsAdmin()) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('admin_unread', true); if (!r.error) out.admin = r.count || 0; const q = await sb.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'open'); if (!q.error) out.reset = q.count || 0; }
     return out;
   },
   async phone() {
@@ -183,7 +195,7 @@ async function ctPoll() {
   if (ctLive() && !navigator.onLine) return;
   try {
     const c = await ctApi.counts(), pu = CT.userN, pa = CT.adminN;
-    CT.userN = c.user; CT.adminN = c.admin; ctPaint();
+    CT.userN = c.user; CT.resetN = c.reset || 0; CT.adminN = c.admin + CT.resetN; ctPaint();
     if (ctIsAdmin() && pa !== null && c.admin > pa) ctNotifyAdmin(c.admin - pa);
     if (pu !== undefined && c.user > pu && CT.view !== 'thread') toast(t('ct_new_reply'), 5000);
     if (SAS.tab === 'inbox' && !$('sa').hidden && $('ct-alist') && $('modal').hidden) ctAdminList();
@@ -255,28 +267,30 @@ async function ctThread(id) {
 async function ctUserReply(id) {
   const ta = $('ct-reply'), body = ta ? ta.value.trim() : ''; if (body.length < 2) return;
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);
-  try { await ctApi.send({ ticket: id, body }); toast(t('ct_sent')); ctPoll(); await ctThread(id); } catch (e) { toast(e.message, 4500); }
+  try { await ctApi.send({ ticket: id, body }); toast(t('ct_sent')); ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); } catch (e) { toast(e.message, 4500); }
 }
 async function ctSubmitNew(form) {
   const f = Object.fromEntries(new FormData(form).entries());
   if (String(f.subject).trim().length < 3 || String(f.body).trim().length < 5) return toast(t('ct_short'), 3500);
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);    // form stays open so the text is not lost
   const btn = $('ct-submit'); btn.disabled = true;
-  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body }); toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); await ctThread(id); }
+  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body }); toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); }
   catch (e) { toast(e.message, 5000); btn.disabled = false; }
 }
 
 // ───────── Super Admin: Inbox tab ─────────
 function ctAdminView() {
+  setTimeout(async () => { const b = $('ct-pushbox'); if (b) b.innerHTML = await pushCardHtml(); }, 0);
   const chips = [['open', 'ct_f_open'], ['answered', 'ct_f_answered'], ['closed', 'ct_f_closed'], ['all', 'sa_st_all']]
     .map(([k, l]) => `<button class="sa-chip ${CT.f === k ? 'on' : ''}" data-ct="afilter|${k}">${t(l)}</button>`).join('');
-  const canNotif = 'Notification' in window && Notification.permission === 'default';
-  return `<div class="sa-chips">${chips}</div>
-    ${canNotif ? `<div class="card"><div class="muted">${t('ct_notif_note')}</div><button class="btn secondary sm" data-ct="notif" style="margin-top:6px">${ic('bell', 16)} ${t('ct_notif_on')}</button></div>` : ''}
+  const seg = `<div class="seg"><button class="${CT.seg === 'msgs' ? 'on' : ''}" data-ct="aseg|msgs">${t('sa_t_inbox')}</button><button class="${CT.seg === 'reset' ? 'on' : ''}" data-ct="aseg|reset">${t('fp_tab')}${CT.resetN ? ` <b class="tbadge">${CT.resetN}</b>` : ''}</button></div>`;
+  return `${seg}${CT.seg === 'msgs' ? `<div class="sa-chips">${chips}</div>` : ''}
+    <div class="card" id="ct-pushbox"></div>
     <div id="ct-alist"><div class="muted" style="text-align:center;padding:24px">…</div></div>`;
 }
 async function ctAdminList() {
   const box = $('ct-alist'); if (!box) return;
+  if (CT.seg === 'reset') return ctResetList(box);
   let all; try { all = await ctApi.all(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
   if (!$('ct-alist')) return;
   CT.all = all;
@@ -312,13 +326,32 @@ async function ctAdminOpen(id) {
 async function ctAdminReply(id, close) {
   const ta = $('ct-reply'), body = ta ? ta.value.trim() : '';
   if (body.length < 2) { if (!close) return toast(t('ct_short'), 2500); await ctApi.setStatus(id, 'closed'); toast(t('saved')); closeModal(); return ctAdminList(); }
-  try { await ctApi.reply(id, body, close); toast(t('saved')); closeModal(); ctPoll(); ctAdminList(); } catch (e) { toast(e.message, 5000); }
+  try { await ctApi.reply(id, body, close); pushNotify('ticket_reply', { ticket_id: id }); toast(t('saved')); closeModal(); ctPoll(); ctAdminList(); } catch (e) { toast(e.message, 5000); }
+}
+
+// password-reset requests (from the login screen's "forgot password")
+const ctDigits = p => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; return d; };
+const ctResetUser = r => r && SAD && SAD.users.find(u => ctDigits(u.phone) === ctDigits(r.phone));
+async function ctResetList(box) {
+  if (!box) return;
+  let list; try { list = await ctApi.resets(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
+  CT.resets = list;
+  const shown = list.filter(r => CT.f === 'closed' ? r.status === 'done' : r.status === 'open');
+  box.innerHTML = `<div class="sa-chips"><button class="sa-chip ${CT.f !== 'closed' ? 'on' : ''}" data-ct="afilter|open">${t('ct_f_open')}</button><button class="sa-chip ${CT.f === 'closed' ? 'on' : ''}" data-ct="afilter|closed">${t('fp_done')}</button></div>`
+    + (shown.map(r => { const u = ctResetUser(r), ph = '0' + ctDigits(r.phone).slice(2), wa = waNumber(r.phone);
+      return `<div class="card"><div class="row"><div class="grow"><b dir="ltr">${esc(ph)}</b>${r.name ? ` · ${esc(r.name)}` : ''}<div class="muted">${esc(fmtDate(r.created_at))}</div>
+        <div class="muted">${u ? `${esc(u.name)} — ${esc(saShopName(u.shop_id))}` : `<span class="owe-t">${t('fp_nouser')}</span>`}</div></div></div>
+        <div class="row" style="margin-top:8px">${r.status === 'open' ? `${u ? `<button class="btn grow sm" data-ct="rreset|${r.id}">${ic('key', 16)} ${t('sa_reset_pw')}</button>` : ''}<button class="btn secondary sm" data-ct="rdone|${r.id}|1">${t('fp_mark')}</button>` : `<button class="btn secondary sm" data-ct="rdone|${r.id}|0">${t('ct_a_reopen')}</button>`}
+        <a class="btn secondary sm lnk" href="tel:${esc(ph)}" dir="ltr">${ic('phone', 16)}</a>${wa ? `<a class="btn secondary sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 16)}</a>` : ''}</div></div>`; }).join('')
+      || `<div class="muted" style="text-align:center;padding:24px">${t('fp_none')}</div>`);
 }
 
 // ───────── Wiring ─────────
 const CT_ACT = {
   list: () => ctRenderList(), new: () => ctNewForm(), open: id => ctThread(id), usend: id => ctUserReply(id),
-  afilter: k => { CT.f = k; saRender(); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
+  afilter: k => { CT.f = k; saRender(); }, aseg: k => { CT.seg = k; saRender(); },
+  rdone: async (id, v) => { try { await ctApi.resetDone(id, v !== '0'); ctPoll(); ctResetList($('ct-alist')); } catch (e) { toast(e.message, 4000); } },
+  rreset: id => { const u = ctResetUser(CT.resets.find(x => x.id === id)); if (u) SA_ACT.resetpw(u.id); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
   astatus: async (id, s) => { try { await ctApi.setStatus(id, s); toast(t('saved')); closeModal(); ctAdminList(); } catch (e) { toast(e.message, 4000); } },
   canned: n => { const ta = $('ct-reply'); if (ta) { ta.value = (ta.value ? ta.value + '\n' : '') + t('ct_q' + n); ta.focus(); } },
   notif: async () => { try { await Notification.requestPermission(); } catch (e) {} saRender(); }

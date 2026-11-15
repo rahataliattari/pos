@@ -320,3 +320,10 @@ nav.bottom button { position: relative; }
 .ct-msg { max-width: 86%; padding: 8px 12px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid var(--line); align-self: flex-start; }
 .ct-msg.me { background: var(--g100); border-color: var(--g200); align-self: flex-end; }
 .ct-msg small { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
+
+.iconbtn { position: relative; }
+.pmgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.tile.oos { opacity: .5; }
+.line { grid-template-columns: minmax(0, 1fr) auto; }
+.line .sa-chips { max-width: 100%; }

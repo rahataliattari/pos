@@ -277,8 +277,8 @@ async function syncCheckExpiry(sb, shop) {
     if (!data) return;
     S.session.expires_at = data.expires_at;
     try {                                            // plan features (e.g. bill QR). On error keep what we already know.
-      const pl = await sb.from('plans').select('bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
-      if (!pl.error && pl.data) { S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
+      const pl = await sb.from('plans').select('name, name_ur, bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
+      if (!pl.error && pl.data) { S.session.plan_name = (LANG === 'ur' ? pl.data.name_ur : pl.data.name) || pl.data.name; S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
     } catch (x) {}
     try { if (typeof termsPush === 'function') await termsPush(); } catch (x) {}
     try { if (typeof avatarPull === 'function') await avatarPull(sb, shop); } catch (x) {}     // profile picture

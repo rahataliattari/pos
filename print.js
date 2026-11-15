@@ -53,13 +53,14 @@ function rcHead(title, qr = '') {
 
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
-  const meta = kv(t('invoice'), esc(sale.invoice_no)) + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
+  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
         `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
     : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
-  const pay = kv(t('paid'), money(sale.paid)) + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
+  const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
+  const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
   return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), billQrHtml(sale))}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
@@ -71,7 +72,7 @@ function receiptHtml(sale, items, cust) {
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
     ...items.map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
-    `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}`,
+    `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}${sale.payment_method && sale.payment_method !== 'cash' ? ' (' + t('pm_' + sale.payment_method) + ')' : ''}`,
     ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', S.cfg.receipt_footer || t('thanks')].join('\n');
 }
 

@@ -50,6 +50,8 @@ const SAT = {
   sa_a_user_new: ['نیا صارف', 'User added'], sa_a_user_edit: ['صارف میں ترمیم', 'User edited'], sa_a_user_del: ['صارف حذف', 'User deleted'], sa_a_pw_reset: ['پاس ورڈ ری سیٹ', 'Password reset'],
   sa_a_plan_edit: ['پلان میں ترمیم', 'Plan edited'], sa_a_ann_new: ['نیا اعلان', 'Announcement added'], sa_a_settings: ['سیٹنگز تبدیل', 'Settings changed']
 };
+SAT.sa_ann_to = ['کس کو دکھانا ہے', 'Show to']; SAT.sa_ann_all = ['تمام دکانیں', 'All shops']; SAT.sa_ann_push = ['فون پر نوٹیفکیشن بھی بھیجیں', 'Also send a phone notification'];
+SAT.sa_push_btn = ['اس دکان کو نوٹیفکیشن', 'Notify this shop']; SAT.sa_push_ask = ['اس دکان کے سب صارفین کو نوٹیفکیشن کا متن لکھیں', 'Write the notification text for all users of this shop'];
 SAT.sa_shop_blocked = ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.'];
 for (const k in SAT) { I18N.ur[k] = SAT[k][0]; I18N.en[k] = SAT[k][1]; }
 Object.assign(ICONS, {
@@ -134,7 +136,7 @@ function saLog(action, target, detail) {
 }
 function saAnnouncement() {
   if (!window.POS_DEMO) return window.SA_ANN || '';
-  try { const a = saLoad().announcements.find(x => x.active); return a ? a.text : ''; } catch (e) { return ''; }
+  try { const L = saLoad().announcements.filter(x => x.active), me = S.session && S.session.shop_id, a = L.find(x => x.shop_id && x.shop_id === me) || L.find(x => !x.shop_id); return a ? a.text : ''; } catch (e) { return ''; }
 }
 
 // ───────── Live adapter (Supabase) ─────────
@@ -148,11 +150,11 @@ const SA_COLS = {
   users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
   payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
   audit: ['id', 'at', 'actor', 'action', 'target', 'detail'],
-  announcements: ['id', 'text', 'active', 'at']
+  announcements: ['id', 'text', 'active', 'at', 'shop_id']
 };
 let SAB = null, saQ = Promise.resolve();
 const saKey = (t, r) => JSON.stringify(SA_COLS[t].map(c => (r[c] === undefined ? null : r[c])));
-const saPick = (t, r) => Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]]));
+const saPick = (t, r) => { const o = Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]])); if (t === 'announcements' && o.shop_id == null) delete o.shop_id; return o; };   // keeps working before 17_*.sql is run
 function saSnap() {
   SAB = {};
   for (const t of Object.keys(SA_COLS)) { SAB[t] = new Map(); for (const r of SAD[t]) SAB[t].set(r.id, { k: saKey(t, r), r: { ...r } }); }
@@ -221,8 +223,10 @@ function saCommit() {            // save + wait; true on success (callers show c
 }
 async function saLoadAnnouncement() {   // shop users see the active announcement in the sync bar
   if (window.POS_DEMO) return;
-  const { data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1);
-  window.SA_ANN = data && data[0] ? data[0].text : '';
+  let { data, error } = await getSb().from('announcements').select('text, shop_id').eq('active', true).order('at', { ascending: false }).limit(10);
+  if (error) ({ data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1));   // before 17_*.sql
+  const me = S.session && S.session.shop_id, a = (data || []).find(x => x.shop_id && x.shop_id === me) || (data || []).find(x => !x.shop_id);
+  window.SA_ANN = a ? a.text : '';
   $('syncnote').textContent = window.SA_ANN || t('sync_note');
 }
 
@@ -326,7 +330,7 @@ function saShopDetail(id) {
     <div class="row" style="margin-bottom:8px">
       <button class="btn ${s.suspended ? 'secondary' : 'danger'} grow" data-sa="toggle|${id}">${s.suspended ? t('sa_activate') : t('sa_suspend')}</button>
       <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
-      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}</div>
+      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}<button class="btn secondary" data-sa="shoppush|${id}" aria-label="${t('sa_push_btn')}" title="${t('sa_push_btn')}">${ic('bell', 18)}</button></div>
     <div class="row" style="margin-top:10px"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
     ${us.map(u => `<div class="lrow" style="cursor:pointer" data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('')}
     <div class="sa-sec" style="margin-top:10px">${t('sa_pay_tab')}</div>
@@ -493,7 +497,7 @@ function saMoreView() {
   if (SAS.mseg === 'help') return seg + helpHtml('superadmin') +
     `<h3 style="margin:16px 4px 8px">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted" style="margin:10px 4px 6px"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
   if (SAS.mseg === 'ann') return seg + `<button class="btn block" data-sa="annadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
-    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
+    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="muted">${a.shop_id ? esc(saShopName(a.shop_id)) : t('sa_ann_all')}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
       <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_ann_none')}</div>`);
   if (SAS.mseg === 'log') return seg + `<div class="card">${d.audit.slice(0, SAS.logN).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>` +
     (d.audit.length > SAS.logN ? `<button class="btn secondary block" data-sa="morelog">${t('more')}</button>` : '');
@@ -506,13 +510,16 @@ function saMoreView() {
 }
 function saAnnForm() {
   openModal(`<h2>${t('sa_ann_add')}</h2><form id="sa-form"><label>${t('sa_ann_text')}</label><input name="text" required maxlength="160">
+    <label>${t('sa_ann_to')}</label><select name="shop_id"><option value="">${t('sa_ann_all')}</option>${SAD.shops.filter(s => !s.archived).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>
+    <label><input type="checkbox" name="push" checked style="width:auto;min-height:0"> ${t('sa_ann_push')}</label>
     <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
-    const txt = new FormData(ev.target).get('text').trim(); if (!txt) return;
-    SAD.announcements.forEach(a => { a.active = false; });   // one live announcement at a time
-    SAD.announcements.unshift({ id: uuid(), text: txt, active: true, at: saIso(0) });
-    saLog('ann_new', txt.slice(0, 40)); saSave(); closeModal(); toast(t('saved')); saRender();
+    const fd = new FormData(ev.target), txt = fd.get('text').trim(), sid = fd.get('shop_id') || null; if (!txt) return;
+    SAD.announcements.forEach(a => { if ((a.shop_id || null) === sid) a.active = false; });   // one live announcement per target (all shops / one shop)
+    SAD.announcements.unshift({ id: uuid(), text: txt, active: true, at: saIso(0), shop_id: sid });
+    saLog('ann_new', txt.slice(0, 40), sid ? saShopName(sid) : ''); closeModal(); toast(t('saved'));
+    saCommit().then(ok => { if (ok) { if (fd.get('push')) pushNotify('announce', { shop_id: sid, text: txt }); saRender(); } });
   };
 }
 
@@ -575,6 +582,7 @@ const SA_ACT = {
   bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),
   mseg: k => { SAS.mseg = k; saRender(); }, morelog: () => { SAS.logN += 30; saRender(); },
   annadd: () => saAnnForm(),
+  shoppush: id => { const s = SAD.shops.find(x => x.id === id); const m = s && prompt(t('sa_push_ask'), ''); if (m && m.trim()) { pushNotify('shop_push', { shop_id: id, title: 'Universal POS', body: m.trim() }); toast(t('saved')); } },
   anntoggle: id => { const a = SAD.announcements.find(x => x.id === id); if (!a.active) SAD.announcements.forEach(x => { x.active = false; }); a.active = !a.active; saSave(); saRender(); },
   anndel: id => { SAD.announcements = SAD.announcements.filter(x => x.id !== id); saSave(); saRender(); },
   export: () => {

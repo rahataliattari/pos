@@ -331,6 +331,13 @@ nav.bottom button { position: relative; }
 .ct-msg.me { background: var(--g100); border-color: var(--g200); align-self: flex-end; }
 .ct-msg small { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
 
+.iconbtn { position: relative; }
+.pmgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.tile.oos { opacity: .5; }
+.line { grid-template-columns: minmax(0, 1fr) auto; }
+.line .sa-chips { max-width: 100%; }
+
 </style>
 </head>
 <body>
@@ -346,6 +353,7 @@ nav.bottom button { position: relative; }
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
       <div class="errtext" id="login-err" hidden></div>
     </form>
+    <div style="text-align:center;margin-top:14px"><a href="#" id="lnk-forgot" style="color:var(--g700);font-weight:700"></a></div>
     <div id="shop-choice" hidden></div>
   </section>
 
@@ -798,7 +806,8 @@ async function saveSale(sale, items) {
     if (!(it.unit_price >= 0)) throw new Error('Invalid price');
     if (it.unit_factor != null && !(Number(it.unit_factor) > 0)) throw new Error('Invalid unit');
   }
-  const subtotal = round2(items.reduce((s, it) => s + round2(it.qty * it.unit_price), 0));
+  const lineAmt = it => (it.line_total != null ? round2(it.line_total) : round2(it.qty * it.unit_price));   // line_total is set when sold "by amount" (e.g. Rs 100 of a Rs 1200/kg item)
+  const subtotal = round2(items.reduce((s, it) => s + lineAmt(it), 0));
   const discount = round2(sale.discount || 0);
   if (discount < 0 || discount > subtotal) throw new Error('Invalid discount');
   const tax = round2((subtotal - discount) * (sale.tax_rate || 0) / 100);
@@ -813,6 +822,8 @@ async function saveSale(sale, items) {
         customer_id: sale.customer_id || null,
         subtotal, discount, tax, total, paid,
         payment_method: sale.payment_method || 'cash',
+        pay_split: sale.pay_split || null,
+        edited_from: sale.edited_from || null, edited_from_no: sale.edited_from_no || null,
         status: 'completed',
         created_by: sale.created_by || null
       });
@@ -829,8 +840,8 @@ async function saveSale(sale, items) {
           unit_factor: unitFactor(it),
           unit_price: round2(it.unit_price),
           cost_price: round2(it.cost_price || 0),
-          discount: 0,
-          line_total: round2(it.qty * it.unit_price)
+          discount: round2(it.item_discount || 0),
+          line_total: lineAmt(it)
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
@@ -849,14 +860,14 @@ async function saveSale(sale, items) {
 
 // Cancel a sale (bill return): the sale stays for history with status 'void', stock is put back through
 // reverse stock movements (ledger), and the customer's balance / reports ignore it automatically.
-async function voidSale(saleId, reason = '') {
+async function voidSale(saleId, reason = '', opts = {}) {
   return db.transaction('rw', db.sales, db.sale_items, db.stock_movements, db.sync_queue, db.app_settings, async () => {
     const sale = await db.sales.get(saleId);
     if (!sale) throw new Error('Sale not found');
     if (sale.status === 'void') throw new Error('Already cancelled');
     const now = new Date().toISOString();
     const rec = { ...sale, status: 'void', void_reason: (reason || '').trim() || null, voided_at: now,
-                  refunded: round2((sale.refunded || 0) + (sale.paid || 0)),
+                  refunded: opts.edited ? (sale.refunded || 0) : round2((sale.refunded || 0) + (sale.paid || 0)),   // a bill replaced by its corrected copy hands back no cash
                   version: sale.version + 1, updated_at: now, sync_status: 'pending' };
     await db.sales.put(rec); await enqueue('sales', rec, 'update');
     const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
@@ -886,7 +897,7 @@ async function returnSaleItems(saleId, lines, reason = '') {
       const it = byId[l.item_id]; if (!it) throw new Error('Item not found');
       const q = round3(l.qty);
       if (q > it.qty + 1e-9) throw new Error('Return quantity is more than sold');
-      const amount = round2(q * it.unit_price);
+      const amount = q >= it.qty - 1e-9 ? round2(it.line_total) : round2(q * it.unit_price);   // full return of a "by amount" line gives back exactly what was charged
       value = round2(value + amount);
       const upd = { ...it, qty: round3(it.qty - q), returned_qty: round3((it.returned_qty || 0) + q),
                     line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };
@@ -1670,8 +1681,8 @@ async function syncCheckExpiry(sb, shop) {
     if (!data) return;
     S.session.expires_at = data.expires_at;
     try {                                            // plan features (e.g. bill QR). On error keep what we already know.
-      const pl = await sb.from('plans').select('bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
-      if (!pl.error && pl.data) { S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
+      const pl = await sb.from('plans').select('name, name_ur, bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
+      if (!pl.error && pl.data) { S.session.plan_name = (LANG === 'ur' ? pl.data.name_ur : pl.data.name) || pl.data.name; S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
     } catch (x) {}
     try { if (typeof termsPush === 'function') await termsPush(); } catch (x) {}
     try { if (typeof avatarPull === 'function') await avatarPull(sb, shop); } catch (x) {}     // profile picture
@@ -2211,6 +2222,7 @@ async function renderCustomers(append = false) {
         <div class="grow"><div class="muted">${t('total_udhaar')}</div>
           <div class="big">Rs ${money(sum.total)}</div>
           <div class="muted">${sum.count} ${t('owes_n')}</div></div></div>
+      ${typeof bulkRemindBtn === 'function' ? bulkRemindBtn(sum) : ''}
       <div class="row" style="margin-bottom:10px">
         <input id="cust-search" class="grow" type="search" placeholder="${t('cust_search')}" autocomplete="off" value="${esc(S.custQuery || '')}">
         <button class="btn" id="btn-addcust" type="button">${ic('plus', 18)} ${t('add_customer')}</button>
@@ -2846,13 +2858,14 @@ function rcHead(title, qr = '') {
 
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
-  const meta = kv(t('invoice'), esc(sale.invoice_no)) + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
+  const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), esc(fmtDate(sale.created_at)), '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
         `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
     : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
-  const pay = kv(t('paid'), money(sale.paid)) + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
+  const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
+  const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
   return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), billQrHtml(sale))}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
@@ -2864,7 +2877,7 @@ function receiptHtml(sale, items, cust) {
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
     ...items.map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
-    `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}`,
+    `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}${sale.payment_method && sale.payment_method !== 'cash' ? ' (' + t('pm_' + sale.payment_method) + ')' : ''}`,
     ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', S.cfg.receipt_footer || t('thanks')].join('\n');
 }
 
@@ -3110,9 +3123,10 @@ async function computeReport(shopId, p) {
   const allSales = await db.sales.where('[shop_id+created_at]').between(...rng).toArray();
   const refunds = allSales.reduce((a, s) => a + (s.refunded || 0), 0);   // cash handed back to customers (returns / cancelled bills)
   const sales = allSales.filter(s => s.status !== 'void');
-  let revenue = 0, cogs = 0, credit = 0; const prod = {}, day = {};
+  let revenue = 0, cogs = 0, credit = 0; const prod = {}, day = {}, byMethod = {};
   for (const s of sales) {
     revenue += s.total; credit += Math.max(0, s.total - s.paid);
+    for (const [k, v] of Object.entries(s.pay_split || { [s.payment_method || 'cash']: Math.min(s.paid, s.total) })) byMethod[k] = (byMethod[k] || 0) + v;
     const k = new Date(s.created_at).toDateString(); day[k] = (day[k] || 0) + s.total;
     for (const i of await db.sale_items.where('[shop_id+sale_id]').equals([shopId, s.id]).toArray()) {
       cogs += i.qty * (i.cost_price || 0);
@@ -3127,7 +3141,7 @@ async function computeReport(shopId, p) {
   for (; d < end; d.setDate(d.getDate() + 1)) days.push({ n: d.getDate(), v: day[d.toDateString()] || 0 });
   const top = Object.entries(prod).sort((a, b) => b[1].rev - a[1].rev).slice(0, 5);
   return { revenue: round2(revenue), cogs: round2(cogs), gross: round2(revenue - cogs), expenses: round2(expenses), net: round2(revenue - cogs - expenses),
-    refunds: round2(refunds), credit: round2(credit), received: round2(received), purchases: round2(purchases), bills: sales.length, days, top };
+    byMethod, refunds: round2(refunds), credit: round2(credit), received: round2(received), purchases: round2(purchases), bills: sales.length, days, top };
 }
 async function lowStockList(shopId) {
   const all = await db.products.where('[shop_id+name]').between([shopId, ''], [shopId, '\uffff']).filter(p => !p.deleted_at && p.is_active !== false && p.min_stock > 0).toArray();
@@ -3148,6 +3162,7 @@ async function renderReports() {
       <div class="big" style="${r.net < 0 ? 'color:var(--err)' : ''}">${r.net < 0 ? t('rp_loss') + ' ' : ''}Rs ${money(Math.abs(r.net))}</div><div class="muted" style="font-size:12px">${t('rp_cash_note')}</div></div></div>
     <div class="card totals">${row(t('rp_sales'), r.revenue)}${row('− ' + t('rp_cogs'), r.cogs)}${row(t('rp_gross'), r.gross)}${row('− ' + t('mod_expenses'), r.expenses)}${row(t('rp_net'), r.net, r.net < 0 ? 'grand neg' : 'grand')}</div>
     <div class="card totals">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}${r.refunds > 0 ? row(t('rp_refunds'), r.refunds) : ''}</div>
+    ${Object.keys(r.byMethod || {}).length > 1 || (r.byMethod && !r.byMethod.cash && Object.keys(r.byMethod).length) ? `<div class="card totals"><div class="sa-sec">${t('rp_by_method')}</div>${Object.entries(r.byMethod).map(([k, v]) => row(t('pm_' + k), v)).join('')}</div>` : ''}
     ${r.days.length > 1 ? `<div class="card"><div class="sa-sec">${t('rp_daily')}</div><div class="sa-bars">${r.days.map(d => `<div><i style="height:${Math.max(3, Math.round(d.v / mx * 80))}%"></i><span style="font-size:9px">${d.n}</span></div>`).join('')}</div></div>` : ''}
     <div class="card"><div class="sa-sec">${t('rp_top')}</div>${r.top.map(([n, x]) => `<div class="lrow"><div class="grow"><b>${esc(n)}</b><div class="muted">${x.qty} ${t('rp_sold')}</div></div><b>Rs ${money(x.rev)}</b></div>`).join('') || `<div class="muted">${t('rp_none')}</div>`}</div>
     ${low.length ? `<div class="card"><div class="sa-sec">${t('rp_low')}</div>${low.map(({ p, st }) => `<div class="lrow"><div class="grow"><b>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</b></div><span class="bal owe">${st} / ${p.min_stock}</span></div>`).join('')}</div>` : ''}`;
@@ -3170,6 +3185,7 @@ const HELP_ROLE_LABEL = { superadmin: ['سپر ایڈمن', 'Super Admin'], owne
 const HELP_SHARED_LOGIN = ['لاگ اِن اور آف لائن کام', 'Login and working offline', [
   ['لاگ اِن اپنے موبائل نمبر (مثلاً 03001234567) اور پاس ورڈ سے ہوتا ہے۔ نمبر اور عارضی پاس ورڈ آپ کو سپر ایڈمن / سپورٹ دیتا ہے۔', 'Log in with your mobile number (e.g. 03001234567) and password. Your number and temporary password come from Super Admin / support.'],
   ['پہلی بار لاگ اِن کے لیے انٹرنیٹ ضروری ہے۔ اس کے بعد انٹرنیٹ نہ بھی ہو تو بل بنتے رہتے ہیں؛ اوپر "آف لائن" لکھا آئے گا اور بل "زیرِ انتظار" میں گنے جائیں گے۔', 'The first login needs internet. After that you can keep billing without it; the header shows "Offline" and bills count as "Pending".'],
+  ['پاس ورڈ بھول جائیں تو لاگ اِن اسکرین پر "پاس ورڈ بھول گئے؟" دبائیں، اپنا موبائل نمبر لکھیں۔ سپورٹ آپ کو اسی نمبر پر فون/واٹس ایپ کر کے شناخت کرے گی اور نیا عارضی پاس ورڈ دے گی۔ پاس ورڈ خود بخود نہیں بدلتا۔', 'If you forget your password tap "Forgot password?" on the login screen and enter your mobile number. Support will call/WhatsApp that number to confirm it is you and give you a new temporary password. It is never reset automatically.'],
   ['لاگ آؤٹ کرنے سے فون میں محفوظ ریکارڈ ختم نہیں ہوتا۔', 'Logging out does not delete the records saved on the phone.'],
   ['ہر آئی ڈی (موبائل نمبر) صرف اتنی ڈیوائسز پر چلتی ہے جتنی آپ کے پلان میں ہیں، عام طور پر ایک۔ دوسری ڈیوائس پر لاگ اِن کریں تو "یہ آئی ڈی کسی اور ڈیوائس پر ہے" کا پیغام آتا ہے۔', 'Each ID (mobile number) works on as many devices as your plan allows, usually one. Logging in on another device shows "this ID is on another device".'],
   ['فون گم یا چوری ہو جائے تو فوراً سپر ایڈمن / سپورٹ کو بتائیں۔ وہ پرانا فون بند کر دیں گے اور آپ نئے فون پر اسی آئی ڈی سے لاگ اِن کر سکیں گے۔ ساتھ پاس ورڈ بھی بدلوا لیں۔', 'If your phone is lost or stolen, tell Super Admin / support right away. They block the old phone and you can log in on a new one with the same ID. Also have the password changed.'],
@@ -3184,6 +3200,13 @@ const HELP_BILLING = ['بل بنانا (بلنگ)', 'Making a bill', [
   ['اسٹاک کم یا ختم ہو تو وارننگ آتی ہے مگر بل پھر بھی بن سکتا ہے۔', 'Low or zero stock shows a warning, but the bill can still be made.'],
   ['بارکوڈ (اسکین بٹن اور بارکوڈ اسکینر) صرف ان پلانز میں ہے جن میں یہ سہولت آن ہو۔ بند ہو تو نام لکھ کر پروڈکٹ ڈھونڈیں۔', 'Barcodes (the Scan button and barcode scanners) work only on plans that include them. If off, search products by name.'],
   ['پریمیم جیسے پلانز میں رسید کے اوپر QR کوڈ چھپتا ہے۔ یہ صرف بل کی تصدیق کیلئے ہے — اس سے ادائیگی یا وصولی نہیں ہوتی۔ QR کے نیچے تصدیقی کوڈ بھی لکھا ہوتا ہے۔', 'Plans such as Premium print a QR code at the top of the receipt. It is for bill verification only — it does not pay or receive money. A verification code is printed under it.'],
+  ['اسٹاک: جس چیز کا اسٹاک ختم ہو وہ بل میں شامل نہیں ہوتی (ہلکی نظر آتی ہے)، اور اسٹاک سے زیادہ مقدار بھی نہیں بکتی۔ اگر آپ اسٹاک لکھے بغیر بیچتے ہیں تو مالک سیٹنگز ← بلنگ میں "اسٹاک سے زیادہ بیچنے کی اجازت" ٹک کر دے۔ قیمت 0 والی چیز بھی بل مکمل نہیں ہونے دیتی؛ پروڈکٹ میں قیمت لکھیں۔', 'Stock: an item with no stock cannot be added to a bill (it looks faded), and more than the stock cannot be sold. If you sell without entering stock, the owner can tick "Allow selling more than the stock" in Settings -> Billing. An item with price 0 also blocks the bill; set its price in the product.'],
+  ['حصہ یا رقم سے فروخت: ہر آئٹم کے نیچے "رقم سے (Rs)" میں مثلاً 100 لکھیں تو مقدار خود نکل آتی ہے (1200 روپے کلو والی چیز کے 100 روپے)۔ کلو والی چیز میں "100 گرام / پاؤ / آدھا کلو / پون کلو / 1 کلو" بٹن اور "گرام" کا خانہ بھی ہے۔ لٹر والی چیز میں ¼ ½ ¾ بٹن ہیں۔ مقدار ہاتھ سے بدلیں تو رقم والا حساب ہٹ جاتا ہے۔', 'Selling a part or by amount: under an item type e.g. 100 in "By amount (Rs)" and the quantity is worked out (Rs 100 of a Rs 1200/kg item). Kg items also have "100 g / quarter / half / three-quarter / 1 kg" buttons and a grams box; litre items have ¼ ½ ¾ buttons. Changing the quantity by hand clears the amount.'],
+  ['بل میں ترمیم: فروخت ٹیب میں بل کھول کر "بل میں ترمیم" دبائیں (مالک/مینیجر)۔ بل چیک آؤٹ میں کھلتا ہے، مقدار/قیمت/کسٹمر درست کر کے محفوظ کریں۔ پرانا بل منسوخ ہو جاتا ہے (اسٹاک خود ٹھیک ہوتا ہے، کوئی نقد واپسی نہیں گنی جاتی) اور نیا بل بنتا ہے جس پر "پرانا بل: نمبر" لکھا ہوتا ہے۔ جس بل میں واپسی ہو چکی اس میں ترمیم نہیں ہوتی۔', 'Editing a bill: open the bill in the Sales tab and tap "Edit this bill" (owner/manager). It opens in checkout; fix quantity/price/customer and save. The old bill is cancelled (stock is corrected, no cash refund is counted) and a new bill is created that says "Corrects bill: number". A bill that already has a return cannot be edited.'],
+  ['رعایت: ہر آئٹم کے نیچے "رعایت %" لکھ کر اس آئٹم پر فیصد رعایت دیں؛ پورے بل کی رعایت "Rs / %" چن کر لکھیں۔ (کیشیئر کو یہ تب ملتی ہے جب مالک نے اجازت دی ہو۔)', 'Discounts: type "Discount %" under an item for a percentage off that item; for the whole bill pick "Rs / %" and enter the value. (Cashiers need the owner’s permission.)'],
+  ['ادائیگی کا طریقہ: نقد، جاز کیش، ایزی پیسہ، کارڈ یا بینک چنیں۔ کسٹمر دو طریقوں سے دے تو "تقسیم" دبا کر ہر طریقے کی رقم لکھیں۔ رپورٹس میں طریقے کے حساب سے رقم نظر آتی ہے۔', 'Payment method: choose cash, JazzCash, Easypaisa, card or bank. If a customer pays in two ways tap "Split" and enter each amount. Reports show the amount per method.'],
+  ['"روک لیں": بل بیچ میں چھوڑ کر دوسرے گاہک کو نمٹانا ہو تو بل روک لیں؛ بلنگ کے اوپر گھڑی والے بٹن سے روکے ہوئے بل واپس کھولیں۔ روکا ہوا بل فروخت نہیں گنا جاتا اور اسٹاک نہیں گھٹتا۔', '"Hold": to serve another customer first, put the bill on hold; reopen it from the clock button at the top of Billing. A held bill is not a sale and does not reduce stock.'],
+  ['"کوٹیشن": گاہک کو قیمت بتانے کیلئے کوٹیشن بنائیں، پرنٹ کریں یا واٹس ایپ پر بھیجیں؛ پسند آنے پر "بل میں لوڈ کریں"۔ کوٹیشن بل نہیں، اسٹاک محفوظ نہیں کرتی۔', '"Quotation": to quote prices, create a quotation, print it or send it on WhatsApp; if accepted tap "Load into bill". A quotation is not a bill and does not reserve stock.'],
   ['"بل مکمل کریں" کے بعد رسید پرنٹ کریں یا واٹس ایپ پر بھیجیں۔ پرانی رسید "فروخت" ٹیب میں دوبارہ کھل جاتی ہے۔', 'After "Complete sale", print the receipt or send it on WhatsApp. Old receipts reopen from the "Sales" tab.']
 ]];
 
@@ -3205,6 +3228,7 @@ const HELP_CUSTOMERS = ['کسٹمرز اور ادھار', 'Customers and credit'
   ['کسٹمرز میں نام اور نمبر کے ساتھ نیا کسٹمر بنائیں؛ پرانا ادھار "پرانا ادھار (شروع کا)" میں لکھ سکتے ہیں۔', 'Add a customer with name and number; enter any old balance under "Opening balance".'],
   ['کسٹمر کھول کر "وصولی" سے رقم وصول کریں، یا "ادھار درج کریں" سے ادھار بڑھائیں۔ کھاتہ میں ہر لین دین اور باقی رقم نظر آتی ہے۔', 'Open a customer: "Receive payment" collects money, "Add udhaar" adds credit. The ledger shows every entry and the running balance.'],
   ['"یاد دہانی" واٹس ایپ پر ادھار کا پیغام تیار کرتی ہے؛ "کال" سے براہِ راست فون ملائیں۔', '"Remind" prepares a WhatsApp message about the balance; "Call" dials directly.'],
+  ['"سب کو یاد دہانی" (کسٹمرز اسکرین پر): ادھار والے سب کسٹمرز کی فہرست کھلتی ہے؛ ہر نام کے آگے واٹس ایپ بٹن دبائیں، پیغام تیار کھلے گا، آپ "بھیجیں" دبائیں۔ کم از کم رقم لکھ کر چھوٹے ادھار چھپا سکتے ہیں۔ واٹس ایپ سب کو خود بخود نہیں بھیجنے دیتا۔', '"Remind all" (Customers screen): lists every customer who owes; tap the WhatsApp button next to a name, the message opens ready and you press Send. Enter a minimum amount to hide small balances. WhatsApp does not allow automatic sending to everyone.'],
   ['جب تک ادھار باقی ہو کسٹمر حذف نہیں ہو سکتا۔', 'A customer with an outstanding balance cannot be deleted.']
 ]];
 
@@ -3235,6 +3259,13 @@ const HELP_CONTACT = ['ہم سے رابطہ کریں', 'Contact us', [
   ['پیغام بھیجنے اور جواب دیکھنے کیلئے انٹرنیٹ ضروری ہے۔ سپورٹ ٹیم کا جواب اسی پیغام کے اندر آتا ہے؛ نیا جواب آنے پر سیٹنگز کے ٹیب اور "ہم سے رابطہ کریں" بٹن پر سرخ نشان نظر آتا ہے۔', 'Internet is needed to send a message and read replies. The support reply appears inside the same message; a red badge shows on the Settings tab and the "Contact us" button when a new reply arrives.'],
   ['جواب کے نیچے اسی پیغام میں مزید لکھ سکتے ہیں۔ بند پیغام میں لکھیں تو وہ دوبارہ کھل جاتا ہے۔ فوری ضرورت ہو تو وہیں دیے گئے کال / واٹس ایپ بٹن استعمال کریں۔', 'You can keep writing in the same message under the reply. Writing in a closed message reopens it. For something urgent use the Call / WhatsApp buttons shown there.'],
   ['پاس ورڈ یا بینک کی خفیہ معلومات پیغام میں نہ لکھیں۔ ایک گھنٹے میں زیادہ سے زیادہ 10 پیغام بھیجے جا سکتے ہیں۔', 'Never write passwords or private bank details in a message. At most 10 messages can be sent per hour.']
+]];
+
+const HELP_NOTIF = ['نوٹیفکیشن، انسٹال اور ایپ کی معلومات', 'Notifications, install and app info', [
+  ['سیٹنگز ← "نوٹیفکیشن" ← "نوٹیفکیشن آن کریں": سپورٹ کے جواب، اعلان اور سبسکرپشن کی یاد دہانی ایپ بند ہونے پر بھی فون پر آتی ہے (Android/Chrome)۔ iPhone پر پہلے "Add to Home Screen" ضروری ہے۔', 'Settings -> "Notifications" -> "Turn notifications on": support replies, announcements and subscription reminders reach your phone even when the app is closed (Android/Chrome). On iPhone first use "Add to Home Screen".'],
+  ['کم اسٹاک کی یاد دہانی: جن پروڈکٹس میں "کم از کم اسٹاک" لکھا ہو وہ اسٹاک اس حد تک گر جائے تو ہوم پر پیلی پٹی آتی ہے اور (نوٹیفکیشن آن ہوں تو) دن میں ایک بار فون پر اطلاع۔ یہ جانچ ایپ کھولنے یا بل بنانے پر ہوتی ہے۔ سیٹنگز میں اسے بند بھی کر سکتے ہیں۔', 'Low-stock reminder: when a product with a "minimum stock" falls to that level a yellow strip shows on Home and (if notifications are on) one phone notification per day. It is checked when you open the app or make a bill. You can switch it off in Settings.'],
+  ['"ایپ انسٹال کریں" بٹن ایپ کو فون کی ہوم اسکرین پر رکھ دیتا ہے تاکہ براؤزر کے بغیر کھلے۔', 'The "Install the app" button puts the app on the phone’s home screen so it opens without the browser.'],
+  ['"ایپ کے بارے میں": ورژن، پلان، میعاد، ڈیوائس اور سپورٹ کا نمبر ایک جگہ۔ سپورٹ سے بات کرتے وقت یہ معلومات بتائیں۔', '"About the app": version, plan, expiry, device and support number in one place. Share these when you talk to support.']
 ]];
 
 const HELP_BACKUP = ['ڈیٹا کی حفاظت', 'Keeping your data safe', [
@@ -3289,11 +3320,14 @@ const HELP = {
       ['نیچے "پیغامات" ٹیب میں دکانداروں کے مسائل، تجاویز اور سوال آتے ہیں۔ نیا پیغام آنے پر ٹیب اور سیٹنگز کے "سپر ایڈمن پینل" بٹن پر سرخ گنتی آتی ہے اور اسکرین پر اطلاع نظر آتی ہے۔', 'The "Inbox" tab at the bottom shows problems, suggestions and questions from shopkeepers. A new message puts a red count on the tab and on the "Super Admin panel" button and shows an alert on screen.'],
       ['پیغام کھولیں تو صارف کا نام، دکان، فون / واٹس ایپ بٹن، اور ڈیوائس کی معلومات (ایپ ورژن، کردار، آن لائن/آف لائن) نظر آتی ہیں۔ نیچے جواب لکھیں یا "فوری جوابات" سے تیار جملہ چنیں۔', 'Open a message to see the user, shop, a phone / WhatsApp button and device info (app version, role, online/offline). Write your reply below or pick a ready sentence from "Quick replies".'],
       ['"بھیجیں" سے پیغام "جواب آ گیا" ہو جاتا ہے؛ "جواب دے کر بند کریں" سے بند۔ صارف جواب میں لکھے تو پیغام دوبارہ "نئے / کھلے" میں آ جاتا ہے۔', '"Send reply" marks it Answered; "Reply and close" closes it. If the user writes again it returns to "New / open".'],
-      ['"نوٹیفکیشن آن کریں" دبائیں تو براؤزر کی اطلاع بھی آتی ہے۔ یہ تب کام کرتی ہے جب ایپ کھلی یا پس منظر میں ہو؛ مکمل بند ایپ میں اگلی بار کھولنے پر بیج نظر آتا ہے۔ یہ سہولت چلانے کیلئے Supabase میں 15_support_tickets.sql ایک بار چلائیں۔', 'Tap "Enable notifications" for browser alerts too. They work while the app is open or in the background; with the app fully closed the badge shows next time you open it. Run 15_support_tickets.sql once in Supabase to switch this on.']
+      ['اپنے فون پر پیغام کی اطلاع کیلئے "پیغامات" ٹیب کے اوپر "نوٹیفکیشن آن کریں" دبائیں۔ اس کے بعد ایپ بند ہو تب بھی نیا پیغام، پاس ورڈ درخواست آنے پر فون بجے گا۔ ہر ایڈمن ڈیوائس پر ایک بار آن کریں۔', 'To get alerts on your phone tap "Turn notifications on" at the top of the Inbox tab. After that the phone rings for a new message or password request even when the app is closed. Turn it on once per admin device.'],
+      ['"پاس ورڈ درخواستیں" (پیغامات ٹیب کے اندر): لاگ اِن اسکرین پر "پاس ورڈ بھول گئے؟" سے آنے والی درخواستیں۔ پہلے فون/واٹس ایپ پر شناخت کریں، پھر "پاس ورڈ ری سیٹ" دبا کر نیا عارضی پاس ورڈ واٹس ایپ پر بھیجیں اور "مکمل کریں" دبائیں۔ شناخت کے بغیر ری سیٹ نہ کریں۔', '"Password requests" (inside the Inbox tab): requests from "Forgot password?" on the login screen. First confirm identity by phone/WhatsApp, then tap "Reset password", send the temporary password on WhatsApp and tap "Mark done". Never reset without confirming identity.'],
+      ['اعلان: "مزید ← اعلانات ← نیا اعلان" میں "کس کو دکھانا ہے" سے تمام دکانیں یا کوئی ایک دکان چنیں؛ "فون پر نوٹیفکیشن بھی بھیجیں" ٹک ہو تو پش بھی جاتا ہے۔ ہر ہدف (سب / ایک دکان) کا ایک ہی اعلان چلتا ہے۔ دکان کی تفصیل میں گھنٹی بٹن اس دکان کے سب صارفین کو فوری نوٹیفکیشن بھیجتا ہے (مثلاً تجدید کی یاد دہانی)۔', 'Announcements: in "More -> Announcements -> New" choose "Show to": all shops or one shop; with "Also send a phone notification" ticked a push goes out too. One announcement runs per target (all / one shop). The bell button in a shop’s details sends an instant notification to all its users (e.g. a renewal reminder).'],
+      ['ہر روز میعاد ختم ہونے والی دکانوں کو خود بخود نوٹیفکیشن بھیجنے کیلئے Supabase میں push-notify کے expiry_sweep کا روزانہ شیڈول لگائیں (سیٹ اپ گائیڈ دیکھیں)۔', 'To notify shops automatically before expiry, schedule push-notify’s expiry_sweep daily in Supabase (see the setup guide).']
     ]],
     ['حفاظت اور مسائل', 'Safety and troubleshooting', [
       ['اپنا Super Admin پاس ورڈ کسی کو نہ دیں۔ Supabase کی service-role / secret key کبھی ایپ یا config.js میں نہ ڈالیں۔', 'Never share your Super Admin password. Never put the Supabase service-role / secret key in the app or config.js.'],
-      ['Supabase میں SQL فائلیں ترتیب سے ایک بار چلائیں، ایپ ڈیپلائے کرنے سے پہلے: 09 (بل QR پلان)، 10 (بارکوڈ پلان)، 11 (ڈیوائس حد)، 12 (ڈیوائس کو دوبارہ اجازت)، 13 (پروفائل تصویر)، 14 (شرائط کی قبولیت)، 15 (ہم سے رابطہ / سپورٹ پیغامات)۔ جب تک متعلقہ فائل نہ چلے وہ سہولت دکانوں کو نہیں ملتی۔', 'Run the SQL files once, in order, in Supabase before deploying the app: 09 (bill-QR plan), 10 (barcode plan), 11 (device limit), 12 (allow a device again), 13 (profile picture), 14 (terms acceptance), 15 (Contact us / support messages). A feature does not reach shops until its file has been run.'],
+      ['Supabase میں SQL فائلیں ترتیب سے ایک بار چلائیں، ایپ ڈیپلائے کرنے سے پہلے: 09 (بل QR پلان)، 10 (بارکوڈ پلان)، 11 (ڈیوائس حد)، 12 (ڈیوائس کو دوبارہ اجازت)، 13 (پروفائل تصویر)، 14 (شرائط کی قبولیت)، 15 (ہم سے رابطہ / سپورٹ پیغامات)، 16 (Web Push)، 17 (پاس ورڈ درخواستیں اور مخصوص اعلان)۔ Web Push کیلئے Edge Function push-notify بھی ڈیپلائے کریں۔ جب تک متعلقہ فائل نہ چلے وہ سہولت دکانوں کو نہیں ملتی۔', 'Run the SQL files once, in order, in Supabase before deploying the app: 09 (bill-QR plan), 10 (barcode plan), 11 (device limit), 12 (allow a device again), 13 (profile picture), 14 (terms acceptance), 15 (Contact us / support messages), 16 (Web Push), 17 (password requests and targeted announcements). For Web Push also deploy the push-notify Edge Function. A feature does not reach shops until its file has been run.'],
       ['قانونی دستاویزات: legal.js کے اوپر LEGAL_CFG میں اپنا نام، رابطہ اور شہر لکھیں اور کسی وکیل سے دستاویزات جانچ لیں۔ متن بدلیں تو version بڑھائیں، سب صارفین سے دوبارہ قبولیت مانگی جائے گی۔ قبولیت کا ریکارڈ Supabase کے terms_acceptance ٹیبل میں ملتا ہے۔ دستخط والی کاپی کیلئے legal.html کھولیں اور "Print / PDF" دبائیں۔', 'Legal documents: put your name, contact and city in LEGAL_CFG at the top of legal.js and have a lawyer review the texts. Raise the version when the text changes and everyone is asked to accept again. Acceptances are stored in the Supabase terms_acceptance table. For a signable copy open legal.html and press "Print / PDF".'],
       ['بل چیک کریں: فروخت ٹیب میں "بل چیک کریں" سے آپ دیکھ سکتے ہیں کہ کوئی بل دکان کے ریکارڈ میں ہے یا نہیں۔', 'Check a bill: the "Check a bill" button in the Sales tab shows whether a bill is in the shop’s records.'],
       ['نیا Super Admin بنانے کے لیے Supabase میں اس کا لاگ اِن یوزر بنا کر platform_admins ٹیبل میں اس کی user_id ڈالیں۔', 'To add another Super Admin, create their login in Supabase and insert their user_id into the platform_admins table.'],
@@ -3314,7 +3348,7 @@ const HELP = {
       ['آپ کے عملے کا فون گم ہو جائے تو سپورٹ کو اس کا نمبر بتائیں تاکہ پرانا فون بند ہو اور وہ نئے فون پر لاگ اِن کر سکے۔', 'If a staff member’s phone is lost, give support their number so the old phone is blocked and they can log in on a new one.'],
       ['اپنی سبسکرپشن کی میعاد ختم ہونے سے پہلے تجدید کروائیں، ورنہ لاگ اِن بند ہو جائے گا۔', 'Renew your subscription before it expires or login will be blocked.']
     ]],
-    HELP_PROFILE, HELP_CONTACT, HELP_BACKUP
+    HELP_PROFILE, HELP_CONTACT, HELP_NOTIF, HELP_BACKUP
   ],
   manager: [
     HELP_SHARED_LOGIN, HELP_BILLING, HELP_VERIFY, HELP_PRODUCTS, HELP_CUSTOMERS, HELP_PURCHASES, HELP_REPORTS,
@@ -3322,10 +3356,10 @@ const HELP = {
       ['آپ بل، پروڈکٹس، اسٹاک، کسٹمرز، خریداری، اخراجات اور رپورٹس سنبھال سکتے ہیں۔', 'You can handle billing, products, stock, customers, purchases, expenses and reports.'],
       ['ٹیکس، رسید کی سیٹنگز اور کیشیئر کے اختیارات صرف مالک بدل سکتا ہے۔ نئے صارف یا پاس ورڈ ری سیٹ کے لیے مالک کے ذریعے سپورٹ سے رابطہ کریں۔', 'Tax, receipt settings and cashier permissions can be changed by the owner only. For new users or password resets, go through the owner to support.']
     ]],
-    HELP_PROFILE, HELP_CONTACT, HELP_BACKUP
+    HELP_PROFILE, HELP_CONTACT, HELP_NOTIF, HELP_BACKUP
   ],
   cashier: [
-    HELP_SHARED_LOGIN, HELP_BILLING, HELP_VERIFY, HELP_CUSTOMERS, HELP_PROFILE, HELP_CONTACT,
+    HELP_SHARED_LOGIN, HELP_BILLING, HELP_VERIFY, HELP_CUSTOMERS, HELP_PROFILE, HELP_CONTACT, HELP_NOTIF,
     ['آپ کے اختیارات', 'What you can and cannot do', [
       ['آپ بل بنا سکتے ہیں، پروڈکٹس اور اسٹاک دیکھ سکتے ہیں، فروخت کی تاریخ اور رسید دوبارہ کھول کر پرنٹ کر سکتے ہیں، اور کسٹمرز سے وصولی درج کر سکتے ہیں۔', 'You can make bills, view products and stock, reopen and print past receipts, and record customer payments.'],
       ['رعایت دینا اور بل میں قیمت بدلنا تبھی ممکن ہے جب مالک نے سیٹنگز میں اجازت دی ہو۔', 'Giving a discount or changing a price works only if the owner allowed it in Settings.'],
@@ -3408,6 +3442,8 @@ const SAT = {
   sa_a_user_new: ['نیا صارف', 'User added'], sa_a_user_edit: ['صارف میں ترمیم', 'User edited'], sa_a_user_del: ['صارف حذف', 'User deleted'], sa_a_pw_reset: ['پاس ورڈ ری سیٹ', 'Password reset'],
   sa_a_plan_edit: ['پلان میں ترمیم', 'Plan edited'], sa_a_ann_new: ['نیا اعلان', 'Announcement added'], sa_a_settings: ['سیٹنگز تبدیل', 'Settings changed']
 };
+SAT.sa_ann_to = ['کس کو دکھانا ہے', 'Show to']; SAT.sa_ann_all = ['تمام دکانیں', 'All shops']; SAT.sa_ann_push = ['فون پر نوٹیفکیشن بھی بھیجیں', 'Also send a phone notification'];
+SAT.sa_push_btn = ['اس دکان کو نوٹیفکیشن', 'Notify this shop']; SAT.sa_push_ask = ['اس دکان کے سب صارفین کو نوٹیفکیشن کا متن لکھیں', 'Write the notification text for all users of this shop'];
 SAT.sa_shop_blocked = ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.'];
 for (const k in SAT) { I18N.ur[k] = SAT[k][0]; I18N.en[k] = SAT[k][1]; }
 Object.assign(ICONS, {
@@ -3492,7 +3528,7 @@ function saLog(action, target, detail) {
 }
 function saAnnouncement() {
   if (!window.POS_DEMO) return window.SA_ANN || '';
-  try { const a = saLoad().announcements.find(x => x.active); return a ? a.text : ''; } catch (e) { return ''; }
+  try { const L = saLoad().announcements.filter(x => x.active), me = S.session && S.session.shop_id, a = L.find(x => x.shop_id && x.shop_id === me) || L.find(x => !x.shop_id); return a ? a.text : ''; } catch (e) { return ''; }
 }
 
 // ───────── Live adapter (Supabase) ─────────
@@ -3506,11 +3542,11 @@ const SA_COLS = {
   users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
   payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
   audit: ['id', 'at', 'actor', 'action', 'target', 'detail'],
-  announcements: ['id', 'text', 'active', 'at']
+  announcements: ['id', 'text', 'active', 'at', 'shop_id']
 };
 let SAB = null, saQ = Promise.resolve();
 const saKey = (t, r) => JSON.stringify(SA_COLS[t].map(c => (r[c] === undefined ? null : r[c])));
-const saPick = (t, r) => Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]]));
+const saPick = (t, r) => { const o = Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]])); if (t === 'announcements' && o.shop_id == null) delete o.shop_id; return o; };   // keeps working before 17_*.sql is run
 function saSnap() {
   SAB = {};
   for (const t of Object.keys(SA_COLS)) { SAB[t] = new Map(); for (const r of SAD[t]) SAB[t].set(r.id, { k: saKey(t, r), r: { ...r } }); }
@@ -3579,8 +3615,10 @@ function saCommit() {            // save + wait; true on success (callers show c
 }
 async function saLoadAnnouncement() {   // shop users see the active announcement in the sync bar
   if (window.POS_DEMO) return;
-  const { data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1);
-  window.SA_ANN = data && data[0] ? data[0].text : '';
+  let { data, error } = await getSb().from('announcements').select('text, shop_id').eq('active', true).order('at', { ascending: false }).limit(10);
+  if (error) ({ data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1));   // before 17_*.sql
+  const me = S.session && S.session.shop_id, a = (data || []).find(x => x.shop_id && x.shop_id === me) || (data || []).find(x => !x.shop_id);
+  window.SA_ANN = a ? a.text : '';
   $('syncnote').textContent = window.SA_ANN || t('sync_note');
 }
 
@@ -3684,7 +3722,7 @@ function saShopDetail(id) {
     <div class="row" style="margin-bottom:8px">
       <button class="btn ${s.suspended ? 'secondary' : 'danger'} grow" data-sa="toggle|${id}">${s.suspended ? t('sa_activate') : t('sa_suspend')}</button>
       <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
-      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}</div>
+      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}<button class="btn secondary" data-sa="shoppush|${id}" aria-label="${t('sa_push_btn')}" title="${t('sa_push_btn')}">${ic('bell', 18)}</button></div>
     <div class="row" style="margin-top:10px"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
     ${us.map(u => `<div class="lrow" style="cursor:pointer" data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('')}
     <div class="sa-sec" style="margin-top:10px">${t('sa_pay_tab')}</div>
@@ -3851,7 +3889,7 @@ function saMoreView() {
   if (SAS.mseg === 'help') return seg + helpHtml('superadmin') +
     `<h3 style="margin:16px 4px 8px">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted" style="margin:10px 4px 6px"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
   if (SAS.mseg === 'ann') return seg + `<button class="btn block" data-sa="annadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
-    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
+    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="muted">${a.shop_id ? esc(saShopName(a.shop_id)) : t('sa_ann_all')}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
       <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_ann_none')}</div>`);
   if (SAS.mseg === 'log') return seg + `<div class="card">${d.audit.slice(0, SAS.logN).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>` +
     (d.audit.length > SAS.logN ? `<button class="btn secondary block" data-sa="morelog">${t('more')}</button>` : '');
@@ -3864,13 +3902,16 @@ function saMoreView() {
 }
 function saAnnForm() {
   openModal(`<h2>${t('sa_ann_add')}</h2><form id="sa-form"><label>${t('sa_ann_text')}</label><input name="text" required maxlength="160">
+    <label>${t('sa_ann_to')}</label><select name="shop_id"><option value="">${t('sa_ann_all')}</option>${SAD.shops.filter(s => !s.archived).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>
+    <label><input type="checkbox" name="push" checked style="width:auto;min-height:0"> ${t('sa_ann_push')}</label>
     <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
-    const txt = new FormData(ev.target).get('text').trim(); if (!txt) return;
-    SAD.announcements.forEach(a => { a.active = false; });   // one live announcement at a time
-    SAD.announcements.unshift({ id: uuid(), text: txt, active: true, at: saIso(0) });
-    saLog('ann_new', txt.slice(0, 40)); saSave(); closeModal(); toast(t('saved')); saRender();
+    const fd = new FormData(ev.target), txt = fd.get('text').trim(), sid = fd.get('shop_id') || null; if (!txt) return;
+    SAD.announcements.forEach(a => { if ((a.shop_id || null) === sid) a.active = false; });   // one live announcement per target (all shops / one shop)
+    SAD.announcements.unshift({ id: uuid(), text: txt, active: true, at: saIso(0), shop_id: sid });
+    saLog('ann_new', txt.slice(0, 40), sid ? saShopName(sid) : ''); closeModal(); toast(t('saved'));
+    saCommit().then(ok => { if (ok) { if (fd.get('push')) pushNotify('announce', { shop_id: sid, text: txt }); saRender(); } });
   };
 }
 
@@ -3933,6 +3974,7 @@ const SA_ACT = {
   bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),
   mseg: k => { SAS.mseg = k; saRender(); }, morelog: () => { SAS.logN += 30; saRender(); },
   annadd: () => saAnnForm(),
+  shoppush: id => { const s = SAD.shops.find(x => x.id === id); const m = s && prompt(t('sa_push_ask'), ''); if (m && m.trim()) { pushNotify('shop_push', { shop_id: id, title: 'Universal POS', body: m.trim() }); toast(t('saved')); } },
   anntoggle: id => { const a = SAD.announcements.find(x => x.id === id); if (!a.active) SAD.announcements.forEach(x => { x.active = false; }); a.active = !a.active; saSave(); saRender(); },
   anndel: id => { SAD.announcements = SAD.announcements.filter(x => x.id !== id); saSave(); saRender(); },
   export: () => {
@@ -4006,6 +4048,8 @@ const CTT = {
   ct_q2: ['براہِ کرم ایپ بند کر کے دوبارہ کھولیں، انٹرنیٹ آن کر کے "ابھی سنک کریں" دبائیں اور بتائیں مسئلہ ختم ہوا یا نہیں۔', 'Please close and reopen the app, go online, tap "Sync now" and tell us whether the problem is gone.'],
   ct_q3: ['تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', 'Thanks for the suggestion! We are adding it to our list.'],
   ct_q4: ['مسئلے کی اسکرین کی تصویر واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
+  fp_tab: ['پاس ورڈ درخواستیں', 'Password requests'], fp_done: ['مکمل', 'Done'], fp_mark: ['مکمل کریں', 'Mark done'], fp_none: ['کوئی درخواست نہیں', 'No requests'],
+  fp_nouser: ['یہ نمبر کسی صارف کا نہیں ملا', 'No user has this number'],
   ct_notif_on: ['نوٹیفکیشن آن کریں', 'Enable notifications'],
   ct_notif_note: ['نوٹیفکیشن تب آتا ہے جب ایپ کھلی ہو (یا فون کے پس منظر میں چل رہی ہو)۔ ایپ مکمل بند ہو تو اگلی بار کھولنے پر بیج نظر آئے گا۔', 'Notifications arrive while the app is open (or running in the background). If the app is fully closed, the badge shows next time you open it.'],
   ct_notif_title: ['نیا صارف پیغام', 'New user message'], ct_notif_n: ['{n} نئے پیغام', '{n} new message(s)'],
@@ -4018,9 +4062,9 @@ Object.assign(ICONS, {
 
 const CT_KINDS = ['problem', 'suggestion', 'question'];
 const CT_TOPICS = ['billing', 'stock', 'sync', 'login', 'subscription', 'other'];
-const CT_APP_VERSION = 'stage8';
+const CT_APP_VERSION = 'stage9';
 const CT_DK = 'pos_ct_demo_v1';
-const CT = { phone: null, userN: 0, adminN: null, mine: [], all: [], f: 'open', view: '', cur: null, ch: null, timer: null };
+const CT = { phone: null, userN: 0, adminN: null, resetN: 0, seg: 'msgs', resets: [], mine: [], all: [], f: 'open', view: '', cur: null, ch: null, timer: null };
 const ctLive = () => !window.POS_DEMO;
 const ctIsAdmin = () => !!(window.POS_DEMO || S.isAdmin || (S.session && S.session.admin));
 const ctFill = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
@@ -4034,6 +4078,7 @@ function ctSeed() {
       { id: t1, shop_id: 'demo-shop', user_id: 'demo-user', user_name: 'ڈیمو مالک', shop_name: 'ڈیمو جنرل اسٹور', phone: '03001112233', kind: 'suggestion', topic: 'billing', subject: 'رسید پر دکان کا لوگو', meta: 'demo', status: 'answered', admin_unread: false, user_unread: true, created_at: iso(30), updated_at: iso(2) },
       { id: t2, shop_id: 'seed-shop-2', user_id: 'seed-user-2', user_name: 'عبدالرحمان', shop_name: 'رحمان کریانہ ہول سیل', phone: '03331112233', kind: 'problem', topic: 'sync', subject: 'بل سنک نہیں ہو رہے', meta: 'demo', status: 'open', admin_unread: true, user_unread: false, created_at: iso(5), updated_at: iso(5) }
     ],
+    resets: [{ id: uuid(), phone: '923451112233', name: 'ستارہ بی بی', status: 'open', created_at: iso(1) }],
     messages: [
       { id: uuid(), ticket_id: t1, sender: 'user', sender_name: 'ڈیمو مالک', body: 'رسید کے اوپر ہماری دکان کا لوگو بھی چھپنا چاہیے۔', at: iso(30) },
       { id: uuid(), ticket_id: t1, sender: 'admin', sender_name: 'Support', body: 'تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', at: iso(2) },
@@ -4041,7 +4086,7 @@ function ctSeed() {
     ]
   };
 }
-function ctDemo() { let d = null; try { d = JSON.parse(localStorage.getItem(CT_DK)); } catch (e) {} if (!d) { d = ctSeed(); ctDemoSave(d); } return d; }
+function ctDemo() { let d = null; try { d = JSON.parse(localStorage.getItem(CT_DK)); } catch (e) {} if (!d) { d = ctSeed(); ctDemoSave(d); } if (!d.resets) d.resets = []; return d; }
 function ctDemoSave(d) { try { localStorage.setItem(CT_DK, JSON.stringify(d)); } catch (e) {} }
 const ctByNew = (a, b) => (a.updated_at < b.updated_at ? 1 : -1);
 
@@ -4102,12 +4147,21 @@ const ctApi = {
     if (!ctLive()) { const d = ctDemo(), tk = d.tickets.find(x => x.id === id); if (tk) { tk.admin_unread = false; ctDemoSave(d); } return; }
     await getSb().from('support_tickets').update({ admin_unread: false }).eq('id', id);
   },
+  async resets() {
+    if (!ctLive()) return ctDemo().resets.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const { data, error } = await getSb().from('password_reset_requests').select('*').order('created_at', { ascending: false }).limit(100);
+    if (error) throw ctErr(error); return data || [];
+  },
+  async resetDone(id, done) {
+    if (!ctLive()) { const d = ctDemo(), r = d.resets.find(x => x.id === id); if (r) r.status = done ? 'done' : 'open'; ctDemoSave(d); return; }
+    const { error } = await getSb().from('password_reset_requests').update({ status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null }).eq('id', id); if (error) throw ctErr(error);
+  },
   async counts() {
-    const out = { user: 0, admin: 0 };
-    if (!ctLive()) { const d = ctDemo(); out.user = d.tickets.filter(x => x.user_unread && x.shop_id === S.session.shop_id).length; out.admin = d.tickets.filter(x => x.admin_unread).length; return out; }
+    const out = { user: 0, admin: 0, reset: 0 };
+    if (!ctLive()) { const d = ctDemo(); out.user = d.tickets.filter(x => x.user_unread && x.shop_id === S.session.shop_id).length; out.admin = d.tickets.filter(x => x.admin_unread).length; out.reset = d.resets.filter(x => x.status === 'open').length; return out; }
     const sb = getSb();
     if (S.session) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('user_id', S.session.user_id).eq('user_unread', true); if (!r.error) out.user = r.count || 0; }
-    if (ctIsAdmin()) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('admin_unread', true); if (!r.error) out.admin = r.count || 0; }
+    if (ctIsAdmin()) { const r = await sb.from('support_tickets').select('id', { count: 'exact', head: true }).eq('admin_unread', true); if (!r.error) out.admin = r.count || 0; const q = await sb.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'open'); if (!q.error) out.reset = q.count || 0; }
     return out;
   },
   async phone() {
@@ -4154,7 +4208,7 @@ async function ctPoll() {
   if (ctLive() && !navigator.onLine) return;
   try {
     const c = await ctApi.counts(), pu = CT.userN, pa = CT.adminN;
-    CT.userN = c.user; CT.adminN = c.admin; ctPaint();
+    CT.userN = c.user; CT.resetN = c.reset || 0; CT.adminN = c.admin + CT.resetN; ctPaint();
     if (ctIsAdmin() && pa !== null && c.admin > pa) ctNotifyAdmin(c.admin - pa);
     if (pu !== undefined && c.user > pu && CT.view !== 'thread') toast(t('ct_new_reply'), 5000);
     if (SAS.tab === 'inbox' && !$('sa').hidden && $('ct-alist') && $('modal').hidden) ctAdminList();
@@ -4226,28 +4280,30 @@ async function ctThread(id) {
 async function ctUserReply(id) {
   const ta = $('ct-reply'), body = ta ? ta.value.trim() : ''; if (body.length < 2) return;
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);
-  try { await ctApi.send({ ticket: id, body }); toast(t('ct_sent')); ctPoll(); await ctThread(id); } catch (e) { toast(e.message, 4500); }
+  try { await ctApi.send({ ticket: id, body }); toast(t('ct_sent')); ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); } catch (e) { toast(e.message, 4500); }
 }
 async function ctSubmitNew(form) {
   const f = Object.fromEntries(new FormData(form).entries());
   if (String(f.subject).trim().length < 3 || String(f.body).trim().length < 5) return toast(t('ct_short'), 3500);
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);    // form stays open so the text is not lost
   const btn = $('ct-submit'); btn.disabled = true;
-  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body }); toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); await ctThread(id); }
+  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body }); toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); }
   catch (e) { toast(e.message, 5000); btn.disabled = false; }
 }
 
 // ───────── Super Admin: Inbox tab ─────────
 function ctAdminView() {
+  setTimeout(async () => { const b = $('ct-pushbox'); if (b) b.innerHTML = await pushCardHtml(); }, 0);
   const chips = [['open', 'ct_f_open'], ['answered', 'ct_f_answered'], ['closed', 'ct_f_closed'], ['all', 'sa_st_all']]
     .map(([k, l]) => `<button class="sa-chip ${CT.f === k ? 'on' : ''}" data-ct="afilter|${k}">${t(l)}</button>`).join('');
-  const canNotif = 'Notification' in window && Notification.permission === 'default';
-  return `<div class="sa-chips">${chips}</div>
-    ${canNotif ? `<div class="card"><div class="muted">${t('ct_notif_note')}</div><button class="btn secondary sm" data-ct="notif" style="margin-top:6px">${ic('bell', 16)} ${t('ct_notif_on')}</button></div>` : ''}
+  const seg = `<div class="seg"><button class="${CT.seg === 'msgs' ? 'on' : ''}" data-ct="aseg|msgs">${t('sa_t_inbox')}</button><button class="${CT.seg === 'reset' ? 'on' : ''}" data-ct="aseg|reset">${t('fp_tab')}${CT.resetN ? ` <b class="tbadge">${CT.resetN}</b>` : ''}</button></div>`;
+  return `${seg}${CT.seg === 'msgs' ? `<div class="sa-chips">${chips}</div>` : ''}
+    <div class="card" id="ct-pushbox"></div>
     <div id="ct-alist"><div class="muted" style="text-align:center;padding:24px">…</div></div>`;
 }
 async function ctAdminList() {
   const box = $('ct-alist'); if (!box) return;
+  if (CT.seg === 'reset') return ctResetList(box);
   let all; try { all = await ctApi.all(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
   if (!$('ct-alist')) return;
   CT.all = all;
@@ -4283,13 +4339,32 @@ async function ctAdminOpen(id) {
 async function ctAdminReply(id, close) {
   const ta = $('ct-reply'), body = ta ? ta.value.trim() : '';
   if (body.length < 2) { if (!close) return toast(t('ct_short'), 2500); await ctApi.setStatus(id, 'closed'); toast(t('saved')); closeModal(); return ctAdminList(); }
-  try { await ctApi.reply(id, body, close); toast(t('saved')); closeModal(); ctPoll(); ctAdminList(); } catch (e) { toast(e.message, 5000); }
+  try { await ctApi.reply(id, body, close); pushNotify('ticket_reply', { ticket_id: id }); toast(t('saved')); closeModal(); ctPoll(); ctAdminList(); } catch (e) { toast(e.message, 5000); }
+}
+
+// password-reset requests (from the login screen's "forgot password")
+const ctDigits = p => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; return d; };
+const ctResetUser = r => r && SAD && SAD.users.find(u => ctDigits(u.phone) === ctDigits(r.phone));
+async function ctResetList(box) {
+  if (!box) return;
+  let list; try { list = await ctApi.resets(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
+  CT.resets = list;
+  const shown = list.filter(r => CT.f === 'closed' ? r.status === 'done' : r.status === 'open');
+  box.innerHTML = `<div class="sa-chips"><button class="sa-chip ${CT.f !== 'closed' ? 'on' : ''}" data-ct="afilter|open">${t('ct_f_open')}</button><button class="sa-chip ${CT.f === 'closed' ? 'on' : ''}" data-ct="afilter|closed">${t('fp_done')}</button></div>`
+    + (shown.map(r => { const u = ctResetUser(r), ph = '0' + ctDigits(r.phone).slice(2), wa = waNumber(r.phone);
+      return `<div class="card"><div class="row"><div class="grow"><b dir="ltr">${esc(ph)}</b>${r.name ? ` · ${esc(r.name)}` : ''}<div class="muted">${esc(fmtDate(r.created_at))}</div>
+        <div class="muted">${u ? `${esc(u.name)} — ${esc(saShopName(u.shop_id))}` : `<span class="owe-t">${t('fp_nouser')}</span>`}</div></div></div>
+        <div class="row" style="margin-top:8px">${r.status === 'open' ? `${u ? `<button class="btn grow sm" data-ct="rreset|${r.id}">${ic('key', 16)} ${t('sa_reset_pw')}</button>` : ''}<button class="btn secondary sm" data-ct="rdone|${r.id}|1">${t('fp_mark')}</button>` : `<button class="btn secondary sm" data-ct="rdone|${r.id}|0">${t('ct_a_reopen')}</button>`}
+        <a class="btn secondary sm lnk" href="tel:${esc(ph)}" dir="ltr">${ic('phone', 16)}</a>${wa ? `<a class="btn secondary sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 16)}</a>` : ''}</div></div>`; }).join('')
+      || `<div class="muted" style="text-align:center;padding:24px">${t('fp_none')}</div>`);
 }
 
 // ───────── Wiring ─────────
 const CT_ACT = {
   list: () => ctRenderList(), new: () => ctNewForm(), open: id => ctThread(id), usend: id => ctUserReply(id),
-  afilter: k => { CT.f = k; saRender(); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
+  afilter: k => { CT.f = k; saRender(); }, aseg: k => { CT.seg = k; saRender(); },
+  rdone: async (id, v) => { try { await ctApi.resetDone(id, v !== '0'); ctPoll(); ctResetList($('ct-alist')); } catch (e) { toast(e.message, 4000); } },
+  rreset: id => { const u = ctResetUser(CT.resets.find(x => x.id === id)); if (u) SA_ACT.resetpw(u.id); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
   astatus: async (id, s) => { try { await ctApi.setStatus(id, s); toast(t('saved')); closeModal(); ctAdminList(); } catch (e) { toast(e.message, 4000); } },
   canned: n => { const ta = $('ct-reply'); if (ta) { ta.value = (ta.value ? ta.value + '\n' : '') + t('ct_q' + n); ta.focus(); } },
   notif: async () => { try { await Notification.requestPermission(); } catch (e) {} saRender(); }
@@ -4311,6 +4386,414 @@ ctStart();
 
 </script>
 <script>
+// ── push.js
+// Universal POS — Web Push (client). Server side: supabase/16_push.sql + Edge Function push-notify.
+// Loaded AFTER contact.js and BEFORE app.js. Push works only in the live build (the demo has no server).
+// Android/Chrome/Edge: works even when the app is closed. iPhone: only after "Add to Home Screen" (iOS 16.4+).
+
+const PUT = {
+  pu_title: ['فوری نوٹیفکیشن', 'Instant notifications'],
+  pu_on: ['نوٹیفکیشن آن کریں', 'Turn notifications on'], pu_off: ['نوٹیفکیشن بند کریں', 'Turn notifications off'],
+  pu_state_on: ['آن ہیں: ایپ بند ہو تب بھی اطلاع آئے گی', 'On: you get alerts even when the app is closed'],
+  pu_state_off: ['بند ہیں', 'Off'], pu_state_blocked: ['براؤزر میں بلاک ہیں: براؤزر کی سائٹ سیٹنگ سے اجازت دیں', 'Blocked in the browser: allow them in the site settings'],
+  pu_unsupported: ['اس براؤزر/فون پر پش نوٹیفکیشن دستیاب نہیں۔ iPhone پر پہلے "Add to Home Screen" کریں۔', 'Push is not available on this browser/phone. On iPhone first use "Add to Home Screen".'],
+  pu_nokey: ['پش کی سیٹنگ مکمل نہیں (VAPID key)', 'Push is not configured (VAPID key)'],
+  pu_done: ['نوٹیفکیشن آن ہو گئے', 'Notifications are on'], pu_done_off: ['نوٹیفکیشن بند ہو گئے', 'Notifications are off'],
+  pu_denied: ['اجازت نہیں ملی', 'Permission was not granted'], pu_demo: ['ڈیمو میں پش دستیاب نہیں (سرور درکار)', 'Push is not available in the demo (needs the server)']
+};
+for (const k in PUT) { I18N.ur[k] = PUT[k][0]; I18N.en[k] = PUT[k][1]; }
+
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushB64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
+const pushBuf = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function pushReg() { try { return await navigator.serviceWorker.ready; } catch (e) { return null; } }
+async function pushStatus() {          // 'unsupported' | 'blocked' | 'on' | 'off'
+  if (window.POS_DEMO || !pushSupported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'blocked';
+  const reg = await pushReg(); const sub = reg && (await reg.pushManager.getSubscription());
+  return sub && Notification.permission === 'granted' ? 'on' : 'off';
+}
+async function pushSave(sub) {         // store/refresh the subscription on the server (it can rotate)
+  const j = sub.toJSON(), sid = S.session ? S.session.shop_id : null;
+  const { error } = await getSb().rpc('push_subscribe', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_shop: sid, p_ua: (navigator.userAgent || '').slice(0, 180) });
+  if (error) throw new Error(error.message);
+}
+async function pushEnable() {
+  if (window.POS_DEMO) { toast(t('pu_demo'), 3500); return false; }
+  if (!pushSupported()) { toast(t('pu_unsupported'), 5000); return false; }
+  const key = window.POS_CONFIG && POS_CONFIG.VAPID_PUBLIC; if (!key) { toast(t('pu_nokey'), 4000); return false; }
+  if (!(await pingServer())) { toast(t('login_need_online'), 3500); return false; }
+  try {
+    if ((await Notification.requestPermission()) !== 'granted') { toast(t('pu_denied'), 4000); return false; }
+    const reg = await pushReg(); if (!reg) throw new Error('service worker');
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushB64(key) });
+    await pushSave(sub); await setSetting('push_on', true);
+    toast(t('pu_done')); return true;
+  } catch (e) { toast((e && e.message) || t('err_generic'), 5000); return false; }
+}
+async function pushDisable() {
+  try {
+    const reg = await pushReg(), sub = reg && (await reg.pushManager.getSubscription());
+    if (sub) { try { await getSb().rpc('push_unsubscribe', { p_endpoint: sub.endpoint }); } catch (e) {} await sub.unsubscribe(); }
+    await setSetting('push_on', false); toast(t('pu_done_off'));
+  } catch (e) { toast(t('err_generic')); }
+}
+async function pushRefresh() {         // after login: keep an existing subscription attached to the current user
+  try {
+    if (window.POS_DEMO || !pushSupported() || Notification.permission !== 'granted' || !(await getSetting('push_on', false))) return;
+    const reg = await pushReg(), sub = reg && (await reg.pushManager.getSubscription()); if (sub && navigator.onLine) await pushSave(sub);
+  } catch (e) {}
+}
+function pushNotify(action, body) {    // fire-and-forget: a failed push must never block the real action
+  if (window.POS_DEMO) return;
+  try { getSb().functions.invoke('push-notify', { body: { action, ...(body || {}) } }).catch(() => {}); } catch (e) {}
+}
+async function pushCardHtml() {        // small settings block (shop users + admin inbox)
+  const st = await pushStatus();
+  const txt = { on: t('pu_state_on'), off: t('pu_state_off'), blocked: t('pu_state_blocked'), unsupported: window.POS_DEMO ? t('pu_demo') : t('pu_unsupported') }[st];
+  return `<div id="pu-card"><div class="muted">${t('pu_title')}: <b>${txt}</b></div>${st === 'on' ? `<button class="btn secondary block" data-pu="off" style="margin-top:8px">${ic('bell', 18)} ${t('pu_off')}</button>` : st === 'off' ? `<button class="btn block" data-pu="on" style="margin-top:8px">${ic('bell', 18)} ${t('pu_on')}</button>` : ''}</div>`;
+}
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-pu]'); if (!b) return;
+  if (b.dataset.pu === 'on') await pushEnable(); else await pushDisable();
+  const c = $('pu-card'); if (c) c.outerHTML = await pushCardHtml();
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', ev => {   // user tapped a notification
+  if (!ev.data || ev.data.type !== 'push-open') return;
+  const d = ev.data.data || {};
+  if (d.kind === 'ticket' || d.kind === 'reset') {
+    if (ctIsAdmin() && typeof showSuperAdmin === 'function') { SAS.tab = 'inbox'; if ($('sa').hidden) showSuperAdmin(); else saRender(); }
+    else if (S.session) ctOpen();
+  }
+});
+
+</script>
+<script>
+// ── billing-plus.js
+// Universal POS — Billing extras (Stage 9): hold / resume bills, quotations, wording for payment methods and % discounts.
+// Loaded BEFORE app.js (after push.js). Uses app.js globals (S, $, t, money, toast, openModal...) at call time only.
+// Held bills and quotations live on THIS phone only (settings table); they are not sales: no stock moves, nothing syncs.
+
+const BPT = {
+  hold_btn: ['روک لیں', 'Hold'], quote_btn: ['کوٹیشن', 'Quotation'], hold_list: ['روکے ہوئے بل / کوٹیشنز', 'Held bills / quotations'],
+  hold_tab: ['روکے ہوئے بل', 'Held bills'], quote_tab: ['کوٹیشنز', 'Quotations'],
+  hold_done: ['بل روک لیا گیا', 'Bill put on hold'], hold_del: ['یہ حذف کریں؟', 'Delete this?'], hold_none: ['کوئی روکا ہوا بل نہیں', 'No held bills'], quote_none: ['کوئی کوٹیشن نہیں', 'No quotations'],
+  hold_resume: ['بل جاری کریں', 'Resume'], hold_swapped: ['موجودہ بل بھی روک لیا گیا ہے', 'The current bill was put on hold too'],
+  qt_title: ['کوٹیشن', 'QUOTATION'], qt_no: ['کوٹیشن نمبر', 'Quotation no.'], qt_valid: ['قابلِ قبول تاریخ', 'Valid until'],
+  qt_note: ['یہ کوٹیشن ہے، بل نہیں۔ قیمتیں تبدیل ہو سکتی ہیں اور اسٹاک محفوظ نہیں کیا گیا۔', 'This is a quotation, not a bill. Prices may change and stock is not reserved.'],
+  qt_to_bill: ['بل میں لوڈ کریں', 'Load into bill'], qt_saved: ['کوٹیشن محفوظ ہو گئی', 'Quotation saved'], qt_days: ['درست رہنے کے دن', 'Valid for (days)'],
+  oos_none: ['اسٹاک ختم ہے، بل میں شامل نہیں ہو سکتا', 'Out of stock: cannot be added to the bill'],
+  oos_short: ['اسٹاک صرف {n} ہے', 'Only {n} in stock'], oos_block: ['اسٹاک کافی نہیں: {names}', 'Not enough stock: {names}'],
+  price_missing: ['قیمت درج نہیں: {names}۔ پروڈکٹ میں قیمت لکھیں', 'Price missing: {names}. Set the product price'],
+  set_oversell: ['اسٹاک سے زیادہ بیچنے کی اجازت', 'Allow selling more than the stock'],
+  amt_label: ['رقم سے (Rs)', 'By amount (Rs)'], gram_label: ['گرام', 'Grams'],
+  edit_btn: ['بل میں ترمیم', 'Edit this bill'], edit_banner: ['ترمیم: بل {no}۔ محفوظ کرنے پر پرانا بل منسوخ ہو کر نیا بل بنے گا (اسٹاک خود ٹھیک ہو جائے گا)', 'Editing bill {no}. Saving cancels the old bill and creates the corrected one (stock is fixed automatically)'],
+  edit_cancel: ['ترمیم منسوخ', 'Cancel editing'], edit_has_return: ['جس بل میں واپسی ہو چکی اس میں ترمیم نہیں ہو سکتی', 'A bill that already has a return cannot be edited'],
+  edit_replace_cart: ['موجودہ بل ہٹ جائے گا۔ جاری رکھیں؟', 'The current bill will be discarded. Continue?'],
+  edit_void_reason: ['ترمیم شدہ بل: {no}', 'Replaced by corrected bill {no}'], edit_of: ['پرانا بل', 'Corrects bill'],
+  edit_done: ['بل درست ہو گیا', 'Bill corrected'],
+  disc_pct: ['رعایت %', 'Discount %'],
+  pm_label: ['ادائیگی کا طریقہ', 'Payment method'], pm_split: ['تقسیم', 'Split'], pm_single: ['ایک طریقہ', 'Single method'],
+  pm_cash: ['نقد', 'Cash'], pm_jazz: ['جاز کیش', 'JazzCash'], pm_easy: ['ایزی پیسہ', 'Easypaisa'], pm_card: ['کارڈ', 'Card'], pm_bank: ['بینک ٹرانسفر', 'Bank transfer'], pm_mixed: ['ملی جلی', 'Mixed'],
+  rp_by_method: ['ادائیگی کے طریقے', 'By payment method'], rc_pay_by: ['ادائیگی', 'Payment']
+};
+for (const k in BPT) { I18N.ur[k] = BPT[k][0]; I18N.en[k] = BPT[k][1]; }
+
+const BP = { seg: 'held' };
+const bpEff = l => Math.round(l.unit_price * (1 - Math.min(100, Math.max(0, num(l.disc))) / 100) * 100) / 100;
+const bpTotals = (lines, disc, mode, pct) => {      // same maths as cartTotals(), for a stored cart
+  const sub = lines.reduce((a, l) => a + lineTotal(l), 0);
+  const d = Math.min(Math.max(mode === 'pct' ? sub * Math.min(100, Math.max(0, num(pct))) / 100 : num(disc), 0), sub);
+  const tax = Math.round((sub - d) * num(S.cfg.tax_rate)) / 100;
+  return { subtotal: round2(sub), discount: round2(d), tax, total: round2(sub - d + tax) };
+};
+async function bpLoad() {
+  S.held = await getSetting('held_bills', []); S.quotes = await getSetting('quotes', []);
+  S.heldN = (S.held || []).length;
+}
+const bpSave = async () => { S.heldN = S.held.length; await setSetting('held_bills', S.held); await setSetting('quotes', S.quotes); };
+const bpSnap = () => ({ lines: JSON.parse(JSON.stringify(S.cart)), cust: S.saleCust ? { id: S.saleCust.id, name: S.saleCust.name, phone: S.saleCust.phone || '' } : null,
+  discount: S.discount || 0, discPct: S.discPct || 0, discMode: S.discMode || 'rs' });
+
+// ───────── Hold / resume ─────────
+async function bpHold() {
+  if (!S.cart.length) return;
+  const sn = bpSnap(), tt = cartTotals();
+  S.held = S.held || [];
+  S.held.unshift({ id: uuid(), at: new Date().toISOString(), total: tt.total, ...sn });
+  S.held = S.held.slice(0, 30);
+  await bpSave(); billResetState(); await setSetting('cart_draft', []);
+  closeModal(); refreshBill(); renderBillShell(); loadTiles(); toast(t('hold_done'));
+}
+async function bpResume(id) {
+  const h = (S.held || []).find(x => x.id === id); if (!h) return;
+  if (S.cart.length) { const cur = bpSnap(); S.held.unshift({ id: uuid(), at: new Date().toISOString(), total: cartTotals().total, ...cur }); }
+  S.held = S.held.filter(x => x.id !== id);
+  billResetState();
+  S.cart = h.lines; S.saleCust = h.cust; S.discount = h.discount; S.discPct = h.discPct; S.discMode = h.discMode;
+  await bpSave(); persistCart(); closeModal(); renderBillShell(); loadTiles(); refreshBill(); toast(S.cart.length ? t('hold_resume') : '');
+  openCheckout();
+}
+
+// ───────── Quotations ─────────
+async function bpQuote() {
+  if (!S.cart.length) return;
+  const days = 7, tt = cartTotals(), n = (await getSetting('quote_counter', 0)) + 1;
+  await setSetting('quote_counter', n);
+  const q = { id: uuid(), no: 'Q-' + String(n).padStart(5, '0'), at: new Date().toISOString(), valid_days: days, total: tt.total, ...bpSnap() };
+  S.quotes = [q, ...(S.quotes || [])].slice(0, 50); await bpSave();
+  toast(t('qt_saved')); bpShowQuote(q.id);
+}
+function bpItems(q) {
+  return q.lines.map(l => ({ product_name: l.product_name, name_ur: l.name_ur || '', qty: l.qty, unit_name: l.unit_name && l.unit_name !== l.unit ? l.unit_name : (l.unit_name || ''), unit_price: bpEff(l), line_total: lineTotal(l) }));
+}
+function quoteHtml(q) {
+  const a4 = S.cfg.paper === 'a4', items = bpItems(q), tt = bpTotals(q.lines, q.discount, q.discMode, q.discPct);
+  const until = new Date(new Date(q.at).getTime() + q.valid_days * 864e5).toISOString();
+  const meta = kv(t('qt_no'), esc(q.no)) + kv(t('ex_date'), esc(fmtDate(q.at)), '', true) + kv(t('qt_valid'), esc(fmtDate(until).split(',')[0]), '', true)
+    + (q.cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(q.cust.name)}</b></div>` : '');
+  const lines = a4
+    ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
+        `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
+    : items.map(i => `<div class="it"><div class="n">${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div><div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`).join('');
+  const sums = kv(t('subtotal'), money(tt.subtotal)) + (tt.discount ? kv(t('discount'), '−' + money(tt.discount)) : '') + (tt.tax ? kv(t('tax'), money(tt.tax)) : '');
+  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('qt_title'))}<hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
+    <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(tt.total)}</span></div></div>
+    <hr class="sep"><div class="sub c">${t('qt_note')}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
+}
+function quoteText(q) {
+  const tt = bpTotals(q.lines, q.discount, q.discMode, q.discPct);
+  return [`*${S.session.shop_name}* — ${t('qt_title')} ${q.no}`, fmtDate(q.at), '',
+    ...bpItems(q).map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
+    ...(tt.discount ? [`${t('discount')}: −${money(tt.discount)}`] : []), `*${t('total')}: Rs ${money(tt.total)}*`, '', t('qt_note')].join('\n');
+}
+function bpShowQuote(id) {
+  const q = (S.quotes || []).find(x => x.id === id); if (!q) return;
+  const wa = q.cust && waNumber(q.cust.phone);
+  openModal(`<h2>${t('qt_title')}</h2><div class="rcwrap">${quoteHtml(q)}</div>
+    <div class="row" style="margin-top:12px"><button class="btn grow" data-bp="qprint|${id}">${ic('print', 18)} ${t('print')}</button>
+      <a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa || ''}?text=${encodeURIComponent(quoteText(q))}">${ic('chat', 18)} ${t('rc_wa')}</a></div>
+    <div class="row" style="margin-top:8px"><button class="btn secondary grow" data-bp="qload|${id}">${t('qt_to_bill')}</button><button class="btn secondary" data-close>${t('close')}</button></div>`);
+}
+async function bpQuoteLoad(id) {
+  const q = (S.quotes || []).find(x => x.id === id); if (!q) return;
+  if (S.cart.length) { S.held = S.held || []; S.held.unshift({ id: uuid(), at: new Date().toISOString(), total: cartTotals().total, ...bpSnap() }); }
+  billResetState(); S.cart = JSON.parse(JSON.stringify(q.lines)); S.saleCust = q.cust; S.discount = q.discount; S.discPct = q.discPct; S.discMode = q.discMode;
+  await bpSave(); persistCart(); closeModal(); if (S.tab !== 'bill') switchTab('bill'); renderBillShell(); loadTiles(); refreshBill(); openCheckout();
+}
+
+// ───────── List modal ─────────
+function bpListOpen(seg) {
+  if (seg) BP.seg = seg;
+  const held = S.held || [], quotes = S.quotes || [];
+  const tabs = `<div class="seg"><button class="${BP.seg === 'held' ? 'on' : ''}" data-bp="seg|held">${t('hold_tab')} (${held.length})</button><button class="${BP.seg === 'quotes' ? 'on' : ''}" data-bp="seg|quotes">${t('quote_tab')} (${quotes.length})</button></div>`;
+  const row = (x, kind) => `<div class="card"><div class="row"><div class="grow"><b>${kind === 'q' ? esc(x.no) : fmtDate(x.at)}</b>
+      <div class="muted">${x.lines.length} ${t('items_n')}${x.cust ? ' · ' + esc(x.cust.name) : ''}${kind === 'q' ? ' · ' + esc(fmtDate(x.at)) : ''}</div></div><div class="price">Rs ${money(x.total)}</div></div>
+      <div class="row" style="margin-top:8px">${kind === 'q'
+        ? `<button class="btn grow sm" data-bp="qshow|${x.id}">${t('qt_title')}</button><button class="btn secondary sm" data-bp="qload|${x.id}">${t('qt_to_bill')}</button><button class="btn danger sm" data-bp="qdel|${x.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button>`
+        : `<button class="btn grow sm" data-bp="resume|${x.id}">${t('hold_resume')}</button><button class="btn danger sm" data-bp="hdel|${x.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button>`}</div></div>`;
+  openModal(`<h2>${t('hold_list')}</h2>${tabs}${BP.seg === 'held'
+    ? (held.map(h => row(h, 'h')).join('') || `<div class="muted" style="text-align:center;padding:18px">${t('hold_none')}</div>`)
+    : (quotes.map(q => row(q, 'q')).join('') || `<div class="muted" style="text-align:center;padding:18px">${t('quote_none')}</div>`)}
+    <div style="margin-top:8px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+}
+const BP_ACT = {
+  seg: k => bpListOpen(k), resume: id => bpResume(id), qshow: id => bpShowQuote(id), qload: id => bpQuoteLoad(id),
+  qprint: id => { const q = (S.quotes || []).find(x => x.id === id); if (q) doPrint(quoteHtml(q), S.cfg.paper); },
+  hdel: async id => { if (!confirm(t('hold_del'))) return; S.held = S.held.filter(x => x.id !== id); await bpSave(); renderBillShell(); bpListOpen(); },
+  qdel: async id => { if (!confirm(t('hold_del'))) return; S.quotes = S.quotes.filter(x => x.id !== id); await bpSave(); bpListOpen(); }
+};
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-bp]'); if (!el) return;
+  const [a, x] = el.dataset.bp.split('|'); if (BP_ACT[a]) BP_ACT[a](x);
+});
+
+</script>
+<script>
+// ── extras.js
+// Universal POS — Extras (Stage 9): bulk udhaar reminders, low-stock / subscription alerts, install button, About screen, notification settings.
+// Loaded BEFORE app.js (after billing-plus.js). Uses app.js globals at call time only.
+
+const APP_INFO = { version: '1.9.0', build: 'Stage 9' };
+const EXTT = {
+  // About
+  ab_btn: ['ایپ کے بارے میں', 'About the app'], ab_title: ['ایپ کے بارے میں', 'About'], ab_version: ['ورژن', 'Version'], ab_plan: ['پلان', 'Plan'],
+  ab_expiry: ['سبسکرپشن کی میعاد', 'Subscription expires'], ab_device: ['ڈیوائس', 'Device'], ab_support: ['سپورٹ', 'Support'], ab_status: ['حالت', 'Status'],
+  ab_pending: ['زیرِ انتظار ریکارڈ', 'Pending records'], ab_mode: ['انسٹال شدہ ایپ', 'Installed app'], ab_browser: ['براؤزر', 'Browser'], ab_demo: ['ڈیمو', 'Demo'],
+  // install
+  in_btn: ['ایپ انسٹال کریں', 'Install the app'], in_ios: ['iPhone/iPad: Safari میں نیچے "Share" دبائیں، پھر "Add to Home Screen" چنیں۔', 'iPhone/iPad: in Safari tap "Share", then "Add to Home Screen".'],
+  in_other: ['براؤزر کے مینو (⋮) میں "Install app" یا "Add to Home screen" چنیں۔', 'In the browser menu (⋮) choose "Install app" or "Add to Home screen".'],
+  in_done: ['ایپ انسٹال ہو گئی', 'App installed'],
+  // notifications section
+  ex_notif_sec: ['نوٹیفکیشن', 'Notifications'], ex_alerts: ['کم اسٹاک اور سبسکرپشن کی یاد دہانی', 'Low-stock and subscription reminders'],
+  ex_alerts_note: ['اطلاعات ایپ کھولنے یا بل بنانے پر چیک ہوتی ہیں؛ دن میں ایک بار فون پر نوٹیفکیشن آتا ہے (اگر اوپر نوٹیفکیشن آن ہوں)۔', 'Checked when you open the app or make a bill; one phone notification per day (if notifications are on above).'],
+  ex_low_title: ['کم اسٹاک', 'Low stock'], ex_low_body: ['{n} پروڈکٹس کا اسٹاک کم ہے: {names}', '{n} product(s) are low on stock: {names}'],
+  ex_exp_title: ['سبسکرپشن', 'Subscription'], ex_exp_body: ['آپ کی سبسکرپشن {n} دن میں ختم ہو رہی ہے۔ تجدید کیلئے رابطہ کریں۔', 'Your subscription ends in {n} day(s). Contact us to renew.'],
+  ex_exp_today: ['آپ کی سبسکرپشن آج ختم ہو رہی ہے۔ تجدید کیلئے رابطہ کریں۔', 'Your subscription ends today. Contact us to renew.'],
+  ex_see: ['دیکھیں', 'View'], ex_contact: ['رابطہ کریں', 'Contact'],
+  // forgot password
+  fp_link: ['پاس ورڈ بھول گئے؟', 'Forgot password?'], fp_title: ['پاس ورڈ بھول گئے', 'Forgot password'],
+  fp_info: ['اپنا موبائل نمبر لکھیں۔ سپورٹ ٹیم آپ کو اسی نمبر پر کال/واٹس ایپ کر کے شناخت کرے گی اور نیا عارضی پاس ورڈ دے گی۔', 'Enter your mobile number. The support team will call/WhatsApp that number to confirm it is you and give you a new temporary password.'],
+  fp_name: ['آپ کا نام (اختیاری)', 'Your name (optional)'], fp_send: ['درخواست بھیجیں', 'Send request'],
+  fp_ok: ['درخواست مل گئی ہے۔ سپورٹ جلد آپ سے رابطہ کرے گی۔ تب تک اسی نمبر پر فون کھلا رکھیں۔', 'Request received. Support will contact you soon. Keep your phone reachable on that number.'],
+  fp_busy: ['ابھی بہت درخواستیں ہیں، کچھ دیر بعد کوشش کریں', 'Too many requests right now, try again later'],
+  // bulk reminders
+  br_btn: ['سب کو یاد دہانی', 'Remind all'], br_title: ['ادھار کی یاد دہانی', 'Udhaar reminders'], br_min: ['کم از کم رقم (Rs)', 'Minimum amount (Rs)'],
+  br_hint: ['واٹس ایپ پر ہر کسٹمر کیلئے الگ بٹن دبائیں؛ پیغام تیار ہو کر کھلے گا، آپ "بھیجیں" دبائیں۔ (واٹس ایپ خود بخود سب کو نہیں بھیجنے دیتا۔)', 'Tap the WhatsApp button for each customer; the message opens ready and you press Send. (WhatsApp does not allow sending to everyone automatically.)'],
+  br_last: ['آخری یاد دہانی', 'Last reminded'], br_none: ['کوئی کسٹمر نہیں', 'No customers'], br_nophone: ['{n} کسٹمرز کا نمبر نہیں لکھا', '{n} customer(s) have no phone number'], br_sent: ['بھیج دیا', 'Sent']
+};
+for (const k in EXTT) { I18N.ur[k] = EXTT[k][0]; I18N.en[k] = EXTT[k][1]; }
+
+const EX = { prompt: null, alerts: { low: 0, names: [], days: null } };
+const exStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const exIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+
+// ───────── Install button ─────────
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); EX.prompt = e; if (S.session && S.tab === 'settings') renderSettings(); });
+window.addEventListener('appinstalled', () => { EX.prompt = null; toast(t('in_done')); if (S.session && S.tab === 'settings') renderSettings(); });
+async function exInstall() {
+  if (EX.prompt) { EX.prompt.prompt(); try { await EX.prompt.userChoice; } catch (e) {} EX.prompt = null; return; }
+  openModal(`<h2>${t('in_btn')}</h2><p>${exIOS() ? t('in_ios') : t('in_other')}</p><button class="btn secondary block" data-close>${t('close')}</button>`);
+}
+const exInstallBtn = () => (window.POS_DEMO && location.protocol === 'file:') || exStandalone() ? '' : `<button class="btn secondary block" id="btn-install" style="margin-bottom:10px">${ic('download', 18)} ${t('in_btn')}</button>`;
+
+// ───────── About ─────────
+async function exAbout() {
+  const s = S.session, ph = await ctApi.phone(), wa = waNumber(ph), pend = (await pendingCount()) + (await failedCount());
+  const row = (l, v) => `<div class="kv"><span>${l}</span><b style="user-select:text">${v}</b></div>`;
+  const exp = s.expires_at ? new Date(s.expires_at).toLocaleDateString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'medium' }) : '—';
+  openModal(`<h2>${t('ab_title')}</h2>
+    <div style="text-align:center;margin:6px 0 10px"><img src="icon-192.png" alt="" width="72" height="72" style="border-radius:18px"><div><b>${t('app_name')}</b></div></div>
+    <div class="card totals">
+      ${row(t('ab_version'), `${APP_INFO.version} (${APP_INFO.build})`)}
+      ${row(t('shop'), esc(s.shop_name || '—'))}
+      ${row(t('role'), `${esc(s.user_name || '')} · ${t(s.role)}`)}
+      ${window.POS_DEMO ? row(t('ab_plan'), t('ab_demo')) : `${row(t('ab_plan'), esc(s.plan_name || '—'))}${row(t('ab_expiry'), esc(exp))}`}
+      ${row(t('ab_status'), `${S.online ? t('online') : t('offline')} · ${t('ab_pending')}: ${pend}`)}
+      ${row(t('ab_mode'), exStandalone() ? t('yes') : t('ab_browser'))}
+      ${row(t('ab_device'), `<span dir="ltr">${esc(String(S.deviceId || '').slice(0, 8))}</span>`)}
+    </div>
+    ${ph ? `<div class="sa-sec">${t('ab_support')}</div><div class="row" style="margin-bottom:10px"><a class="btn secondary grow lnk" href="tel:${esc(ph)}" dir="ltr">${ic('phone', 18)} ${esc(ph)}</a>${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 18)}</a>` : ''}</div>` : ''}
+    <button class="btn secondary block" data-close>${t('close')}</button>`);
+}
+
+// ───────── Low-stock / subscription alerts ─────────
+async function exLowStock() {
+  const sid = S.session.shop_id;
+  const all = await db.products.where('[shop_id+name]').between([sid, ''], [sid, '￿']).filter(p => !p.deleted_at && p.is_active !== false && p.min_stock > 0).toArray();
+  const st = await getStocks(sid, all.map(p => p.id));
+  return all.filter(p => st[p.id] <= p.min_stock);
+}
+async function exLocalNotify(title, body, tag) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts = { body, icon: 'icon-192.png', badge: 'icon-192.png', tag, lang: 'ur', dir: 'auto', data: { kind: 'local' } };
+    const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
+    if (reg && reg.showNotification) await reg.showNotification(title, opts); else new Notification(title, opts);
+  } catch (e) {}
+}
+async function exCheck() {
+  if (!S.session) return;
+  try {
+    const low = await exLowStock(), d = window.POS_DEMO ? null : syncDaysLeft();
+    EX.alerts = { low: low.length, names: low.slice(0, 3).map(p => (LANG === 'ur' && p.name_ur ? p.name_ur : p.name)), days: d !== null && d <= 7 ? d : null };
+    if (S.tab === 'home') renderHome();
+    if (await getSetting('ex_alerts_off', false)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (EX.alerts.low && (await getSetting('ex_n_low', '')) !== today) {
+      await setSetting('ex_n_low', today);
+      exLocalNotify(t('ex_low_title'), t('ex_low_body').replace('{n}', EX.alerts.low).replace('{names}', EX.alerts.names.join('، ')), 'low-stock');
+    }
+    if (EX.alerts.days !== null && (await getSetting('ex_n_exp', '')) !== today) {
+      await setSetting('ex_n_exp', today);
+      exLocalNotify(t('ex_exp_title'), EX.alerts.days <= 0 ? t('ex_exp_today') : t('ex_exp_body').replace('{n}', EX.alerts.days), 'sub-expiry');
+    }
+  } catch (e) {}
+}
+function exBannerHtml() {
+  const a = EX.alerts, out = [];
+  if (a.low) out.push(`<div class="warn" style="margin:0 0 10px;padding:8px 12px;display:flex;gap:8px;align-items:center" data-tab="${canReports() ? 'reports' : 'products'}" role="button">${ic('box', 18)}<span class="grow">${t('ex_low_body').replace('{n}', a.low).replace('{names}', esc(a.names.join('، ')))}</span><b>${t('ex_see')}</b></div>`);
+  if (a.days !== null) out.push(`<div class="warn" style="margin:0 0 10px;padding:8px 12px;display:flex;gap:8px;align-items:center" id="ex-exp" role="button">${ic('clock', 18)}<span class="grow">${a.days <= 0 ? t('ex_exp_today') : t('ex_exp_body').replace('{n}', a.days)}</span><b>${t('ex_contact')}</b></div>`);
+  return out.join('');
+}
+function exStartup() {
+  exCheck();
+  if (!exStartup._t) exStartup._t = setInterval(exCheck, 3 * 3600e3);
+  const q = new URLSearchParams(location.search);              // opened from a push notification while the app was closed
+  if (q.get('push') && !exStartup._q) { exStartup._q = true; setTimeout(() => { if (S.session) ctOpen(); }, 800); history.replaceState(null, '', location.pathname); }
+}
+
+// ───────── Settings: notification block ─────────
+async function exNotifBodyHtml() {
+  const off = await getSetting('ex_alerts_off', false);
+  return `${typeof pushCardHtml === 'function' ? await pushCardHtml() : ''}
+    <label style="margin-top:12px"><input type="checkbox" id="set-exalerts" style="width:auto;min-height:0" ${off ? '' : 'checked'}> ${t('ex_alerts')}</label>
+    <div class="muted">${t('ex_alerts_note')}</div>`;
+}
+
+// ───────── Bulk udhaar reminders ─────────
+const BR = { min: 0 };
+async function exBulkRemind() {
+  const sid = S.session.shop_id;
+  const all = await db.customers.where('[shop_id+name]').between([sid, ''], [sid, '￿']).filter(c => !c.deleted_at).toArray();
+  const bals = await getCustomerBalances(sid, all.map(c => c.id)), log = await getSetting('remind_log', {});
+  const owing = all.filter(c => bals[c.id] > Math.max(0, BR.min)).sort((a, b) => bals[b.id] - bals[a.id]);
+  const withPhone = owing.filter(c => waNumber(c.phone)), noPhone = owing.length - withPhone.length;
+  const total = round2(owing.reduce((a, c) => a + bals[c.id], 0));
+  openModal(`<h2>${t('br_title')}</h2>
+    <div class="udcard"><div class="udic">${ic('wallet', 24)}</div><div class="grow"><div class="muted">${t('total_udhaar')}</div><div class="big">Rs ${money(total)}</div><div class="muted">${owing.length} ${t('owes_n')}</div></div></div>
+    <label>${t('br_min')}</label><input id="br-min" type="number" inputmode="decimal" min="0" value="${BR.min || ''}">
+    <div class="muted" style="margin:6px 0">${t('br_hint')}</div>
+    ${noPhone ? `<div class="warn">${t('br_nophone').replace('{n}', noPhone)}</div>` : ''}
+    <div style="margin-top:8px">${withPhone.map(c => {
+      const msg = t('remind_msg').replace('{name}', c.name).replace('{shop}', S.session.shop_name || '').replace('{amt}', money(bals[c.id]));
+      return `<div class="lrow"><div class="grow"><b>${esc(c.name)}</b><div class="muted" id="brl-${c.id}">${log[c.id] ? t('br_last') + ': ' + esc(fmtDate(log[c.id])) : ''}</div></div>
+        <b class="owe-t">Rs ${money(bals[c.id])}</b>
+        <a class="btn sm lnk" target="_blank" rel="noopener" data-ex="sent|${c.id}" href="https://wa.me/${waNumber(c.phone)}?text=${encodeURIComponent(msg)}" style="margin-inline-start:8px">${ic('chat', 16)}</a></div>`; }).join('') || `<div class="muted" style="text-align:center;padding:16px">${t('br_none')}</div>`}</div>
+    <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+}
+const bulkRemindBtn = sum => (typeof canManageCustomers === 'function' && canManageCustomers() && sum.count) ? `<button class="btn secondary block" id="btn-bulkrem" style="margin-bottom:10px">${ic('chat', 18)} ${t('br_btn')} (${sum.count})</button>` : '';
+
+// ───────── Forgot password (before login; admin-mediated, never resets by itself) ─────────
+function exForgot() {
+  openModal(`<h2>${t('fp_title')}</h2><p class="muted">${t('fp_info')}</p><form id="fp-form">
+    <label>${t('phone')}</label><input name="phone" type="tel" inputmode="numeric" dir="ltr" required placeholder="03001234567">
+    <label>${t('fp_name')}</label><input name="name" maxlength="60">
+    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit" id="fp-submit">${t('fp_send')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+}
+async function exForgotSubmit(form) {
+  const f = Object.fromEntries(new FormData(form).entries());
+  try { loginIdToEmail(f.phone); } catch (e) { return toast(e.message, 3500); }
+  if (!(await pingServer())) return toast(t('login_need_online'), 3500);
+  const btn = $('fp-submit'); btn.disabled = true;
+  try {
+    const { data, error } = await getSb().rpc('request_password_reset', { p_phone: f.phone, p_name: f.name || '' });
+    if (error) throw new Error(/busy/.test(error.message) ? t('fp_busy') : /bad_phone/.test(error.message) ? t('bad_phone') : error.message);
+    pushNotify('reset_request', { request_id: data });
+    $('sheet').innerHTML = `<h2>${t('fp_title')}</h2><div class="vres" style="padding:12px">${t('fp_ok')}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`;
+  } catch (e) { toast(e.message || t('err_generic'), 5000); btn.disabled = false; }
+}
+document.addEventListener('click', ev => { if (ev.target.closest('#lnk-forgot')) { ev.preventDefault(); exForgot(); } });
+document.addEventListener('submit', ev => { if (ev.target.id === 'fp-form') { ev.preventDefault(); exForgotSubmit(ev.target); } });
+
+// ───────── Wiring ─────────
+document.addEventListener('click', async ev => {
+  const el = ev.target;
+  if (el.closest('#btn-install')) return exInstall();
+  if (el.closest('#btn-about')) return exAbout();
+  if (el.closest('#btn-bulkrem')) return exBulkRemind();
+  if (el.closest('#ex-exp')) return ctOpen();
+  const s = el.closest('[data-ex]');
+  if (s) { const [a, id] = s.dataset.ex.split('|'); if (a === 'sent') { const log = await getSetting('remind_log', {}); log[id] = new Date().toISOString(); await setSetting('remind_log', log); const l = $('brl-' + id); if (l) l.textContent = t('br_sent') + ' ✓'; } }
+});
+document.addEventListener('input', ev => {
+  if (ev.target.id === 'br-min') { clearTimeout(exBulkRemind._t); exBulkRemind._t = setTimeout(() => { BR.min = num(ev.target.value); exBulkRemind(); setTimeout(() => { const i = $('br-min'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 0); }, 500); }
+});
+document.addEventListener('change', async ev => { if (ev.target.id === 'set-exalerts') { await setSetting('ex_alerts_off', !ev.target.checked); if (ev.target.checked) exCheck(); } });
+
+</script>
+<script>
 // ── app.js
 // Universal POS — app logic (Stage 2: offline billing MVP).
 // The UI reads/writes ONLY the local database. Network is used for login and the connectivity check.
@@ -4318,7 +4801,7 @@ ctStart();
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, receipt_qr: true, lang: 'ur', theme: 'green' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, receipt_qr: true, allow_oversell: false, lang: 'ur', theme: 'green' },
   cart: [],
   tab: 'home',
   billQuery: '', billPage: 0, tiles: [], tileStocks: {},
@@ -4333,6 +4816,22 @@ const S = {
 };
 
 const $ = id => document.getElementById(id);
+// Billing helpers (Stage 9): per-line % discount, sale discount in Rs or %, payment methods (single or split)
+const PAY_METHODS = ['cash', 'jazz', 'easy', 'card', 'bank'];
+const lineTotal = l => { const k = 1 - clampPct(l.disc) / 100; return l.amount != null ? Math.round(l.amount * k * 100) / 100 : Math.round(l.qty * linePrice(l) * 100) / 100; };
+const isKg = l => /^(kg|kgs|kilo|کلو)/i.test(String(l.unit_name || l.unit || '').trim());
+const isLitre = l => /^(l|ltr|litre|liter|لٹر)$/i.test(String(l.unit_name || l.unit || '').trim());
+const clampPct = v => Math.min(100, Math.max(0, num(v)));
+const linePrice = l => Math.round(l.unit_price * (1 - clampPct(l.disc) / 100) * 100) / 100;     // price after the line's % discount
+const splitSum = () => Math.round(PAY_METHODS.reduce((a, k) => a + num((S.splitAmt || {})[k]), 0) * 100) / 100;
+function saleDiscountFor(subtotal) {
+  const raw = S.discMode === 'pct' ? subtotal * clampPct(S.discPct) / 100 : num(S.discount);
+  return Math.min(Math.max(raw, 0), subtotal);
+}
+function billResetState() {
+  S.cart = []; S.discount = 0; S.discPct = 0; S.discMode = 'rs'; S.paid = 0; S.paidManual = false; S.saleCust = null;
+  S.paySplit = false; S.splitAmt = {}; S.payMethod = 'cash'; S.editing = null;
+}
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const fmtDate = iso => { try { return new Date(iso).toLocaleString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23' }); } catch (e) { return iso; } };
@@ -4439,6 +4938,7 @@ function applyStaticText() {
   $('login-title').textContent = t('app_name');
   $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
+  const lf = $('lnk-forgot'); if (lf) lf.textContent = t('fp_link');
   $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
   $('hdr-avatar').innerHTML = avatarHtml(24);
@@ -4554,6 +5054,9 @@ async function showApp() {
   switchTab(S.tab);
   refreshStatus();
   if (typeof syncStart === 'function') syncStart();
+  if (typeof bpLoad === 'function') bpLoad().then(() => { if (S.tab === 'bill') renderBillShell(); }).catch(() => {});
+  if (typeof pushRefresh === 'function') pushRefresh();
+  if (typeof exStartup === 'function') exStartup();
   if (typeof catalogFirstRun === 'function') catalogFirstRun().catch(() => {});
   if (!window.POS_DEMO && navigator.onLine) saLoadAnnouncement().catch(() => {});
   termsGate().catch(() => {});                       // first login: accept the agreement / terms / privacy / refund policy
@@ -4616,6 +5119,7 @@ async function renderHome() {
     ${ps.suppliers ? `<div class="udcard pay" data-tab="purchases" style="cursor:pointer"><div class="udic">${ic('truck', 24)}</div>
       <div class="grow"><div class="muted">${t('total_payable')}</div><div class="big">Rs ${money(ps.total)}</div>
         <div class="muted">${ps.count} ${t('owed_n')}</div></div></div>` : ''}
+    ${typeof exBannerHtml === 'function' ? exBannerHtml() : ''}
     <div class="mods">${mods.map(m => m.soon
       ? `<button class="mod soon" disabled><span class="soonb">${t('soon')}</span><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`
       : `<button class="mod" data-tab="${m.tab}"><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`).join('')}</div>`;
@@ -4627,6 +5131,7 @@ function renderBillShell() {
     <div class="searchbar">
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
       ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
+      <button class="iconbtn" id="btn-heldlist" type="button" aria-label="${t('hold_list')}">${ic('clock', 22)}${(S.heldN || 0) ? `<b class="tbadge abs">${S.heldN}</b>` : ''}</button>
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
     <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
@@ -4638,7 +5143,7 @@ function renderTiles() {
   const box = $('tiles'); if (!box) return;
   box.innerHTML = S.tiles.length ? S.tiles.map(p => {
     const l = cartLine(p.id), st = S.tileStocks[p.id];
-    return `<div class="tile ${l ? 'sel' : ''}" data-add="${p.id}">
+    return `<div class="tile ${l ? 'sel' : ''} ${st <= 0 && !S.cfg.allow_oversell ? 'oos' : ''}" data-add="${p.id}">
       <div class="tprice">${money(p.sale_price)}</div>
       <div class="tname">${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</div>
       <div class="tstock ${st <= 0 ? 'low' : ''}">${t('stock')}: ${st} ${esc(p.unit || '')}</div>
@@ -4662,14 +5167,23 @@ async function addToCartById(id) {
   if (p) await addToCart(p);
 }
 async function addToCart(p, clearSearch = false) {
-  const line = cartLine(p.id);
-  if (line) line.qty = Math.round((line.qty + 1) * 1000) / 1000;
-  else S.cart.push({ product_id: p.id, product_name: p.name, unit: p.unit || '', unit_name: p.unit || '', unit_factor: 1, units: p.units || [], base_price: p.sale_price, base_cost: p.cost_price || 0, unit_price: p.sale_price, cost_price: p.cost_price || 0, qty: 1 });
-  const stock = await getStock(S.session.shop_id, p.id);
+  const line = cartLine(p.id), stock = await getStock(S.session.shop_id, p.id);
+  const allowance = (S.editing && S.editing.oldBase && S.editing.oldBase[p.id]) || 0, avail = Math.round((stock + allowance) * 1000) / 1000;
+  const factor = line ? (line.unit_factor || 1) : 1, nextBase = ((line ? line.qty : 0) + 1) * factor;
+  let addQty = 1;
+  if (!S.cfg.allow_oversell && nextBase > avail + 1e-9) {      // stock rule: out-of-stock items cannot be sold (the owner can switch this off in Settings)
+    S.tileStocks[p.id] = stock; renderTiles();
+    const left = Math.round((avail - (line ? line.qty * factor : 0)) * 1000) / 1000;
+    if (line || left <= 0) return toast(avail <= 0 ? t('oos_none') : t('oos_short').replace('{n}', avail), 3500);
+    addQty = Math.round(left / factor * 1000) / 1000;           // a fraction is left (e.g. 0.5 kg): add just that
+    toast(t('oos_short').replace('{n}', avail), 3000);
+  }
+  if (line) line.qty = Math.round((line.qty + addQty) * 1000) / 1000;
+  else S.cart.push({ product_id: p.id, product_name: p.name, name_ur: p.name_ur || '', unit: p.unit || '', unit_name: p.unit || '', unit_factor: 1, units: p.units || [], base_price: p.sale_price, base_cost: p.cost_price || 0, unit_price: p.sale_price, cost_price: p.cost_price || 0, qty: addQty });
   const l = cartLine(p.id);
-  l.warn = stock - l.qty * (l.unit_factor || 1) < 0;
+  l.warn = avail - l.qty * (l.unit_factor || 1) < 0;
   S.tileStocks[p.id] = stock;
-  if (clearSearch && S.billQuery) { S.billQuery = ''; const s = $('bill-search'); if (s) s.value = ''; loadTiles(); }
+  if (clearSearch && S.billQuery) { S.billQuery = ''; const sb = $('bill-search'); if (sb) sb.value = ''; loadTiles(); }
   refreshBill(); persistCart();
 }
 function decById(id) {
@@ -4705,8 +5219,8 @@ function openCheckout() {
 }
 
 function cartTotals() {
-  const subtotal = S.cart.reduce((s, l) => s + Math.round(l.qty * l.unit_price * 100) / 100, 0);
-  const d = Math.min(Math.max(num(S.discount), 0), subtotal);
+  const subtotal = S.cart.reduce((s, l) => s + lineTotal(l), 0);
+  const d = saleDiscountFor(subtotal);
   const tax = Math.round((subtotal - d) * num(S.cfg.tax_rate)) / 100;   // same rounding as saveSale()
   return { subtotal: Math.round(subtotal * 100) / 100, discount: Math.round(d * 100) / 100, tax, total: Math.round((subtotal - d + tax) * 100) / 100 };
 }
@@ -4726,8 +5240,16 @@ function renderCart() {
         ${l.units && l.units.length ? `<select data-cunit="${i}" style="margin-top:4px"><option value="-1">${esc(l.unit)}</option>${l.units.map((u, k) => `<option value="${k}" ${u.name === l.unit_name ? 'selected' : ''}>${esc(u.name)} (${u.factor} ${esc(l.unit)})</option>`).join('')}</select>` : ''}
         <div class="row" style="margin-top:4px">
           ${canPrice() ? `<input type="number" inputmode="decimal" step="any" min="0" value="${l.unit_price}" data-price="${i}" style="width:90px">` : `<span class="muted">${money(l.unit_price)}</span>`}
-          <span class="muted">× ${l.qty} = <b>${money(l.qty * l.unit_price)}</b></span>
+          <span class="muted">× ${l.qty} = <b id="lt-${i}">${money(lineTotal(l))}</b></span>
         </div>
+        <div class="row" style="margin-top:4px;flex-wrap:wrap">
+          <span class="muted">${t('amt_label')}</span><input type="number" inputmode="decimal" step="any" min="0" value="${l.amount != null ? l.amount : ''}" placeholder="Rs" data-lamt="${i}" style="width:92px">
+          ${isKg(l) ? `<span class="muted">${t('gram_label')}</span><input type="number" inputmode="numeric" step="any" min="0" placeholder="g" data-lgram="${i}" style="width:80px">` : ''}
+        </div>
+        ${isKg(l) || isLitre(l) ? `<div class="sa-chips" style="margin:6px 0 0">${(isKg(l)
+            ? [[0.1, LANG === 'ur' ? '100 گرام' : '100 g'], [0.25, LANG === 'ur' ? 'پاؤ' : '¼ kg'], [0.5, LANG === 'ur' ? 'آدھا کلو' : '½ kg'], [0.75, LANG === 'ur' ? 'پون کلو' : '¾ kg'], [1, LANG === 'ur' ? '1 کلو' : '1 kg']]
+            : [[0.25, '¼'], [0.5, '½'], [0.75, '¾'], [1, '1']]).map(([v, lb]) => `<button type="button" class="sa-chip ${l.amount == null && l.qty === v ? 'on' : ''}" data-lq="${i}|${v}">${lb}</button>`).join('')}</div>` : ''}
+        ${canDiscount() ? `<div class="row" style="margin-top:4px"><span class="muted">${t('disc_pct')}</span><input type="number" inputmode="decimal" step="any" min="0" max="100" value="${l.disc || ''}" placeholder="0" data-ldisc="${i}" style="width:72px"></div>` : ''}
         ${l.warn ? `<div class="warn">${t('stock_warn')}</div>` : ''}
       </div>
       <div class="qtybox">
@@ -4743,22 +5265,31 @@ function renderCart() {
 function renderPay() {
   const pay = $('bill-pay'); if (!pay || !S.cart.length) return;
   const tt = cartTotals();
-  if (S.paidManual !== true) S.paid = tt.total;
+  if (S.paySplit) S.paid = splitSum(); else if (S.paidManual !== true) S.paid = tt.total;
   const bal = Math.round((tt.total - num(S.paid)) * 100) / 100;
+  const pmName = k => t('pm_' + k);
   pay.innerHTML = `
+    ${S.editing ? `<div class="warn" style="margin-bottom:8px">${t('edit_banner').replace('{no}', esc(S.editing.invoice))} <button type="button" class="btn secondary sm" id="btn-edit-cancel">${t('edit_cancel')}</button></div>` : ''}
     <div class="custrow" id="btn-pickcust" role="button" tabindex="0"><span class="lic">${ic('user', 18)}</span>
       <div class="grow">${S.saleCust ? `<b>${esc(S.saleCust.name)}</b>` : `<span class="muted">${t('walk_in')}</span>`}</div>
       <span class="btn secondary sm">${S.saleCust ? t('change_customer') : t('pick_customer')}</span></div>
     <div class="warn" id="cust-warn" ${bal > 0 && !S.saleCust ? '' : 'hidden'}>${t('need_customer')}</div>
     <div class="totals">
       <div><span>${t('subtotal')}</span><span>${money(tt.subtotal)}</span></div>
-      ${canDiscount() ? `<div><span>${t('discount')}</span><input id="in-discount" type="number" inputmode="decimal" step="any" min="0" value="${S.discount || ''}" style="width:110px"></div>` : ''}
+      ${canDiscount() ? `<div><span>${t('discount')}</span><span class="row" style="gap:6px;flex-wrap:nowrap"><select id="in-dmode" style="width:74px"><option value="rs" ${S.discMode !== 'pct' ? 'selected' : ''}>Rs</option><option value="pct" ${S.discMode === 'pct' ? 'selected' : ''}>%</option></select><input id="in-discount" type="number" inputmode="decimal" step="any" min="0" value="${(S.discMode === 'pct' ? S.discPct : S.discount) || ''}" style="width:100px"></span></div>
+        ${S.discMode === 'pct' && tt.discount ? `<div class="muted"><span></span><span id="disc-amt">− ${money(tt.discount)}</span></div>` : ''}` : ''}
       ${num(S.cfg.tax_rate) ? `<div><span>${t('tax')} (${S.cfg.tax_rate}%)</span><span>${money(tt.tax)}</span></div>` : ''}
       <div class="grand"><span>${t('total')}</span><span id="grand">${money(tt.total)}</span></div>
-      <div style="margin-top:6px"><span>${t('paid')}</span><input id="in-paid" type="number" inputmode="decimal" step="any" min="0" value="${S.paid}" style="width:130px"></div>
+      ${S.paySplit
+        ? `<div style="margin-top:6px"><span>${t('paid')}</span><b id="split-sum">${money(S.paid)}</b></div>
+           ${PAY_METHODS.map(k => `<div><span>${pmName(k)}</span><input type="number" inputmode="decimal" step="any" min="0" data-split="${k}" value="${(S.splitAmt || {})[k] || ''}" style="width:130px"></div>`).join('')}
+           <div style="margin-top:6px"><button type="button" class="btn secondary sm" id="btn-unsplit">${t('pm_single')}</button></div>`
+        : `<div style="margin-top:6px"><span>${t('paid')}</span><input id="in-paid" type="number" inputmode="decimal" step="any" min="0" value="${S.paid}" style="width:130px"></div>
+           <div style="margin-top:6px"><span>${t('pm_label')}</span><span class="row" style="gap:6px;flex-wrap:nowrap"><select id="in-pm" style="width:130px">${PAY_METHODS.map(k => `<option value="${k}" ${(S.payMethod || 'cash') === k ? 'selected' : ''}>${pmName(k)}</option>`).join('')}</select><button type="button" class="btn secondary sm" id="btn-split">${t('pm_split')}</button></span></div>`}
       <div class="muted" id="bal-line">${bal > 0 ? t('balance') + ': ' + money(bal) : bal < 0 ? t('change') + ': ' + money(-bal) : ''}</div>
     </div>
-    <button class="btn block" id="btn-complete" style="margin-top:10px">${t('complete_sale')}</button>`;
+    <button class="btn block" id="btn-complete" style="margin-top:10px">${t('complete_sale')}</button>
+    ${S.editing ? '' : `<div class="row" style="margin-top:8px"><button class="btn secondary grow" id="btn-hold" type="button">${ic('clock', 18)} ${t('hold_btn')}</button><button class="btn secondary grow" id="btn-quote" type="button">${ic('receipt', 18)} ${t('quote_btn')}</button></div>`}`;
 }
 
 function updateTotalsOnly() {
@@ -4767,6 +5298,9 @@ function updateTotalsOnly() {
   const g = $('grand'); if (g) g.textContent = money(tt.total);
   renderBillBar();
   const ip = $('in-paid'); if (ip && !S.paidManual) ip.value = S.paid;
+  const ss = $('split-sum'); if (ss) ss.textContent = money(S.paid);
+  const da = $('disc-amt'); if (da) da.textContent = '− ' + money(tt.discount);
+  S.cart.forEach((l, i) => { const e = $('lt-' + i); if (e) e.textContent = money(lineTotal(l)); });
   const bal = Math.round((tt.total - num(S.paid)) * 100) / 100;
   const b = $('bal-line'); if (b) b.textContent = bal > 0 ? t('balance') + ': ' + money(bal) : bal < 0 ? t('change') + ': ' + money(-bal) : '';
   const w = $('cust-warn'); if (w) w.hidden = !(bal > 0 && !S.saleCust);
@@ -4775,26 +5309,67 @@ function updateTotalsOnly() {
 let persistTimer;
 function persistCart() {
   clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => setSetting('cart_draft', S.cart).catch(() => {}), 300);
+  if (S.editing) return;       // a bill being corrected is never saved as a draft (a reload must not turn it into a second sale)
+  persistTimer = setTimeout(() => { if (!S.editing) setSetting('cart_draft', S.cart).catch(() => {}); }, 300);
 }
 
 async function completeSale() {
   const tt = cartTotals();
   // Unpaid part of a bill is udhaar: it must belong to a named customer.
-  if (num(S.paid) < tt.total && !S.saleCust) { const w = $('cust-warn'); if (w) w.hidden = false; return toast(t('need_customer'), 3500); }
+  const split = S.paySplit ? Object.fromEntries(PAY_METHODS.map(k => [k, round2(num((S.splitAmt || {})[k]))]).filter(([, v]) => v > 0)) : null;
+  const used = split ? Object.keys(split) : [S.payMethod || 'cash'];
+  const method = used.length > 1 ? 'mixed' : (used[0] || 'cash'), paidAmt = split ? splitSum() : num(S.paid);
+  if (paidAmt < tt.total && !S.saleCust) { const w = $('cust-warn'); if (w) w.hidden = false; return toast(t('need_customer'), 3500); }
+  // price / stock gates (a zero-price line or an out-of-stock item must not slip through)
+  const bad0 = S.cart.filter(l => l.qty > 0 && lineTotal(l) <= 0 && !(l.amount != null)).map(l => l.product_name);
+  if (bad0.length) return toast(t('price_missing').replace('{names}', bad0.join('، ')), 5000);
+  if (!S.cfg.allow_oversell) {
+    const st = await getStocks(S.session.shop_id, S.cart.map(l => l.product_id)), old = (S.editing && S.editing.oldBase) || {};
+    const short = S.cart.filter(l => l.qty * (l.unit_factor || 1) > (st[l.product_id] || 0) + (old[l.product_id] || 0) + 1e-9);
+    if (short.length) { short.forEach(l => { l.warn = true; }); renderCart(); return toast(t('oos_block').replace('{names}', short.map(l => l.product_name).join('، ')), 5000); }
+  }
   const btn = $('btn-complete'); btn.disabled = true;
+  const editing = S.editing;
   try {
     const sale = await saveSale({
+      edited_from: editing ? editing.id : null, edited_from_no: editing ? editing.invoice : null,
       customer_id: S.saleCust ? S.saleCust.id : null,
-      discount: tt.discount, tax_rate: num(S.cfg.tax_rate), paid: num(S.paid),
-      payment_method: 'cash', created_by: S.session.user_id
-    }, S.cart.filter(l => l.qty > 0).map(l => ({ product_id: l.product_id, product_name: l.product_name, qty: l.qty, unit_name: l.unit_name || null, unit_factor: l.unit_factor || 1, unit_price: l.unit_price, cost_price: l.cost_price })));
-    S.cart = []; S.discount = 0; S.paid = 0; S.paidManual = false; S.saleCust = null;
+      discount: tt.discount, tax_rate: num(S.cfg.tax_rate), paid: paidAmt,
+      payment_method: method, pay_split: split, created_by: S.session.user_id
+    }, S.cart.filter(l => l.qty > 0).map(l => ({ product_id: l.product_id, product_name: l.product_name, qty: l.qty, unit_name: l.unit_name || null, unit_factor: l.unit_factor || 1, unit_price: linePrice(l), line_total: lineTotal(l), item_discount: round2(l.qty * (l.unit_price - linePrice(l))), cost_price: l.cost_price })));
+    billResetState();
+    if (editing) { try { await voidSale(editing.id, t('edit_void_reason').replace('{no}', sale.invoice_no), { edited: true }); toast(t('edit_done'), 3000); } catch (e) { toast((e && e.message) || t('err_generic'), 6000); } }
     await setSetting('cart_draft', []);
     S.tiles.length && Object.keys(S.tileStocks).length && loadTiles();
-    refreshBill(); refreshStatus();
+    refreshBill(); refreshStatus(); if (typeof exCheck === 'function') exCheck();
     await showReceipt(sale.id);
   } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); btn.disabled = false; }
+}
+
+// ───────── Edit a bill (correct a mistake) ─────────
+// The old bill is cancelled (stock put back) and the corrected copy is saved as a new bill that points back to it.
+async function startEditSale(saleId) {
+  const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
+  if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
+  if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
+  const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
+  const cust = r.sale.customer_id ? await db.customers.get(r.sale.customer_id) : null;
+  billResetState();
+  const oldBase = {};
+  r.items.forEach((i, k) => {
+    const p = prods[k], f = i.unit_factor || 1;
+    oldBase[i.product_id] = round3((oldBase[i.product_id] || 0) + i.qty * f);
+    const fixed = Math.abs(i.line_total - i.qty * i.unit_price) > 0.011;
+    S.cart.push({ product_id: i.product_id, product_name: i.product_name, name_ur: (p && p.name_ur) || '', unit: (p && p.unit) || i.unit_name || '', unit_name: i.unit_name || (p && p.unit) || '',
+      unit_factor: f, units: (p && p.units) || [], base_price: p ? p.sale_price : i.unit_price / f, base_cost: p ? (p.cost_price || 0) : (i.cost_price || 0) / f,
+      unit_price: i.unit_price, cost_price: i.cost_price || 0, qty: i.qty, amount: fixed ? i.line_total : null });
+  });
+  S.saleCust = cust ? { id: cust.id, name: cust.name, phone: cust.phone || '' } : null;
+  S.discount = r.sale.discount || 0; S.discMode = 'rs';
+  S.paid = r.sale.paid; S.paidManual = r.sale.paid < r.sale.total - 0.005;     // a fully paid bill stays fully paid after the edit; udhaar bills keep their paid amount
+  if (r.sale.pay_split) { S.paySplit = true; S.splitAmt = { ...r.sale.pay_split }; } else S.payMethod = PAY_METHODS.includes(r.sale.payment_method) ? r.sale.payment_method : 'cash';
+  S.editing = { id: saleId, invoice: r.sale.invoice_no, oldBase };
+  closeModal(); if (S.tab !== 'bill') switchTab('bill'); renderBillShell(); loadTiles(); refreshBill(); openCheckout();
 }
 
 // ───────── Partial return ─────────
@@ -4837,9 +5412,10 @@ async function showReceipt(saleId) {
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
       + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
-      : canEditProducts() ? `<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+      : canEditProducts() ? `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button><button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
+  if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);
   if ($('btn-void')) $('btn-void').onclick = async () => {
     if (!confirm(t('void_confirm'))) return;
     const reason = prompt(t('void_reason')) ;
@@ -5007,6 +5583,7 @@ async function renderSettings() {
   const billing = (own ? '' : `<div class="muted">${t('owner_only')}</div>`) + `
       <label>${t('tax_rate')}</label><input id="set-tax" type="number" inputmode="decimal" step="any" min="0" value="${c.tax_rate}" ${dis}>
       <label><input type="checkbox" id="set-cdisc" style="width:auto;min-height:0" ${c.cashier_discount ? 'checked' : ''} ${dis}> ${t('cashier_discount')}</label>
+      <label><input type="checkbox" id="set-oversell" style="width:auto;min-height:0" ${c.allow_oversell ? 'checked' : ''} ${dis}> ${t('set_oversell')}</label>
       <label><input type="checkbox" id="set-cprice" style="width:auto;min-height:0" ${c.cashier_price ? 'checked' : ''} ${dis}> ${t('cashier_price')}</label>`;
 
   const receipt = `<label>${t('receipt_header')}</label><input id="set-rh" value="${esc(c.receipt_header)}" ${rdis}>
@@ -5044,9 +5621,12 @@ async function renderSettings() {
     ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
     ${sec('receipt', 'print', t('set_sec_receipt'), receipt)}
     ${sec('look', 'settings', t('set_sec_look'), look)}
+    ${sec('notif', 'bell', t('ex_notif_sec'), await exNotifBodyHtml())}
     ${sec('data', 'download', t('set_sec_data') + warnDot, data)}
     <div style="margin-top:12px">
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
+    ${exInstallBtn()}
+    <button class="btn secondary block" id="btn-about" style="margin-bottom:10px">${ic('help', 18)} ${t('ab_btn')}</button>
     <button class="btn secondary block" id="btn-contact" style="margin-bottom:10px">${ic('chat', 18)} ${t('ct_btn')}</button>
     <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button></div>`;
@@ -5063,14 +5643,22 @@ document.addEventListener('click', async ev => {
   const tinc = el.closest('[data-tinc]'); if (tinc) return addToCartById(tinc.dataset.tinc);
   const tdec = el.closest('[data-tdec]'); if (tdec) return decById(tdec.dataset.tdec);
   const add = el.closest('[data-add]'); if (add) return addToCartById(add.dataset.add);
-  const inc = el.closest('[data-inc]'); if (inc) { const l = S.cart[+inc.dataset.inc]; l.qty = Math.round((l.qty + 1) * 1000) / 1000; refreshBill(); return persistCart(); }
-  const dec = el.closest('[data-dec]'); if (dec) { const l = S.cart[+dec.dataset.dec]; l.qty = Math.max(0, Math.round((l.qty - 1) * 1000) / 1000); if (l.qty === 0) S.cart.splice(+dec.dataset.dec, 1); refreshBill(); return persistCart(); }
+  const inc = el.closest('[data-inc]'); if (inc) { const l = S.cart[+inc.dataset.inc]; l.amount = null; l.qty = Math.round((l.qty + 1) * 1000) / 1000; refreshBill(); return persistCart(); }
+  const dec = el.closest('[data-dec]'); if (dec) { const l = S.cart[+dec.dataset.dec]; l.amount = null; l.qty = Math.max(0, Math.round((l.qty - 1) * 1000) / 1000); if (l.qty === 0) S.cart.splice(+dec.dataset.dec, 1); refreshBill(); return persistCart(); }
+  const lq = el.closest('[data-lq]'); if (lq) { const [i, v] = lq.dataset.lq.split('|'); const l = S.cart[+i]; l.amount = null; l.qty = +v; refreshBill(); return persistCart(); }
+  if (el.closest('#btn-editsale-x')) return;
+  if (el.closest('#btn-edit-cancel')) { billResetState(); closeModal(); refreshBill(); renderBillShell(); loadTiles(); return; }
   const rm = el.closest('[data-rm]'); if (rm) { S.cart.splice(+rm.dataset.rm, 1); refreshBill(); return persistCart(); }
   if (el.closest('#btn-checkout')) return openCheckout();
   if (el.closest('#btn-moretiles')) { S.billPage++; return loadTiles(true); }
   if (el.closest('#btn-addprod2')) return openProductForm(null);
   if (el.closest('#btn-scan')) return startScan();
   if (el.closest('#btn-complete')) return completeSale();
+  if (el.closest('#btn-split')) { S.paySplit = true; S.splitAmt = { [S.payMethod || 'cash']: num(S.paid) }; S.paidManual = true; return renderPay(); }
+  if (el.closest('#btn-unsplit')) { S.paySplit = false; S.splitAmt = {}; S.paidManual = false; return renderPay(); }
+  if (el.closest('#btn-hold')) return bpHold();
+  if (el.closest('#btn-quote')) return bpQuote();
+  if (el.closest('#btn-heldlist')) return bpListOpen();
   if (el.closest('#btn-addprod')) return openProductForm(null);
   const ed = el.closest('[data-edit]'); if (ed) return openProductForm(ed.dataset.edit);
   if (el.closest('#btn-moreprod')) { S.productPage++; return renderProducts(true); }
@@ -5174,9 +5762,20 @@ document.addEventListener('input', ev => {
   else if (el.dataset.pcost != null) { const l = S.pur.lines[+el.dataset.pcost]; l.unit_cost = num(el.value); const c = $('pl-' + el.dataset.pcost); if (c) c.textContent = money(l.qty * l.unit_cost); updatePurTotals(); }
   else if (el.id === 'pur-paid') { S.pur.paid = num(el.value); S.pur.paidManual = true; updatePurTotals(); }
   else if (el.id === 'prod-search') { clearTimeout(searchTimer); searchTimer = setTimeout(() => { S.productQuery = el.value; S.productPage = 0; renderProducts(); }, 200); }
-  else if (el.dataset.qty != null) { S.cart[+el.dataset.qty].qty = num(el.value); persistCart(); updateTotalsOnly(); }
+  else if (el.dataset.qty != null) { const l = S.cart[+el.dataset.qty]; l.qty = num(el.value); if (l.amount != null) { l.amount = null; const a = document.querySelector(`[data-lamt="${el.dataset.qty}"]`); if (a) a.value = ''; } persistCart(); updateTotalsOnly(); }
+  else if (el.dataset.lamt != null) {       // sell by amount: "Rs 100 of this item" -> qty is worked out from the price
+    const i = +el.dataset.lamt, l = S.cart[i], v = num(el.value);
+    if (v > 0 && l.unit_price > 0) { l.amount = Math.round(v * 100) / 100; l.qty = Math.round(v / l.unit_price * 1000) / 1000; } else { l.amount = null; }
+    const q = document.querySelector(`[data-qty="${i}"]`); if (q && v > 0) q.value = l.qty; const g = document.querySelector(`[data-lgram="${i}"]`); if (g) g.value = '';
+    persistCart(); updateTotalsOnly(); }
+  else if (el.dataset.lgram != null) {      // grams (kg items)
+    const i = +el.dataset.lgram, l = S.cart[i], v = num(el.value); l.amount = null; l.qty = Math.round(v) / 1000;
+    const q = document.querySelector(`[data-qty="${i}"]`); if (q) q.value = l.qty; const a = document.querySelector(`[data-lamt="${i}"]`); if (a) a.value = '';
+    persistCart(); updateTotalsOnly(); }
   else if (el.dataset.price != null) { S.cart[+el.dataset.price].unit_price = num(el.value); persistCart(); updateTotalsOnly(); }
-  else if (el.id === 'in-discount') { S.discount = num(el.value); updateTotalsOnly(); }
+  else if (el.dataset.ldisc != null) { S.cart[+el.dataset.ldisc].disc = clampPct(el.value); persistCart(); updateTotalsOnly(); }
+  else if (el.dataset.split != null) { S.splitAmt = S.splitAmt || {}; S.splitAmt[el.dataset.split] = num(el.value); S.paid = splitSum(); S.paidManual = true; updateTotalsOnly(); }
+  else if (el.id === 'in-discount') { if (S.discMode === 'pct') S.discPct = clampPct(el.value); else S.discount = num(el.value); updateTotalsOnly(); }
   else if (el.id === 'in-paid') { S.paid = num(el.value); S.paidManual = true; updateTotalsOnly(); }
 });
 
@@ -5196,6 +5795,8 @@ document.addEventListener('change', async ev => {
   const id = ev.target.id;
   if (id === 'set-lang') { await saveCfg('lang', ev.target.value); setLang(ev.target.value); applyStaticText(); renderBillShell(); switchTab('settings'); }
   else if (id === 'pur-upcost') { S.pur.updateCost = ev.target.checked; }
+  else if (id === 'in-dmode') { S.discMode = ev.target.value === 'pct' ? 'pct' : 'rs'; renderPay(); }
+  else if (id === 'in-pm') { S.payMethod = ev.target.value; }
   else if (id === 'import-file') {
     const f = ev.target.files[0]; if (!f) return;
     try { const n = await syncImportFile(f); toast(t('import_done').replace('{n}', n), 4000); renderSettings(); }
@@ -5205,6 +5806,7 @@ document.addEventListener('change', async ev => {
   else if (id === 'set-theme') { await saveCfg('theme', ev.target.value); applyTheme(); }
   else if (isOwner() && id === 'set-tax') { await saveCfg('tax_rate', Math.max(0, num(ev.target.value))); }
   else if (isOwner() && id === 'set-cdisc') { await saveCfg('cashier_discount', ev.target.checked); }
+  else if (isOwner() && id === 'set-oversell') { await saveCfg('allow_oversell', ev.target.checked); }
   else if (isOwner() && id === 'set-cprice') { await saveCfg('cashier_price', ev.target.checked); }
   else if (id === 'set-rh') { await saveCfg('receipt_header', ev.target.value); shopCfgChanged(); }
   else if (id === 'set-rf') { await saveCfg('receipt_footer', ev.target.value); shopCfgChanged(); }

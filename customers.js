@@ -32,6 +32,7 @@ async function renderCustomers(append = false) {
         <div class="grow"><div class="muted">${t('total_udhaar')}</div>
           <div class="big">Rs ${money(sum.total)}</div>
           <div class="muted">${sum.count} ${t('owes_n')}</div></div></div>
+      ${typeof bulkRemindBtn === 'function' ? bulkRemindBtn(sum) : ''}
       <div class="row" style="margin-bottom:10px">
         <input id="cust-search" class="grow" type="search" placeholder="${t('cust_search')}" autocomplete="off" value="${esc(S.custQuery || '')}">
         <button class="btn" id="btn-addcust" type="button">${ic('plus', 18)} ${t('add_customer')}</button>
