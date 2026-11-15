@@ -257,7 +257,8 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 .rc.a4 .rt td.num:last-child, .rc.a4 .rt th:last-child { text-align: end; }
 .rc.a4 .sumbox { width: 46%; margin-inline-start: auto; } .rc.a4 .sec { font-weight: 800; color: var(--g900); margin-top: 14px; font-size: 15px; }
 @media print {
-  #receipt-print .rc { box-shadow: none; max-width: none; width: var(--paper, 58mm); margin: 0 auto; padding: 0 1mm; }
+  #receipt-print { display: block !important; width: 100% !important; margin: 0 !important; padding: 0 !important; text-align: center !important; }
+  #receipt-print .rc { box-shadow: none; max-width: none; width: var(--receipt-content, 48mm); margin: 0 auto; padding: 0 1mm; }
   #receipt-print .rc:not(.a4) { break-inside: avoid; page-break-inside: avoid; }
   #receipt-print .rc.a4 { width: 100%; padding: 4mm 0 0; } #receipt-print .rc::after { display: none; }
 }
