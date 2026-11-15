@@ -94,8 +94,6 @@ async function doPrint(html, paper) {
 
   const isA4 = paper === 'a4';
   const width = Number.parseFloat(paper) || 58;
-  // Thermal printers commonly have a narrower printable head than the nominal roll.
-  // Keep the page at its nominal width, but center the receipt inside a safe print width.
   const contentWidth = width <= 58 ? 48 : width <= 80 ? 70 : Math.max(48, width - 10);
   document.documentElement.style.setProperty('--paper', isA4 ? '100%' : width + 'mm');
   document.documentElement.style.setProperty('--receipt-content', isA4 ? '100%' : contentWidth + 'mm');
@@ -103,36 +101,9 @@ async function doPrint(html, paper) {
   if (isA4) {
     st.textContent = '@page{size:A4;margin:12mm}';
   } else {
-    const receipt = host.querySelector('.rc');
-    const oldHostStyle = host.getAttribute('style');
-    const oldReceiptStyle = receipt ? receipt.getAttribute('style') : null;
-
-    // Wait for Urdu/web fonts and layout before measuring, otherwise the generated
-    // roll height can be shorter than the final printed receipt and create page 2.
-    host.style.cssText = 'display:block;position:absolute;left:-10000px;top:0;width:' + width + 'mm;';
-    if (receipt) {
-      receipt.style.width = contentWidth + 'mm';
-      receipt.style.maxWidth = 'none';
-      receipt.style.margin = '0 auto';
-      receipt.style.padding = '0 1mm';
-      receipt.style.boxShadow = 'none';
-    }
-    if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-    const rectHeight = receipt ? receipt.getBoundingClientRect().height : 240;
-    const contentHeight = receipt ? receipt.scrollHeight : rectHeight;
-    const pxHeight = Math.max(rectHeight, contentHeight);
-    // Extra 20mm allowance covers printer/font rounding without leaving receipt data
-    // to spill onto a second page on Android's print service.
-    const pageHeight = Math.max(60, Math.ceil(pxHeight * 25.4 / 96 + 20));
-
-    if (oldHostStyle === null) host.removeAttribute('style'); else host.setAttribute('style', oldHostStyle);
-    if (receipt) {
-      if (oldReceiptStyle === null) receipt.removeAttribute('style');
-      else receipt.setAttribute('style', oldReceiptStyle);
-    }
-    st.textContent = '@page{size:' + width + 'mm ' + pageHeight + 'mm;margin:0}';
+    // Use repeatable 200mm roll segments. Long receipts flow onto additional pages
+    // at normal text size instead of being forced into one oversized/scaled page.
+    st.textContent = '@page{size:' + width + 'mm 200mm;margin:0}';
   }
 
   document.body.classList.add('printing');
