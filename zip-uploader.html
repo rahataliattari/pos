@@ -121,7 +121,7 @@ async function checkConnection(){
   var b=$("branch").value.trim();
   await gh("git/ref/heads/"+branchPath(b),"GET");
   connectionOK=true;
-  $("connection").textContent="✓ GitHub کنکشن درست · "+r.full_name+" · "+b+" · Write اجازت اپ لوڈ کے وقت تصدیق ہوگی۔;
+  $("connection").textContent="✓ GitHub کنکشن درست · "+r.full_name+" · "+b+" · Write اجازت اپ لوڈ کے وقت تصدیق ہوگی۔";
   $("connection").style.color="#08783e";
   updateUploadButton();
  }catch(e){connectionOK=false;$("connection").textContent="✕ "+e.message;$("connection").style.color="#b42318"}
