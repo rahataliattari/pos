@@ -87,33 +87,46 @@ function reportPrintHtml(r, low, period) {
     <div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
 
-function doPrint(html, paper) {
+async function doPrint(html, paper) {
   const host = $('receipt-print');
   host.innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
 
   const isA4 = paper === 'a4';
   const width = Number.parseFloat(paper) || 58;
+  // Thermal printers commonly have a narrower printable head than the nominal roll.
+  // Keep the page at its nominal width, but center the receipt inside a safe print width.
+  const contentWidth = width <= 58 ? 48 : width <= 80 ? 70 : Math.max(48, width - 10);
   document.documentElement.style.setProperty('--paper', isA4 ? '100%' : width + 'mm');
+  document.documentElement.style.setProperty('--receipt-content', isA4 ? '100%' : contentWidth + 'mm');
 
   if (isA4) {
     st.textContent = '@page{size:A4;margin:12mm}';
   } else {
-    // Android/Chrome may paginate a thermal receipt when the roll height is left as "auto".
-    // Measure the rendered receipt and give the print page an explicit matching height.
     const receipt = host.querySelector('.rc');
     const oldHostStyle = host.getAttribute('style');
     const oldReceiptStyle = receipt ? receipt.getAttribute('style') : null;
+
+    // Wait for Urdu/web fonts and layout before measuring, otherwise the generated
+    // roll height can be shorter than the final printed receipt and create page 2.
     host.style.cssText = 'display:block;position:absolute;left:-10000px;top:0;width:' + width + 'mm;';
     if (receipt) {
-      receipt.style.width = width + 'mm';
+      receipt.style.width = contentWidth + 'mm';
       receipt.style.maxWidth = 'none';
       receipt.style.margin = '0 auto';
       receipt.style.padding = '0 1mm';
       receipt.style.boxShadow = 'none';
     }
-    const pxHeight = receipt ? Math.ceil(receipt.getBoundingClientRect().height) : 240;
-    const pageHeight = Math.max(60, Math.ceil(pxHeight * 25.4 / 96) + 4);
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const rectHeight = receipt ? receipt.getBoundingClientRect().height : 240;
+    const contentHeight = receipt ? receipt.scrollHeight : rectHeight;
+    const pxHeight = Math.max(rectHeight, contentHeight);
+    // Extra 20mm allowance covers printer/font rounding without leaving receipt data
+    // to spill onto a second page on Android's print service.
+    const pageHeight = Math.max(60, Math.ceil(pxHeight * 25.4 / 96 + 20));
+
     if (oldHostStyle === null) host.removeAttribute('style'); else host.setAttribute('style', oldHostStyle);
     if (receipt) {
       if (oldReceiptStyle === null) receipt.removeAttribute('style');
@@ -124,5 +137,5 @@ function doPrint(html, paper) {
 
   document.body.classList.add('printing');
   window.print();
-  setTimeout(() => document.body.classList.remove('printing'), 500);
+  setTimeout(() => document.body.classList.remove('printing'), 1000);
 }
