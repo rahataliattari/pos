@@ -88,10 +88,41 @@ function reportPrintHtml(r, low, period) {
 }
 
 function doPrint(html, paper) {
-  $('receipt-print').innerHTML = html;
+  const host = $('receipt-print');
+  host.innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
-  st.textContent = paper === 'a4' ? '@page{size:A4;margin:12mm}' : `@page{size:${paper || 58}mm auto;margin:2mm}`;
-  document.documentElement.style.setProperty('--paper', paper === 'a4' ? '100%' : (paper || 58) + 'mm');
-  document.body.classList.add('printing'); window.print();
+
+  const isA4 = paper === 'a4';
+  const width = Number.parseFloat(paper) || 58;
+  document.documentElement.style.setProperty('--paper', isA4 ? '100%' : width + 'mm');
+
+  if (isA4) {
+    st.textContent = '@page{size:A4;margin:12mm}';
+  } else {
+    // Android/Chrome may paginate a thermal receipt when the roll height is left as "auto".
+    // Measure the rendered receipt and give the print page an explicit matching height.
+    const receipt = host.querySelector('.rc');
+    const oldHostStyle = host.getAttribute('style');
+    const oldReceiptStyle = receipt ? receipt.getAttribute('style') : null;
+    host.style.cssText = 'display:block;position:absolute;left:-10000px;top:0;width:' + width + 'mm;';
+    if (receipt) {
+      receipt.style.width = width + 'mm';
+      receipt.style.maxWidth = 'none';
+      receipt.style.margin = '0 auto';
+      receipt.style.padding = '0 1mm';
+      receipt.style.boxShadow = 'none';
+    }
+    const pxHeight = receipt ? Math.ceil(receipt.getBoundingClientRect().height) : 240;
+    const pageHeight = Math.max(60, Math.ceil(pxHeight * 25.4 / 96) + 4);
+    if (oldHostStyle === null) host.removeAttribute('style'); else host.setAttribute('style', oldHostStyle);
+    if (receipt) {
+      if (oldReceiptStyle === null) receipt.removeAttribute('style');
+      else receipt.setAttribute('style', oldReceiptStyle);
+    }
+    st.textContent = '@page{size:' + width + 'mm ' + pageHeight + 'mm;margin:0}';
+  }
+
+  document.body.classList.add('printing');
+  window.print();
   setTimeout(() => document.body.classList.remove('printing'), 500);
 }
