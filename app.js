@@ -126,13 +126,20 @@ function loginIdToEmail(v) {
 }
 const EYE = shown => ic(shown ? 'eyeoff' : 'eye', 22);
 function pwField(id, ph, style = '') {          // password input with a show/hide eye button
-  return `<div class="pwwrap" ${style ? `style="${style}"` : ''}><input id="${id}" type="password" placeholder="${ph}" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="show/hide password">${EYE(false)}</button></div>`;
+  return `<div class="pwwrap" ${style ? `style="${style}"` : ''}><input id="${id}" type="password" placeholder="${ph}" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="${t('pw_toggle')}" aria-pressed="false">${EYE(false)}</button></div>`;
 }
 function initEyes() { document.querySelectorAll('button.eye[data-eye]:empty').forEach(b => { b.innerHTML = EYE(false); }); }
 document.addEventListener('click', ev => {
   const b = ev.target.closest('button.eye[data-eye]'); if (!b) return;
   const inp = document.getElementById(b.dataset.eye); if (!inp) return;
-  const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show);
+  const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show); b.setAttribute('aria-pressed', show ? 'true' : 'false');
+});
+// Language button on the login page (works before sign-in; the choice is remembered like the one in Settings)
+document.addEventListener('click', async ev => {
+  if (!ev.target.closest || !ev.target.closest('#login-lang')) return;
+  const l = LANG === 'ur' ? 'en' : 'ur';
+  S.cfg.lang = l; try { await setSetting('cfg_lang', l); } catch (e) { /* remembered next time */ }
+  setLang(l); applyStaticText(); const er = $('login-err'); if (er) er.hidden = true;
 });
 const homeHello = () => (S.session && S.session.user_name) || t('greeting');   // Home header: the signed-in person's name
 // Shows the login id as the mobile number (0300…), never the technical e-mail form.
@@ -143,6 +150,9 @@ function applyStaticText() {
   $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
   const lf = $('lnk-forgot'); if (lf) lf.textContent = t('fp_link');
+  const lt = $('login-tag'); if (lt) lt.textContent = t('login_tag');
+  const ll = $('login-lang'); if (ll) { ll.textContent = LANG === 'ur' ? 'English' : 'اردو'; ll.lang = LANG === 'ur' ? 'en' : 'ur'; }
+  document.querySelectorAll('button.eye').forEach(b => b.setAttribute('aria-label', t('pw_toggle')));
   $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
   $('hdr-avatar').innerHTML = avatarHtml(24);
@@ -150,7 +160,8 @@ function applyStaticText() {
     .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
   if (typeof ctPaint === 'function') ctPaint();
 }
-function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
+function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes();
+  const eb = document.querySelector('#login .eye'); if (eb) { eb.innerHTML = EYE(false); eb.setAttribute('aria-pressed', 'false'); } }
 
 function getSb() {
   if (!S.sb) {
@@ -333,15 +344,18 @@ async function renderHome() {
 
 // ───────── Billing: search + product tiles ─────────
 function renderBillShell() {
-  $('view-bill').innerHTML = `
+  $('view-bill').innerHTML = `${qbSegHtml()}
+    <div id="bill-items">
     <div class="searchbar">
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
       ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
       <button class="iconbtn" id="btn-heldlist" type="button" aria-label="${t('hold_list')}">${ic('clock', 22)}${(S.heldN || 0) ? `<b class="tbadge abs">${S.heldN}</b>` : ''}</button>
-      <button class="iconbtn" id="btn-quickbill" type="button" aria-label="${t('qb_title')}">${ic('bolt', 22)}</button>
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
-    <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
+    <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>
+    </div>
+    <div id="bill-quick" data-qbroot="inline" hidden></div>`;
+  qbSegApply();
 }
 
 function cartLine(id) { return S.cart.find(l => l.product_id === id); }
@@ -409,7 +423,8 @@ async function handleBarcode(code) {
 // Checkout bar (sticky) + checkout sheet
 function renderBillBar() {
   const bar = $('billbar');
-  const show = S.tab === 'bill' && S.cart.length > 0;
+  const show = S.tab === 'bill' && S.cart.length > 0 && S.billMode !== 'quick';
+  if (typeof qbSegBadge === 'function') qbSegBadge();
   bar.hidden = !show; if (!show) return;
   const tt = cartTotals();
   bar.innerHTML = `<div class="bb-info"><div>${ic('cart', 18)} ${S.cart.length} ${t('items_n')}</div><div class="bb-total">Rs ${money(tt.total)}</div></div>

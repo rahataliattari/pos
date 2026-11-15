@@ -8,6 +8,7 @@ const icon = 'data:image/png;base64,' + fs.readFileSync('icon-192.png').toString
 html = html.replace(/<link rel="manifest"[^>]*>\s*/, '')
   .replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${icon}">`)
   .replace(/<link rel="apple-touch-icon"[^>]*>/, `<link rel="apple-touch-icon" href="${icon}">`)
+  .replace(/src="icon-192.png"/g, `src="${icon}"`)
   .replace(/<link rel="stylesheet" href="styles.css">/, () => `<style>\n${rd('styles.css')}\n</style>`);
 // drop every external <script src=…>, then add our own inline bundle at the end of <body>
 html = html.replace(/\s*<!-- Libraries:[\s\S]*?-->/, '').replace(/\s*<script src="[^"]+"[^>]*><\/script>/g, '');

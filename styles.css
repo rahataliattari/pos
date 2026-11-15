@@ -1,6 +1,6 @@
 :root {
   --g900: #0a5a2e; --g700: #0f7b3f; --g600: #178a49; --g500: #1f9d55; --g200: #cfe9da; --g100: #e6f4ec; --g50: #f4fbf7;
-  --text: #17261e; --muted: #66756c; --line: #dfe9e3; --bg: #f6f8f7; --card: #ffffff;
+  --text: #17261e; --muted: #66756c; --line: #dfe9e3; --field: #78867e; --bg: #f6f8f7; --card: #ffffff;
   --warn: #8a5200; --warn-bg: #fff4e0; --err: #b3261e;
   --shadow: 0 2px 10px rgba(15, 80, 45, .08);
 }
@@ -18,9 +18,10 @@ body {
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 input, select, textarea {
-  width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; min-height: 48px;
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--field); border-radius: 14px; background: #fff; min-height: 48px;
 }
-input:focus, select:focus, textarea:focus { outline: 0; border-color: var(--g500); box-shadow: 0 0 0 3px var(--g100); }
+input:focus, select:focus, textarea:focus { outline: 3px solid var(--g700); outline-offset: 1px; border-color: var(--g700); box-shadow: none; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
 .btn {
   border: 0; border-radius: 14px; padding: 10px 18px; min-height: 48px; background: var(--g700); color: #fff;
@@ -38,8 +39,8 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px
 .iconbtn.green { background: var(--g700); border-color: var(--g700); color: #fff; }
 
 /* login */
-#login { max-width: 420px; margin: 0 auto; padding: 56px 22px; }
-#login h1 { color: var(--g900); text-align: center; font-size: 26px; }
+#login { max-width: 420px; margin: 0 auto; padding: calc(32px + env(safe-area-inset-top, 0px)) 22px calc(28px + env(safe-area-inset-bottom, 0px)); }
+#login h1 { color: var(--g900); text-align: center; font-size: 26px; margin: 6px 0 2px; }
 .errtext { color: var(--err); font-size: 14px; margin-top: 10px; }
 
 /* shell */
@@ -333,3 +334,16 @@ nav.bottom button { position: relative; }
 .qbhome small { display: block; font-weight: 600; font-size: 13px; }
 .qbamt { font-size: 28px; font-weight: 800; text-align: center; }
 .qbline { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.bseg { display: flex; gap: 6px; background: var(--g100); padding: 4px; border-radius: 16px; margin-bottom: 12px; }
+.bseg button { flex: 1; position: relative; border: 0; border-radius: 12px; min-height: 44px; background: transparent; color: var(--g900); font: inherit; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.bseg button.on { background: #fff; color: var(--g700); box-shadow: var(--shadow); }
+.bseg .cnt { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--g700); color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+/* Login page */
+.lgbrand { text-align: center; margin-bottom: 18px; }
+.lglogo { width: 88px; height: 88px; border-radius: 22px; box-shadow: var(--shadow); display: block; margin: 0 auto 8px; }
+.lgtag { margin: 0; color: var(--muted); font-size: 14px; }
+.lgcard { background: var(--card); border-radius: 22px; padding: 6px 18px 12px; box-shadow: var(--shadow); }
+.lglinks { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+#lnk-forgot { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
+.lglang { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--g900); font-weight: 700; cursor: pointer; }
+#login a:focus-visible, #login button:focus-visible { outline: 3px solid var(--g700); outline-offset: 2px; border-radius: 10px; }

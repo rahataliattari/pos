@@ -10,7 +10,7 @@
   <style>
 :root {
   --g900: #0a5a2e; --g700: #0f7b3f; --g600: #178a49; --g500: #1f9d55; --g200: #cfe9da; --g100: #e6f4ec; --g50: #f4fbf7;
-  --text: #17261e; --muted: #66756c; --line: #dfe9e3; --bg: #f6f8f7; --card: #ffffff;
+  --text: #17261e; --muted: #66756c; --line: #dfe9e3; --field: #78867e; --bg: #f6f8f7; --card: #ffffff;
   --warn: #8a5200; --warn-bg: #fff4e0; --err: #b3261e;
   --shadow: 0 2px 10px rgba(15, 80, 45, .08);
 }
@@ -28,9 +28,10 @@ body {
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 input, select, textarea {
-  width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; min-height: 48px;
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--field); border-radius: 14px; background: #fff; min-height: 48px;
 }
-input:focus, select:focus, textarea:focus { outline: 0; border-color: var(--g500); box-shadow: 0 0 0 3px var(--g100); }
+input:focus, select:focus, textarea:focus { outline: 3px solid var(--g700); outline-offset: 1px; border-color: var(--g700); box-shadow: none; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
 .btn {
   border: 0; border-radius: 14px; padding: 10px 18px; min-height: 48px; background: var(--g700); color: #fff;
@@ -48,8 +49,8 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px
 .iconbtn.green { background: var(--g700); border-color: var(--g700); color: #fff; }
 
 /* login */
-#login { max-width: 420px; margin: 0 auto; padding: 56px 22px; }
-#login h1 { color: var(--g900); text-align: center; font-size: 26px; }
+#login { max-width: 420px; margin: 0 auto; padding: calc(32px + env(safe-area-inset-top, 0px)) 22px calc(28px + env(safe-area-inset-bottom, 0px)); }
+#login h1 { color: var(--g900); text-align: center; font-size: 26px; margin: 6px 0 2px; }
 .errtext { color: var(--err); font-size: 14px; margin-top: 10px; }
 
 /* shell */
@@ -343,6 +344,19 @@ nav.bottom button { position: relative; }
 .qbhome small { display: block; font-weight: 600; font-size: 13px; }
 .qbamt { font-size: 28px; font-weight: 800; text-align: center; }
 .qbline { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.bseg { display: flex; gap: 6px; background: var(--g100); padding: 4px; border-radius: 16px; margin-bottom: 12px; }
+.bseg button { flex: 1; position: relative; border: 0; border-radius: 12px; min-height: 44px; background: transparent; color: var(--g900); font: inherit; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.bseg button.on { background: #fff; color: var(--g700); box-shadow: var(--shadow); }
+.bseg .cnt { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--g700); color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+/* Login page */
+.lgbrand { text-align: center; margin-bottom: 18px; }
+.lglogo { width: 88px; height: 88px; border-radius: 22px; box-shadow: var(--shadow); display: block; margin: 0 auto 8px; }
+.lgtag { margin: 0; color: var(--muted); font-size: 14px; }
+.lgcard { background: var(--card); border-radius: 22px; padding: 6px 18px 12px; box-shadow: var(--shadow); }
+.lglinks { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+#lnk-forgot { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
+.lglang { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--g900); font-weight: 700; cursor: pointer; }
+#login a:focus-visible, #login button:focus-visible { outline: 3px solid var(--g700); outline-offset: 2px; border-radius: 10px; }
 
 </style>
 </head>
@@ -350,16 +364,22 @@ nav.bottom button { position: relative; }
   <div id="boot" style="padding:40px;text-align:center;color:#0f7b3f">…</div>
 
   <section id="login" hidden>
-    <h1 id="login-title"></h1>
+    <div class="lgbrand">
+      <img class="lglogo" src="data:image/png;base64,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" alt="" width="88" height="88">
+      <h1 id="login-title"></h1>
+      <p class="lgtag" id="login-tag"></p>
+    </div>
+    <div class="lgcard">
     <form id="login-form" autocomplete="on">
       <label id="lbl-email" for="in-email"></label>
       <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
-      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="show/hide password"></button></div>
+      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="" aria-pressed="false"></button></div>
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
       <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
     </form>
-    <div style="text-align:center;margin-top:14px"><a href="#" id="lnk-forgot" style="color:var(--g700);font-weight:700"></a></div>
+    <div class="lglinks"><a href="#" id="lnk-forgot"></a><button type="button" id="login-lang" class="lglang"></button></div>
+    </div>
     <div id="shop-choice" hidden></div>
   </section>
 
@@ -571,7 +591,7 @@ function ic(name, size) {
 // Urdu-first translations. Urdu = default (RTL); English = LTR.
 const I18N = {
   ur: {
-    app_name: 'یونیورسل پی او ایس',
+    app_name: 'یونیورسل پی او ایس', login_tag: 'آپ کی دکان کے بل، اسٹاک اور حساب', pw_toggle: 'پاس ورڈ دکھائیں یا چھپائیں',
     tab_home: 'ہوم', tab_inventory: 'انوینٹری', tab_sale: 'بل', tab_more: 'مزید', greeting: 'السلام علیکم',
     today_sales: 'آج کی فروخت', bills_n: 'بل', checkout: 'چیک آؤٹ', soon: 'جلد',
     mod_customers: 'کسٹمرز', mod_expenses: 'اخراجات', mod_purchases: 'خریداری', mod_reports: 'رپورٹس', items_n: 'آئٹمز',
@@ -627,7 +647,7 @@ const I18N = {
     remind_msg: 'السلام علیکم {name}، {shop} میں آپ کا Rs {amt} ادھار باقی ہے۔ مہربانی کر کے ادا کر دیں۔ شکریہ'
   },
   en: {
-    app_name: 'Universal POS',
+    app_name: 'Universal POS', login_tag: 'Bills, stock and accounts for your shop', pw_toggle: 'Show or hide password',
     tab_home: 'Home', tab_inventory: 'Inventory', tab_sale: 'Sale', tab_more: 'More', greeting: 'Hello',
     today_sales: "Today's sales", bills_n: 'bills', checkout: 'Checkout', soon: 'Soon',
     mod_customers: 'Customers', mod_expenses: 'Expenses', mod_purchases: 'Purchases', mod_reports: 'Reports', items_n: 'items',
@@ -4855,12 +4875,15 @@ function posScanStop() { if (scanZx) { try { scanZx.reset(); } catch (e) { /* al
 <script>
 // ── quickbill.js
 // Universal POS — Quick Bill (فوری بل): a fast bill for an amount typed by hand, with no product picking.
+// Lives INSIDE the Billing tab next to the normal product bill: [ Product bill | Quick Bill ]. Switching keeps both untouched.
 // - Always fully paid, walk-in customer (no udhaar), no discount. Tax follows the shop's tax rate like every other bill.
 // - Saved through the normal saveSale(), so numbering, sync, receipt/print, reports, cancel and return all work as usual.
 // - Its lines are marked quick:true and carry the fixed product_id 'quick-bill' (no real product): stock is NEVER touched.
+// - Correcting a saved Quick Bill opens the same form in a sheet (QBE); the billing-tab form (QBI) is left as it was.
 // Loaded before app.js; uses app.js globals only when called.
 const QB_I18N = {
   qb_title: ['فوری بل', 'Quick Bill'],
+  qb_tab_items: ['پروڈکٹ بل', 'Product bill'],
   qb_sub: ['بغیر پروڈکٹ، صرف رقم لکھیں', 'No products, just type the amount'],
   qb_amount: ['رقم (Rs)', 'Amount (Rs)'],
   qb_name: ['تفصیل (اختیاری)', 'Description (optional)'],
@@ -4873,114 +4896,156 @@ const QB_I18N = {
 };
 for (const k in QB_I18N) { I18N.ur[k] = QB_I18N[k][0]; I18N.en[k] = QB_I18N[k][1]; }
 
-const QB = { lines: [], pm: 'cash', busy: false, edit: null };     // edit = { id, invoice } while a saved Quick Bill is being corrected
+const QBI = { lines: [], pm: 'cash', busy: false };                    // billing-tab form
+const QBE = { lines: [], pm: 'cash', busy: false, edit: null };        // edit sheet; edit = { id, invoice }
 const qbRound = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const QB_MAX = 1e9;
+const qq = (c, n) => c.root.querySelector(`[data-q="${n}"]`);
+function qbCtxOf(el) {
+  const root = el && el.closest ? el.closest('[data-qbroot]') : null;
+  return root ? { root, st: root.dataset.qbroot === 'edit' ? QBE : QBI, isEdit: root.dataset.qbroot === 'edit' } : null;
+}
 
-function qbPending() { const a = $('qb-amt'); const v = a ? parseFloat(a.value) : 0; return isFinite(v) && v > 0 ? v : 0; }
-function qbSums() {      // same arithmetic as saveSale(): subtotal -> tax -> total, each rounded to 2 decimals
-  const pend = qbPending();
-  const sub = qbRound(QB.lines.reduce((s, l) => s + l.amount, 0) + (pend && pend <= QB_MAX ? pend : 0));
+function qbPending(c) { const a = qq(c, 'amt'); const v = a ? parseFloat(a.value) : 0; return isFinite(v) && v > 0 ? v : 0; }
+function qbSums(c) {      // same arithmetic as saveSale(): subtotal -> tax -> total, each rounded to 2 decimals
+  const pend = qbPending(c);
+  const sub = qbRound(c.st.lines.reduce((s, l) => s + l.amount, 0) + (pend && pend <= QB_MAX ? pend : 0));
   const rate = num(S.cfg.tax_rate), tax = qbRound(sub * rate / 100);
   return { sub, rate, tax, total: qbRound(sub + tax) };
 }
 
-function qbHtml() {
-  return `<h2>${ic('bolt', 22)} ${t('qb_title')}</h2>
-    ${QB.edit ? `<div class="warn" style="margin-bottom:10px">${t('edit_banner').replace('{no}', esc(QB.edit.invoice))}</div>` : `<div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>`}
-    <div id="qb-lines"></div>
-    <label for="qb-amt">${t('qb_amount')}</label>
-    <input id="qb-amt" class="qbamt" type="number" inputmode="decimal" step="any" min="0" placeholder="0" autocomplete="off">
-    <label for="qb-name" style="margin-top:8px">${t('qb_name')}</label>
-    <input id="qb-name" type="text" maxlength="60" autocomplete="off" placeholder="${esc(t('qb_item'))}">
-    <button type="button" class="btn secondary block" id="qb-add" style="margin-top:8px">${ic('plus', 18)} ${t('qb_add')}</button>
-    <div class="totals" id="qb-totals" style="margin-top:10px"></div>
+function qbPanelHtml(st, isEdit) {
+  return `${isEdit ? `<h2>${ic('bolt', 22)} ${t('qb_title')}</h2>
+      <div class="warn" style="margin-bottom:10px">${t('edit_banner').replace('{no}', esc(st.edit.invoice))}</div>` : ''}
+    <div data-q="lines"></div>
+    <label>${t('qb_amount')}</label>
+    <input data-q="amt" class="qbamt" type="number" inputmode="decimal" step="any" min="0" placeholder="0" autocomplete="off" aria-label="${esc(t('qb_amount'))}">
+    <label style="margin-top:8px">${t('qb_name')}</label>
+    <input data-q="name" type="text" maxlength="60" autocomplete="off" placeholder="${esc(t('qb_item'))}" aria-label="${esc(t('qb_name'))}">
+    <button type="button" class="btn secondary block" data-q="add" style="margin-top:8px">${ic('plus', 18)} ${t('qb_add')}</button>
+    <div class="totals" data-q="totals" style="margin-top:10px"></div>
     <div class="muted" style="margin:6px 0">${t('pm_label')}</div>
-    <div class="sa-chips" id="qb-pm">${PAY_METHODS.map(k => `<button type="button" class="sa-chip ${QB.pm === k ? 'on' : ''}" data-qbpm="${k}">${t('pm_' + k)}</button>`).join('')}</div>
+    <div class="sa-chips">${PAY_METHODS.map(k => `<button type="button" class="sa-chip ${st.pm === k ? 'on' : ''}" data-qbpm="${k}">${t('pm_' + k)}</button>`).join('')}</div>
     <div class="muted" style="font-size:13px;margin-bottom:8px">${t('qb_hint')}</div>
-    <div class="row"><button type="button" class="btn grow" id="qb-save">${t('complete_sale')}</button>
-      <button type="button" class="btn secondary grow" data-close>${t('cancel')}</button></div>`;
+    ${isEdit ? `<div class="row"><button type="button" class="btn grow" data-q="save">${t('complete_sale')}</button>
+      <button type="button" class="btn secondary grow" data-close>${t('cancel')}</button></div>`
+      : `<button type="button" class="btn block" data-q="save">${t('complete_sale')}</button>`}`;
 }
-
-function qbRenderLines() {
-  const box = $('qb-lines'); if (!box) return;
-  box.innerHTML = QB.lines.map((l, i) => `<div class="qbline"><div class="grow">${esc(l.name)}</div><b class="num">${money(l.amount)}</b>
+function qbRenderLines(c) {
+  const box = qq(c, 'lines'); if (!box) return;
+  box.innerHTML = c.st.lines.map((l, i) => `<div class="qbline"><div class="grow">${esc(l.name)}</div><b class="num">${money(l.amount)}</b>
     <button type="button" class="iconbtn" style="width:40px;height:40px;color:var(--err)" data-qbrm="${i}" aria-label="${t('delete')}">${ic('x', 18)}</button></div>`).join('');
 }
-function qbRenderTotals() {
-  const box = $('qb-totals'); if (!box) return;
-  const s = qbSums();
-  box.innerHTML = (QB.lines.length > 1 || s.rate ? `<div><span>${t('subtotal')}</span><span>${money(s.sub)}</span></div>` : '')
+function qbRenderTotals(c) {
+  const box = qq(c, 'totals'); if (!box) return;
+  const s = qbSums(c);
+  box.innerHTML = (c.st.lines.length > 1 || s.rate ? `<div><span>${t('subtotal')}</span><span>${money(s.sub)}</span></div>` : '')
     + (s.rate ? `<div><span>${t('tax')} (${esc(S.cfg.tax_rate)}%)</span><span>${money(s.tax)}</span></div>` : '')
     + `<div class="grand"><span>${t('total')}</span><span>Rs ${money(s.total)}</span></div>`;
 }
 
-function qbOpen() {
-  if (!S.session) return;
+// ───────── Billing tab: [ Product bill | Quick Bill ] ─────────
+function qbSegHtml() {
+  const m = S.billMode === 'quick' ? 'quick' : 'items';
+  return `<div class="bseg" id="bill-seg"><button type="button" data-bmode="items" class="${m === 'items' ? 'on' : ''}">${ic('cart', 18)} ${t('qb_tab_items')}<b class="cnt" id="bill-cnt" hidden></b></button>
+    <button type="button" data-bmode="quick" class="${m === 'quick' ? 'on' : ''}">${ic('bolt', 18)} ${t('qb_title')}</button></div>`;
+}
+function qbSegBadge() {
+  const b = $('bill-cnt'); if (!b) return;
+  const n = (S.cart || []).length; b.hidden = !n; b.textContent = n;
+}
+function qbMount() {
+  const root = $('bill-quick'); if (!root) return;
+  root.innerHTML = qbPanelHtml(QBI, false);
+  const c = { root, st: QBI }; qbRenderLines(c); qbRenderTotals(c);
+}
+function qbSegApply() {       // show the chosen half of the Billing tab (called after the tab is drawn and whenever the mode changes)
+  const it = $('bill-items'), qk = $('bill-quick'); if (!it || !qk) return;
+  const quick = S.billMode === 'quick';
+  it.hidden = quick; qk.hidden = !quick;
+  document.querySelectorAll('[data-bmode]').forEach(b => b.classList.toggle('on', b.dataset.bmode === (quick ? 'quick' : 'items')));
+  if (quick && !qk.firstElementChild) qbMount();
+  qbSegBadge();
+  if (typeof renderBillBar === 'function') renderBillBar();
+  if (quick) setTimeout(() => { const a = qk.querySelector('[data-q="amt"]'); if (a && S.tab === 'bill' && !qk.hidden) a.focus(); }, 80);
+}
+function qbSetMode(m) {
+  S.billMode = m === 'quick' ? 'quick' : 'items';
+  if (!$('bill-seg')) { renderBillShell(); return; }       // renderBillShell() calls qbSegApply() itself
+  qbSegApply();
+}
+function qbGo() {             // Home -> "Quick Bill" button
   if (S.editing) return toast(t('qb_busy'), 3500);
-  QB.lines = []; QB.pm = 'cash'; QB.busy = false; QB.edit = null;
-  openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
-  setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
+  S.billMode = 'quick'; switchTab('bill'); qbSegApply();
 }
 
-// Correct a saved Quick Bill: the old bill is cancelled (no stock involved) and a corrected copy is saved that points back to it,
-// exactly like editing a normal bill. Called from startEditSale() in app.js.
+// ───────── Correct a saved Quick Bill (sheet) ─────────
+// The old bill is cancelled (no stock involved) and a corrected copy is saved that points back to it, like editing a normal bill.
+// Called from startEditSale() in app.js.
 async function qbEdit(saleId) {
   if (S.editing) return toast(t('qb_busy'), 3500);
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
-  QB.lines = r.items.filter(i => i.qty > 0).map(i => ({ name: i.product_name, amount: qbRound(i.line_total) }));
-  if (!QB.lines.length) return;
-  QB.pm = PAY_METHODS.includes(r.sale.payment_method) ? r.sale.payment_method : 'cash'; QB.busy = false;
-  QB.edit = { id: saleId, invoice: r.sale.invoice_no };
-  openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
-  setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
+  QBE.lines = r.items.filter(i => i.qty > 0).map(i => ({ name: i.product_name, amount: qbRound(i.line_total) }));
+  if (!QBE.lines.length) return;
+  QBE.pm = PAY_METHODS.includes(r.sale.payment_method) ? r.sale.payment_method : 'cash'; QBE.busy = false;
+  QBE.edit = { id: saleId, invoice: r.sale.invoice_no };
+  openModal(`<div data-qbroot="edit">${qbPanelHtml(QBE, true)}</div>`);
+  const c = qbCtxOf($('sheet').querySelector('[data-qbroot]')); qbRenderLines(c); qbRenderTotals(c);
+  setTimeout(() => { const a = qq(c, 'amt'); if (a) a.focus(); }, 80);
 }
 
-function qbAdd() {
-  const a = $('qb-amt'), n = $('qb-name'); if (!a) return false;
+// ───────── Add a line / save ─────────
+function qbAdd(c) {
+  const a = qq(c, 'amt'), n = qq(c, 'name'); if (!a) return false;
   const v = parseFloat(a.value);
   if (!(isFinite(v) && v > 0)) { toast(t('qb_need_amount'), 2500); a.focus(); return false; }
   if (v > QB_MAX) { toast(t('qb_big'), 2500); return false; }
-  QB.lines.push({ name: (n.value || '').trim().slice(0, 60) || t('qb_item'), amount: qbRound(v) });
+  c.st.lines.push({ name: (n.value || '').trim().slice(0, 60) || t('qb_item'), amount: qbRound(v) });
   a.value = ''; n.value = ''; a.focus();
-  qbRenderLines(); qbRenderTotals();
+  qbRenderLines(c); qbRenderTotals(c);
   return true;
 }
 
-async function qbSave() {
-  if (QB.busy) return;
-  const a = $('qb-amt');
-  if (a && a.value.trim() !== '' && qbPending() > 0 && !qbAdd()) return;       // an amount typed but not yet added is included
-  if (!QB.lines.length) return toast(t('qb_need_amount'), 2500);
-  QB.busy = true; const btn = $('qb-save'); if (btn) btn.disabled = true;
+async function qbSave(c) {
+  const st = c.st; if (st.busy) return;
+  const a = qq(c, 'amt');
+  if (a && a.value.trim() !== '' && qbPending(c) > 0 && !qbAdd(c)) return;       // an amount typed but not yet added is included
+  if (!st.lines.length) return toast(t('qb_need_amount'), 2500);
+  st.busy = true; const btn = qq(c, 'save'); if (btn) btn.disabled = true;
   try {
-    const items = QB.lines.map((l, k) => ({ line_no: k, product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
+    const items = st.lines.map((l, k) => ({ line_no: k, product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
       line_total: l.amount, item_discount: 0, cost_price: 0, quick: true }));
-    const editing = QB.edit;
-    const sale = await saveSale({ edited_from: editing ? editing.id : null, edited_from_no: editing ? editing.invoice : null, customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
-      payment_method: PAY_METHODS.includes(QB.pm) ? QB.pm : 'cash', pay_split: null, created_by: S.session.user_id }, items);
-    QB.lines = []; QB.edit = null;
+    const editing = c.isEdit ? st.edit : null;
+    const sale = await saveSale({ edited_from: editing ? editing.id : null, edited_from_no: editing ? editing.invoice : null, customer_id: null, discount: 0,
+      tax_rate: num(S.cfg.tax_rate), paid: null,                                  // paid null = full total
+      payment_method: PAY_METHODS.includes(st.pm) ? st.pm : 'cash', pay_split: null, created_by: S.session.user_id }, items);
+    st.lines = []; if (c.isEdit) st.edit = null;
     if (editing) { try { await voidSale(editing.id, t('edit_void_reason').replace('{no}', sale.invoice_no), { edited: true }); toast(t('edit_done'), 3000); } catch (e) { toast((e && e.message) || t('err_generic'), 6000); } }
+    if (!c.isEdit && $('bill-quick') && $('bill-quick').firstElementChild) { const cc = { root: $('bill-quick'), st: QBI }; qbRenderLines(cc); qbRenderTotals(cc); }
     try { refreshStatus(); if (typeof exCheck === 'function') exCheck(); if (S.tab === 'home') renderHome(); } catch (e) { /* display refresh only */ }
     await showReceipt(sale.id);
-  } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); const b = $('qb-save'); if (b) b.disabled = false; }
-  finally { QB.busy = false; }
+  } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); const b = qq(c, 'save'); if (b) b.disabled = false; }
+  finally { st.busy = false; const b = qq(c, 'save'); if (b) b.disabled = false; }
 }
 
 document.addEventListener('click', e => {
   const el = e.target; if (!el || !el.closest) return;
-  if (el.closest('#btn-qb-home') || el.closest('#btn-quickbill')) return qbOpen();
-  if (!el.closest('#sheet')) return;
-  if (el.closest('#qb-add')) return qbAdd();
-  if (el.closest('#qb-save')) return qbSave();
+  if (el.closest('#btn-qb-home')) return qbGo();
+  const seg = el.closest('[data-bmode]'); if (seg) return qbSetMode(seg.dataset.bmode);
+  const c = qbCtxOf(el); if (!c) return;
+  if (el.closest('[data-q="add"]')) return qbAdd(c);
+  if (el.closest('[data-q="save"]')) return qbSave(c);
   const pm = el.closest('[data-qbpm]');
-  if (pm) { QB.pm = pm.dataset.qbpm; document.querySelectorAll('[data-qbpm]').forEach(b => b.classList.toggle('on', b.dataset.qbpm === QB.pm)); return; }
+  if (pm) { c.st.pm = pm.dataset.qbpm; c.root.querySelectorAll('[data-qbpm]').forEach(b => b.classList.toggle('on', b.dataset.qbpm === c.st.pm)); return; }
   const rm = el.closest('[data-qbrm]');
-  if (rm) { QB.lines.splice(+rm.dataset.qbrm, 1); qbRenderLines(); qbRenderTotals(); return; }
+  if (rm) { c.st.lines.splice(+rm.dataset.qbrm, 1); qbRenderLines(c); qbRenderTotals(c); return; }
 });
-document.addEventListener('input', e => { if (e.target && e.target.id === 'qb-amt') qbRenderTotals(); });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && (e.target.id === 'qb-amt' || e.target.id === 'qb-name')) { e.preventDefault(); qbAdd(); } });
+document.addEventListener('input', e => { if (e.target && e.target.dataset && e.target.dataset.q === 'amt') { const c = qbCtxOf(e.target); if (c) qbRenderTotals(c); } });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target || !e.target.dataset || !['amt', 'name'].includes(e.target.dataset.q)) return;
+  const c = qbCtxOf(e.target); if (c) { e.preventDefault(); qbAdd(c); }
+});
 
 </script>
 <script>
@@ -5113,13 +5178,20 @@ function loginIdToEmail(v) {
 }
 const EYE = shown => ic(shown ? 'eyeoff' : 'eye', 22);
 function pwField(id, ph, style = '') {          // password input with a show/hide eye button
-  return `<div class="pwwrap" ${style ? `style="${style}"` : ''}><input id="${id}" type="password" placeholder="${ph}" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="show/hide password">${EYE(false)}</button></div>`;
+  return `<div class="pwwrap" ${style ? `style="${style}"` : ''}><input id="${id}" type="password" placeholder="${ph}" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="${t('pw_toggle')}" aria-pressed="false">${EYE(false)}</button></div>`;
 }
 function initEyes() { document.querySelectorAll('button.eye[data-eye]:empty').forEach(b => { b.innerHTML = EYE(false); }); }
 document.addEventListener('click', ev => {
   const b = ev.target.closest('button.eye[data-eye]'); if (!b) return;
   const inp = document.getElementById(b.dataset.eye); if (!inp) return;
-  const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show);
+  const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = EYE(show); b.setAttribute('aria-pressed', show ? 'true' : 'false');
+});
+// Language button on the login page (works before sign-in; the choice is remembered like the one in Settings)
+document.addEventListener('click', async ev => {
+  if (!ev.target.closest || !ev.target.closest('#login-lang')) return;
+  const l = LANG === 'ur' ? 'en' : 'ur';
+  S.cfg.lang = l; try { await setSetting('cfg_lang', l); } catch (e) { /* remembered next time */ }
+  setLang(l); applyStaticText(); const er = $('login-err'); if (er) er.hidden = true;
 });
 const homeHello = () => (S.session && S.session.user_name) || t('greeting');   // Home header: the signed-in person's name
 // Shows the login id as the mobile number (0300…), never the technical e-mail form.
@@ -5130,6 +5202,9 @@ function applyStaticText() {
   $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
   const lf = $('lnk-forgot'); if (lf) lf.textContent = t('fp_link');
+  const lt = $('login-tag'); if (lt) lt.textContent = t('login_tag');
+  const ll = $('login-lang'); if (ll) { ll.textContent = LANG === 'ur' ? 'English' : 'اردو'; ll.lang = LANG === 'ur' ? 'en' : 'ur'; }
+  document.querySelectorAll('button.eye').forEach(b => b.setAttribute('aria-label', t('pw_toggle')));
   $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
   $('btn-lang').textContent = LANG === 'ur' ? 'EN' : 'اردو';
   $('hdr-avatar').innerHTML = avatarHtml(24);
@@ -5137,7 +5212,8 @@ function applyStaticText() {
     .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
   if (typeof ctPaint === 'function') ctPaint();
 }
-function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
+function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes();
+  const eb = document.querySelector('#login .eye'); if (eb) { eb.innerHTML = EYE(false); eb.setAttribute('aria-pressed', 'false'); } }
 
 function getSb() {
   if (!S.sb) {
@@ -5320,15 +5396,18 @@ async function renderHome() {
 
 // ───────── Billing: search + product tiles ─────────
 function renderBillShell() {
-  $('view-bill').innerHTML = `
+  $('view-bill').innerHTML = `${qbSegHtml()}
+    <div id="bill-items">
     <div class="searchbar">
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
       ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
       <button class="iconbtn" id="btn-heldlist" type="button" aria-label="${t('hold_list')}">${ic('clock', 22)}${(S.heldN || 0) ? `<b class="tbadge abs">${S.heldN}</b>` : ''}</button>
-      <button class="iconbtn" id="btn-quickbill" type="button" aria-label="${t('qb_title')}">${ic('bolt', 22)}</button>
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
-    <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
+    <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>
+    </div>
+    <div id="bill-quick" data-qbroot="inline" hidden></div>`;
+  qbSegApply();
 }
 
 function cartLine(id) { return S.cart.find(l => l.product_id === id); }
@@ -5396,7 +5475,8 @@ async function handleBarcode(code) {
 // Checkout bar (sticky) + checkout sheet
 function renderBillBar() {
   const bar = $('billbar');
-  const show = S.tab === 'bill' && S.cart.length > 0;
+  const show = S.tab === 'bill' && S.cart.length > 0 && S.billMode !== 'quick';
+  if (typeof qbSegBadge === 'function') qbSegBadge();
   bar.hidden = !show; if (!show) return;
   const tt = cartTotals();
   bar.innerHTML = `<div class="bb-info"><div>${ic('cart', 18)} ${S.cart.length} ${t('items_n')}</div><div class="bb-total">Rs ${money(tt.total)}</div></div>

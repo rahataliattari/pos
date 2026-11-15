@@ -14,16 +14,22 @@
   <div id="boot" style="padding:40px;text-align:center;color:#0f7b3f">…</div>
 
   <section id="login" hidden>
-    <h1 id="login-title"></h1>
+    <div class="lgbrand">
+      <img class="lglogo" src="icon-192.png" alt="" width="88" height="88">
+      <h1 id="login-title"></h1>
+      <p class="lgtag" id="login-tag"></p>
+    </div>
+    <div class="lgcard">
     <form id="login-form" autocomplete="on">
       <label id="lbl-email" for="in-email"></label>
       <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
-      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="show/hide password"></button></div>
+      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="" aria-pressed="false"></button></div>
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
       <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
     </form>
-    <div style="text-align:center;margin-top:14px"><a href="#" id="lnk-forgot" style="color:var(--g700);font-weight:700"></a></div>
+    <div class="lglinks"><a href="#" id="lnk-forgot"></a><button type="button" id="login-lang" class="lglang"></button></div>
+    </div>
     <div id="shop-choice" hidden></div>
   </section>
 

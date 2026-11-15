@@ -1,7 +1,7 @@
 // Urdu-first translations. Urdu = default (RTL); English = LTR.
 const I18N = {
   ur: {
-    app_name: 'یونیورسل پی او ایس',
+    app_name: 'یونیورسل پی او ایس', login_tag: 'آپ کی دکان کے بل، اسٹاک اور حساب', pw_toggle: 'پاس ورڈ دکھائیں یا چھپائیں',
     tab_home: 'ہوم', tab_inventory: 'انوینٹری', tab_sale: 'بل', tab_more: 'مزید', greeting: 'السلام علیکم',
     today_sales: 'آج کی فروخت', bills_n: 'بل', checkout: 'چیک آؤٹ', soon: 'جلد',
     mod_customers: 'کسٹمرز', mod_expenses: 'اخراجات', mod_purchases: 'خریداری', mod_reports: 'رپورٹس', items_n: 'آئٹمز',
@@ -57,7 +57,7 @@ const I18N = {
     remind_msg: 'السلام علیکم {name}، {shop} میں آپ کا Rs {amt} ادھار باقی ہے۔ مہربانی کر کے ادا کر دیں۔ شکریہ'
   },
   en: {
-    app_name: 'Universal POS',
+    app_name: 'Universal POS', login_tag: 'Bills, stock and accounts for your shop', pw_toggle: 'Show or hide password',
     tab_home: 'Home', tab_inventory: 'Inventory', tab_sale: 'Sale', tab_more: 'More', greeting: 'Hello',
     today_sales: "Today's sales", bills_n: 'bills', checkout: 'Checkout', soon: 'Soon',
     mod_customers: 'Customers', mod_expenses: 'Expenses', mod_purchases: 'Purchases', mod_reports: 'Reports', items_n: 'items',
