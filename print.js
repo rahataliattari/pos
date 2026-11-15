@@ -3,7 +3,7 @@
 const PRT = {
   rc_sale_invoice: ['سیل انوائس', 'SALES INVOICE'], rc_report: ['کاروباری رپورٹ', 'BUSINESS REPORT'], rc_item: ['آئٹم', 'Item'], rc_qty: ['مقدار', 'Qty'], rc_price: ['قیمت', 'Price'], rc_amount: ['رقم', 'Amount'],
   rc_paid: ['ادا شدہ', 'PAID'], rc_due: ['ادھار باقی', 'BALANCE DUE'], rc_items: ['آئٹمز', 'Items'], rc_saved: ['آپ کی بچت', 'You saved'], rc_wa: ['واٹس ایپ', 'WhatsApp'],
-  rc_powered: ['یونیورسل پی او ایس سے تیار', 'Powered by Universal POS'], rc_period: ['مدت', 'Period'], rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
+rc_period: ['مدت', 'Period'], rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
   set_phone: ['دکان کا فون', 'Shop phone'], set_addr: ['دکان کا پتہ', 'Shop address'], set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'], rc_print_report: ['رپورٹ پرنٹ', 'Print report'],
   rc_verify: ['بل کی تصدیق کیلئے اسکین کریں', 'Scan to verify this bill'], rc_verify_note: ['صرف تصدیق کیلئے — ادائیگی کیلئے نہیں', 'For verification only — not for payment'], rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'], rc_code: ['کوڈ', 'Code'], rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کیلئے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
 };
