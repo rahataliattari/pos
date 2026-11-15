@@ -3,9 +3,9 @@
 const PRT = {
   rc_sale_invoice: ['سیل انوائس', 'SALES INVOICE'], rc_report: ['کاروباری رپورٹ', 'BUSINESS REPORT'], rc_item: ['آئٹم', 'Item'], rc_qty: ['مقدار', 'Qty'], rc_price: ['قیمت', 'Price'], rc_amount: ['رقم', 'Amount'],
   rc_paid: ['ادا شدہ', 'PAID'], rc_due: ['ادھار باقی', 'BALANCE DUE'], rc_items: ['آئٹمز', 'Items'], rc_saved: ['آپ کی بچت', 'You saved'], rc_wa: ['واٹس ایپ', 'WhatsApp'],
-rc_period: ['مدت', 'Period'], rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
+  rc_powered: ['یونیورسل پی او ایس سے تیار', 'Powered by Universal POS'], rc_period: ['مدت', 'Period'], rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
   set_phone: ['دکان کا فون', 'Shop phone'], set_addr: ['دکان کا پتہ', 'Shop address'], set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'], rc_print_report: ['رپورٹ پرنٹ', 'Print report'],
-  rc_verify: ['بل کی تصدیق کیلئے اسکین کریں', 'Scan to verify this bill'], rc_verify_note: ['صرف تصدیق کیلئے — ادائیگی کیلئے نہیں', 'For verification only — not for payment'], rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'], rc_code: ['کوڈ', 'Code'], rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کیلئے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
+  rc_verify: ['بل کی تصدیق کے لیے سکین کریں', 'Scan to verify this bill'], rc_verify_note: ['صرف تصدیق کے لیے — ادائیگی کے لیے نہیں', 'For verification only — not for payment'], rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'], rc_code: ['کوڈ', 'Code'], rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کے لیے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
 };
 for (const k in PRT) { I18N.ur[k] = PRT[k][0]; I18N.en[k] = PRT[k][1]; }
 
@@ -38,7 +38,7 @@ function billQrHtml(sale) {
   if (!planHasQr() || S.cfg.receipt_qr === false) return '';
   try {
     return `<div class="qrbox">${qrSvg(billQrText(sale), { size: 120 })}<div class="qrcap">${t('rc_verify')}</div>
-      <div class="qrcode num">${t('rc_code')}: <span dir="ltr" class="num">${billCode(sale)}</span></div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
+      <div class="qrcode num">${t('rc_code')}: ${billCode(sale)}</div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
   } catch (e) { return ''; }   // never block printing a bill because of the QR
 }
 
@@ -52,13 +52,6 @@ function rcHead(title, qr = '') {
     <div class="doc">${title}</div>${side}</div>`;
 }
 
-// Ignore the old vendor-credit footer even if it is still saved in a shop's receipt settings.
-function receiptFooterText() {
-  const saved = String(S.cfg.receipt_footer || '');
-  const clean = saved.split(/\\r?\\n/).filter(line => !/یونیورسل\\s*پی\\s*او\\s*ایس\\s*سے\\s*تیار|Powered\\s+by\\s+Universal\\s+POS/i.test(line)).join('\\n').trim();
-  return clean || t('thanks');
-}
-
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
   const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), `<bdi dir="ltr">${esc(rcDate(sale.created_at))}</bdi>`, '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
@@ -70,19 +63,19 @@ function receiptHtml(sale, items, cust) {
   const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
   const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''}" dir="rtl">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
+  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
-      <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
+      ${due > 0 ? `<div class="stampwrap"><span class="stamp owe">${t('rc_due')}</span></div>` : ''}</div>
     ${a4 ? '' : billQrHtml(sale)}
     <hr class="sep"><div class="sub c">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
-    <div class="thanks">${esc(receiptFooterText())}</div></div>`;
+    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
     ...items.map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
     `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}${sale.payment_method && sale.payment_method !== 'cash' ? ' (' + t('pm_' + sale.payment_method) + ')' : ''}`,
-    ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', receiptFooterText()].join('\n');
+    ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', S.cfg.receipt_footer || t('thanks')].join('\n');
 }
 
 function reportPrintHtml(r, low, period) {
@@ -94,14 +87,16 @@ function reportPrintHtml(r, low, period) {
     <table class="rt">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}</table>
     ${r.top.length ? `<div class="sec">${t('rp_top')}</div><table class="rt"><thead><tr><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${r.top.map(([n, x]) => `<tr><td>${esc(n)}</td><td class="num">${x.qty}</td><td class="num">${money(x.rev)}</td></tr>`).join('')}</tbody></table>` : ''}
     ${low.length ? `<div class="sec">${t('rp_low')}</div><table class="rt"><tbody>${low.map(({ p, st }) => `<tr><td>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</td><td class="num">${st} / ${p.min_stock}</td></tr>`).join('')}</tbody></table>` : ''}
-    </div>`;
+    <div class="sub c pw">${t('rc_powered')}</div></div>`;
 }
 
 function doPrint(html, paper) {
   $('receipt-print').innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
-  st.textContent = paper === 'a4' ? '@page{size:A4;margin:8mm}' : `@page{size:${paper || 58}mm auto;margin:0}`;
+  // margin 0 = the browser prints NO header/footer line (page address, title, date); the padding below gives the paper its own margin
+  st.textContent = (paper === 'a4' ? '@page{size:A4;margin:0}' : `@page{size:${paper || 58}mm auto;margin:0}`) + `@media print{#receipt-print{padding:${paper === 'a4' ? '12mm' : '2mm'};box-sizing:border-box}}`;
+  const oldTitle = document.title; document.title = ' ';
   document.documentElement.style.setProperty('--paper', paper === 'a4' ? '100%' : (paper || 58) + 'mm');
   document.body.classList.add('printing'); window.print();
-  setTimeout(() => document.body.classList.remove('printing'), 500);
+  setTimeout(() => { document.body.classList.remove('printing'); document.title = oldTitle; }, 500);
 }

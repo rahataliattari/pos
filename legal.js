@@ -23,10 +23,10 @@ const LEGAL_DOCS = [
       'یہ معاہدہ {company} ("فراہم کنندہ") اور اس دکان / کاروبار کے مالک ("صارف") کے درمیان ہے جس کا نام رجسٹریشن میں درج ہے۔ فراہم کنندہ صارف کو {app} استعمال کرنے کا حق دیتا ہے، جو بلنگ، اسٹاک، کسٹمر کھاتہ اور رپورٹس کی ایپ ہے اور انٹرنیٹ کے بغیر بھی چلتی ہے، اور انٹرنیٹ ملنے پر ڈیٹا سرور سے سنک کرتی ہے۔',
       'This agreement is between {company} (the "Provider") and the owner of the shop / business named at registration (the "Customer"). The Provider grants the Customer the right to use {app}, a billing, stock, customer-ledger and reporting app that also works offline and syncs to a server when internet is available.'],
     ['لائسنس', 'Licence',
-      'فراہم کنندہ صارف کو ایک غیر خصوصی، ناقابلِ منتقلی اور محدود لائسنس دیتا ہے جو صرف اسی دکان کیلئے اور صرف سبسکرپشن کی مدت میں ہے۔ صارف ایپ کو نقل، فروخت، کرایہ پر دینے، تبدیل کرنے یا اس کا سورس کوڈ نکالنے کی کوشش نہیں کرے گا۔',
+      'فراہم کنندہ صارف کو ایک غیر خصوصی، ناقابلِ منتقلی اور محدود لائسنس دیتا ہے جو صرف اسی دکان کے لیے اور صرف سبسکرپشن کی مدت میں ہے۔ صارف ایپ کو نقل، فروخت، کرایہ پر دینے، تبدیل کرنے یا اس کا سورس کوڈ نکالنے کی کوشش نہیں کرے گا۔',
       'The Provider grants the Customer a non-exclusive, non-transferable, limited licence, for that shop only and only for the subscription period. The Customer will not copy, resell, rent, modify, or try to extract the source code of the app.'],
     ['پلان اور سبسکرپشن', 'Plan and subscription',
-      'سہولیات اور حدود (صارفین، پروڈکٹس، بارکوڈ، بل پر QR، ہر آئی ڈی کیلئے ڈیوائسز کی تعداد وغیرہ) صارف کے منتخب پلان کے مطابق ہوں گی۔ سبسکرپشن 1، 3، 6 یا 12 ماہ کیلئے ہو سکتی ہے۔ نیا صارف {trial} دن کا مفت ٹرائل لے سکتا ہے، جس کے بعد سبسکرپشن لینا ضروری ہے۔',
+      'سہولیات اور حدود (صارفین، پروڈکٹس، بارکوڈ، بل پر QR، ہر آئی ڈی کے لیے ڈیوائسز کی تعداد وغیرہ) صارف کے منتخب پلان کے مطابق ہوں گی۔ سبسکرپشن 1، 3، 6 یا 12 ماہ کے لیے ہو سکتی ہے۔ نیا صارف {trial} دن کا مفت ٹرائل لے سکتا ہے، جس کے بعد سبسکرپشن لینا ضروری ہے۔',
       'Features and limits (users, products, barcodes, bill QR, devices per login ID, etc.) follow the plan the Customer chose. A subscription can run for 1, 3, 6 or 12 months. A new Customer may take a free trial of {trial} days, after which a subscription is needed.'],
     ['فیس اور ادائیگی', 'Fees and payment',
       'فیس فراہم کنندہ کی موجودہ قیمتوں کے مطابق ہے اور مدت شروع ہونے سے پہلے ادا کی جاتی ہے (نقد، بینک، جاز کیش یا ایزی پیسہ)۔ ادائیگی فراہم کنندہ کے ریکارڈ میں درج ہونے پر میعاد بڑھتی ہے۔ تجدید خود بخود نہیں ہوتی اور کوئی رقم خود بخود نہیں کٹتی۔ تفصیل "ادائیگی، تجدید اور واپسی کی پالیسی" میں ہے۔',
@@ -38,16 +38,16 @@ const LEGAL_DOCS = [
       'ہر لاگ اِن آئی ڈی (موبائل نمبر) ایک ہی شخص کی ہے اور اسے آپس میں شیئر نہیں کیا جا سکتا۔ ایک آئی ڈی پلان میں طے شدہ تعداد کی ڈیوائسز پر چل سکتی ہے (ڈیفالٹ: ایک ڈیوائس)۔ ڈیوائس گم یا چوری ہو جائے تو فوراً فراہم کنندہ کو بتائیں؛ فراہم کنندہ وہ ڈیوائس بند کر سکتا ہے اور تصدیق کے بعد آئی ڈی نئی ڈیوائس پر چلانے کی اجازت دے سکتا ہے، اور بند کی گئی ڈیوائس کو دوبارہ اجازت بھی دے سکتا ہے۔ اپنے اکاؤنٹس کی تمام سرگرمی کا ذمہ دار صارف ہے۔',
       'Each login ID (mobile number) belongs to one person and must not be shared. An ID can run on the number of devices set by the plan (default: one device). If a device is lost or stolen, tell the Provider immediately; the Provider may block that device and, after verification, allow the ID on a new device, and may also allow a blocked device again. The Customer is responsible for all activity under its accounts.'],
     ['صارف کا ڈیٹا', 'Customer data',
-      'دکان کا ڈیٹا (پروڈکٹس، فروخت، کسٹمرز، اخراجات وغیرہ) صارف کی ملکیت ہے۔ فراہم کنندہ اسے صرف سروس دینے، سپورٹ اور حفاظت کیلئے استعمال کرتا ہے اور فروخت نہیں کرتا۔ ڈیٹا کی درستی، قیمتوں، اسٹاک اور بلوں کی ذمہ داری صارف کی ہے۔ صارف باقاعدگی سے "ڈیٹا ایکسپورٹ" سے بیک اپ لے۔ تفصیل رازداری کی پالیسی میں ہے۔',
+      'دکان کا ڈیٹا (پروڈکٹس، فروخت، کسٹمرز، اخراجات وغیرہ) صارف کی ملکیت ہے۔ فراہم کنندہ اسے صرف سروس دینے، سپورٹ اور حفاظت کے لیے استعمال کرتا ہے اور فروخت نہیں کرتا۔ ڈیٹا کی درستی، قیمتوں، اسٹاک اور بلوں کی ذمہ داری صارف کی ہے۔ صارف باقاعدگی سے "ڈیٹا ایکسپورٹ" سے بیک اپ لے۔ تفصیل رازداری کی پالیسی میں ہے۔',
       'The shop’s data (products, sales, customers, expenses, etc.) belongs to the Customer. The Provider uses it only to deliver the service, give support and keep it secure, and does not sell it. The Customer is responsible for the accuracy of data, prices, stock and bills, and should take regular backups with "Data export". See the Privacy Policy.'],
     ['بل پر QR کوڈ', 'The QR code on bills',
-      'بل پر چھپا QR صرف بل کی تصدیق کیلئے ہے، یعنی یہ دیکھنے کیلئے کہ بل دکان کے ریکارڈ سے ملتا ہے یا نہیں۔ یہ ادائیگی یا وصولی کا ذریعہ نہیں، نہ ہی کسی سرکاری ادارے (جیسے FBR) کی تصدیق ہے۔ تصدیقی کوڈ بل میں ردوبدل پکڑنے کا آسان طریقہ ہے، یہ کوئی ڈیجیٹل دستخط نہیں۔ فراہم کنندہ اس کی قانونی حیثیت کی ضمانت نہیں دیتا۔',
+      'بل پر چھپا QR صرف بل کی تصدیق کے لیے ہے، یعنی یہ دیکھنے کے لیے کہ بل دکان کے ریکارڈ سے ملتا ہے یا نہیں۔ یہ ادائیگی یا وصولی کا ذریعہ نہیں، نہ ہی کسی سرکاری ادارے (جیسے FBR) کی تصدیق ہے۔ تصدیقی کوڈ بل میں ردوبدل پکڑنے کا آسان طریقہ ہے، یہ کوئی ڈیجیٹل دستخط نہیں۔ فراہم کنندہ اس کی قانونی حیثیت کی ضمانت نہیں دیتا۔',
       'The QR printed on a bill is for verification only, i.e. to check that a bill matches the shop’s records. It is not a way to pay or receive money and is not a verification by any government body (such as the FBR). The verification code is a simple way to spot alterations, not a digital signature. The Provider does not guarantee its legal standing.'],
     ['ٹیکس اور قانونی تعمیل', 'Tax and legal compliance',
       'ٹیکس رجسٹریشن، سیلز ٹیکس، انوائس کے قواعد اور کسی بھی سرکاری سسٹم (بشمول FBR POS انٹیگریشن) کی تعمیل صرف صارف کی ذمہ داری ہے۔ جب تک تحریری طور پر الگ سے طے نہ ہو، ایپ FBR یا کسی صوبائی ادارے کے سسٹم سے منسلک نہیں۔',
       'Tax registration, sales tax, invoicing rules and compliance with any government system (including FBR POS integration) are solely the Customer’s responsibility. Unless agreed separately in writing, the app is not connected to the FBR or any provincial authority’s system.'],
     ['دستیابی اور سپورٹ', 'Availability and support',
-      'فراہم کنندہ سروس کو بہتر طریقے سے چلانے کی معقول کوشش کرتا ہے مگر بلا تعطل چلنے کی ضمانت نہیں دیتا، کیونکہ سنک اور کچھ سہولیات انٹرنیٹ اور تھرڈ پارٹی سروسز پر منحصر ہیں۔ سپورٹ {contact} پر کام کے اوقات میں دستیاب ہے۔ دیکھ بھال کیلئے سروس عارضی طور پر بند ہو سکتی ہے۔',
+      'فراہم کنندہ سروس کو بہتر طریقے سے چلانے کی معقول کوشش کرتا ہے مگر بلا تعطل چلنے کی ضمانت نہیں دیتا، کیونکہ سنک اور کچھ سہولیات انٹرنیٹ اور تھرڈ پارٹی سروسز پر منحصر ہیں۔ سپورٹ {contact} پر کام کے اوقات میں دستیاب ہے۔ دیکھ بھال کے لیے سروس عارضی طور پر بند ہو سکتی ہے۔',
       'The Provider makes reasonable efforts to keep the service running but does not guarantee uninterrupted service, as syncing and some features depend on internet and third-party services. Support is available at {contact} during working hours. The service may be paused briefly for maintenance.'],
     ['ضمانت سے انکار اور ذمہ داری کی حد', 'Disclaimer and limit of liability',
       'ایپ "جیسی ہے" کی بنیاد پر دی جاتی ہے۔ قانون کی اجازت کی حد تک فراہم کنندہ منافع، آمدن، ڈیٹا یا کاروباری نقصان جیسے بالواسطہ نقصانات کا ذمہ دار نہیں، اور کسی بھی دعوے میں اس کی کل ذمہ داری صارف کی طرف سے پچھلے 3 ماہ میں ادا کی گئی فیس سے زیادہ نہیں ہو گی۔ یہ حد صارف کی اس غلطی پر لاگو نہیں ہوتی جو قانوناً محدود نہیں کی جا سکتی۔',
@@ -56,7 +56,7 @@ const LEGAL_DOCS = [
       'سافٹ ویئر، نام، لوگو اور ڈیزائن فراہم کنندہ کی ملکیت ہیں۔ دونوں فریق ایک دوسرے کی وہ معلومات خفیہ رکھیں گے جو انہیں اس معاہدے کے دوران ملیں، سوائے قانونی تقاضے کے۔',
       'The software, name, logo and design belong to the Provider. Each party will keep the other’s confidential information, learned through this agreement, secret, except where the law requires disclosure.'],
     ['مدت اور خاتمہ', 'Term and termination',
-      'معاہدہ سبسکرپشن کی مدت کیلئے ہے اور تجدید پر جاری رہتا ہے۔ صارف تجدید نہ کر کے کسی بھی وقت ختم کر سکتا ہے۔ کوئی فریق سنگین خلاف ورزی کرے اور 30 دن کے نوٹس میں اصلاح نہ کرے تو دوسرا فریق معاہدہ ختم کر سکتا ہے۔ خاتمے پر صارف {retain} دن کے اندر اپنا ڈیٹا ایکسپورٹ کر سکتا ہے، اس کے بعد ڈیٹا مٹایا جا سکتا ہے۔',
+      'معاہدہ سبسکرپشن کی مدت کے لیے ہے اور تجدید پر جاری رہتا ہے۔ صارف تجدید نہ کر کے کسی بھی وقت ختم کر سکتا ہے۔ کوئی فریق سنگین خلاف ورزی کرے اور 30 دن کے نوٹس میں اصلاح نہ کرے تو دوسرا فریق معاہدہ ختم کر سکتا ہے۔ خاتمے پر صارف {retain} دن کے اندر اپنا ڈیٹا ایکسپورٹ کر سکتا ہے، اس کے بعد ڈیٹا مٹایا جا سکتا ہے۔',
       'The agreement runs for the subscription period and continues on renewal. The Customer may end it at any time by not renewing. If a party commits a serious breach and does not fix it within 30 days of notice, the other party may terminate. After termination the Customer can export its data within {retain} days, after which the data may be deleted.'],
     ['تبدیلیاں', 'Changes',
       'فراہم کنندہ ایپ کی سہولیات اور اس معاہدے میں تبدیلی کر سکتا ہے اور اس کا نوٹس ایپ میں یا رابطے کے ذریعے دے گا۔ نئی شرائط پر استعمال جاری رکھنا ان کی قبولیت سمجھا جائے گا۔ قیمتوں میں تبدیلی صرف اگلی تجدید پر لاگو ہو گی۔',
@@ -77,10 +77,10 @@ const LEGAL_DOCS = [
       'ایپ استعمال کرنے والا 18 سال یا زیادہ عمر کا ہو اور اپنے کاروبار کی طرف سے استعمال کرنے کا مجاز ہو۔',
       'Users must be 18 or older and authorised to use the app for their business.'],
     ['اکاؤنٹ اور پاس ورڈ', 'Account and password',
-      'اپنا پاس ورڈ خفیہ رکھیں اور کسی کو نہ دیں۔ اکاؤنٹ کے غلط استعمال کا شبہ ہو تو فوراً مالک یا سپورٹ کو بتائیں۔ ہر آئی ڈی صرف ایک شخص کیلئے ہے، اور ڈیوائسز کی تعداد پلان کے مطابق محدود ہے۔',
+      'اپنا پاس ورڈ خفیہ رکھیں اور کسی کو نہ دیں۔ اکاؤنٹ کے غلط استعمال کا شبہ ہو تو فوراً مالک یا سپورٹ کو بتائیں۔ ہر آئی ڈی صرف ایک شخص کے لیے ہے، اور ڈیوائسز کی تعداد پلان کے مطابق محدود ہے۔',
       'Keep your password secret and do not share it. If you suspect misuse, tell the owner or support immediately. Each ID is for one person only, and the number of devices is limited by the plan.'],
     ['جائز استعمال', 'Acceptable use',
-      'ایپ کو غیر قانونی کاروبار، جعلی یا غلط بل بنانے، دھوکہ دہی، دوسروں کے ڈیٹا تک غیر مجاز رسائی، سسٹم میں خلل ڈالنے یا حفاظتی پابندیاں (جیسے ڈیوائس کی حد) توڑنے کیلئے استعمال نہ کریں۔',
+      'ایپ کو غیر قانونی کاروبار، جعلی یا غلط بل بنانے، دھوکہ دہی، دوسروں کے ڈیٹا تک غیر مجاز رسائی، سسٹم میں خلل ڈالنے یا حفاظتی پابندیاں (جیسے ڈیوائس کی حد) توڑنے کے لیے استعمال نہ کریں۔',
       'Do not use the app for illegal business, making false or misleading bills, fraud, unauthorised access to others’ data, disrupting the system, or getting around its safeguards (such as the device limit).'],
     ['کردار اور اختیارات', 'Roles and permissions',
       'مالک، مینیجر اور کیشیئر کے اختیارات الگ ہیں۔ مالک اپنے عملے کے کام اور ان کی دی گئی رعایتوں اور بلوں کا ذمہ دار ہے۔',
@@ -89,10 +89,10 @@ const LEGAL_DOCS = [
       'انٹرنیٹ نہ ہو تو ڈیٹا اسی ڈیوائس میں محفوظ رہتا ہے اور انٹرنیٹ آنے پر سرور سے سنک ہوتا ہے۔ سنک ہونے سے پہلے براؤزر کا ڈیٹا صاف کرنے، ایپ ہٹانے یا ڈیوائس کھو جانے سے وہ ریکارڈ ضائع ہو سکتا ہے۔ اس لیے "زیرِ انتظار" ریکارڈ سنک کروائیں اور باقاعدگی سے ایکسپورٹ بیک اپ لیں۔',
       'Without internet, data stays on the device and syncs to the server when internet returns. Clearing browser data, removing the app, or losing the device before syncing can lose those records. So let "Pending" records sync and take regular export backups.'],
     ['بل، قیمتیں اور درستی', 'Bills, prices and accuracy',
-      'بل میں قیمت، رعایت، ٹیکس اور اسٹاک کی درستی صارف کی ذمہ داری ہے۔ غلط بل کو "منسوخ" یا "واپسی" سے درست کریں؛ بل کا QR صرف تصدیق کیلئے ہے، ادائیگی یا وصولی کیلئے نہیں۔',
+      'بل میں قیمت، رعایت، ٹیکس اور اسٹاک کی درستی صارف کی ذمہ داری ہے۔ غلط بل کو "منسوخ" یا "واپسی" سے درست کریں؛ بل کا QR صرف تصدیق کے لیے ہے، ادائیگی یا وصولی کے لیے نہیں۔',
       'The accuracy of prices, discounts, tax and stock on a bill is the user’s responsibility. Correct a wrong bill with "Void" or "Return"; the QR on a bill is for verification only, not for payment or receipt.'],
     ['تھرڈ پارٹی سروسز اور اجازتیں', 'Third-party services and permissions',
-      'ایپ سرور ہوسٹنگ (Supabase) اور واٹس ایپ / پرنٹر جیسی سہولیات استعمال کرتی ہے جن کی اپنی شرائط ہیں۔ کیمرا صرف بارکوڈ / QR اسکین اور آپ کی چنی ہوئی پروفائل تصویر کیلئے استعمال ہوتا ہے۔',
+      'ایپ سرور ہوسٹنگ (Supabase) اور واٹس ایپ / پرنٹر جیسی سہولیات استعمال کرتی ہے جن کی اپنی شرائط ہیں۔ کیمرا صرف بارکوڈ / QR سکین اور آپ کی چنی ہوئی پروفائل تصویر کے لیے استعمال ہوتا ہے۔',
       'The app uses server hosting (Supabase) and features such as WhatsApp and printers, which have their own terms. The camera is used only for barcode / QR scanning and for the profile picture you choose.'],
     ['معطلی', 'Suspension',
       'ان شرائط کی خلاف ورزی، عدم ادائیگی یا سیکیورٹی خطرے کی صورت میں اکاؤنٹ یا دکان معطل کی جا سکتی ہے۔',
@@ -101,7 +101,7 @@ const LEGAL_DOCS = [
       'ایپ "جیسی ہے" دی جاتی ہے۔ ہم غلطی سے پاک یا بلا تعطل ہونے کی ضمانت نہیں دیتے۔ ذمہ داری کی حد سروس معاہدے میں درج ہے۔',
       'The app is provided "as is". We do not guarantee it is error-free or uninterrupted. The limit of liability is in the Service Agreement.'],
     ['تبدیلیاں اور رابطہ', 'Changes and contact',
-      'ان شرائط میں تبدیلی ہو تو ایپ میں نیا ورژن دکھایا جائے گا اور دوبارہ قبولیت مانگی جا سکتی ہے۔ سوالات کیلئے: {contact}۔',
+      'ان شرائط میں تبدیلی ہو تو ایپ میں نیا ورژن دکھایا جائے گا اور دوبارہ قبولیت مانگی جا سکتی ہے۔ سوالات کے لیے: {contact}۔',
       'If these terms change, the app will show the new version and may ask you to accept again. Questions: {contact}.']
   ] },
 
@@ -113,19 +113,19 @@ const LEGAL_DOCS = [
       'اکاؤنٹ: نام، موبائل نمبر، کردار، اور اگر آپ لگائیں تو پروفائل تصویر۔\nدکان: نام، پتہ، فون، NTN، رسید کا متن اور سیٹنگز۔\nکاروباری ڈیٹا: پروڈکٹس، اسٹاک، فروخت، خریداری، اخراجات، کسٹمرز اور سپلائرز کے نام / نمبر / کھاتہ۔\nتکنیکی: ڈیوائس کی بے ترتیب شناخت، ڈیوائس کا نام (جیسے Android · Chrome)، آخری استعمال کا وقت، سنک کی حالت۔\nہم آپ کی لوکیشن، کانٹیکٹس، مائیکروفون یا ایس ایم ایس نہیں لیتے۔',
       'Account: name, mobile number, role and, if you add one, a profile picture.\nShop: name, address, phone, NTN, receipt text and settings.\nBusiness data: products, stock, sales, purchases, expenses, and customers’ and suppliers’ names / numbers / ledgers.\nTechnical: a random device ID, the device name (e.g. Android · Chrome), last-used time and sync status.\nWe do not collect your location, contacts, microphone or SMS.'],
     ['استعمال کا مقصد', 'Why we use it',
-      'سروس چلانے، لاگ اِن اور ڈیوائس کی حد نافذ کرنے، سنک، سپورٹ، سیکیورٹی اور بلنگ (سبسکرپشن کا حساب) کیلئے۔ ہم آپ کا ڈیٹا اشتہارات کیلئے استعمال یا فروخت نہیں کرتے۔',
+      'سروس چلانے، لاگ اِن اور ڈیوائس کی حد نافذ کرنے، سنک، سپورٹ، سیکیورٹی اور بلنگ (سبسکرپشن کا حساب) کے لیے۔ ہم آپ کا ڈیٹا اشتہارات کے لیے استعمال یا فروخت نہیں کرتے۔',
       'To run the service, log you in and enforce the device limit, sync, give support, keep things secure and handle billing (subscription records). We do not use your data for advertising and we do not sell it.'],
     ['ڈیٹا کہاں رہتا ہے', 'Where data is kept',
-      'آپ کی ڈیوائس پر (آف لائن کام کیلئے) اور سنک کے بعد کلاؤڈ سرور پر (Supabase)۔ سرور پر رسائی صرف مجاز اکاؤنٹس کو ہے اور ہر دکان کا ڈیٹا دوسری دکانوں سے الگ رکھا جاتا ہے۔',
+      'آپ کی ڈیوائس پر (آف لائن کام کے لیے) اور سنک کے بعد کلاؤڈ سرور پر (Supabase)۔ سرور پر رسائی صرف مجاز اکاؤنٹس کو ہے اور ہر دکان کا ڈیٹا دوسری دکانوں سے الگ رکھا جاتا ہے۔',
       'On your device (for offline work) and, after syncing, on a cloud server (Supabase). Access to the server is limited to authorised accounts and each shop’s data is kept separate from other shops.'],
     ['کس کے ساتھ شیئر ہوتا ہے', 'Who it is shared with',
-      'صرف اس دکان کے مجاز صارفین، سروس چلانے والی تھرڈ پارٹی کمپنیوں (جیسے ہوسٹنگ) کے ساتھ جتنا ضروری ہو، فراہم کنندہ کے سپورٹ عملے کے ساتھ (سپورٹ کیلئے)، اور قانون کے تقاضے پر متعلقہ اداروں کے ساتھ۔',
+      'صرف اس دکان کے مجاز صارفین، سروس چلانے والی تھرڈ پارٹی کمپنیوں (جیسے ہوسٹنگ) کے ساتھ جتنا ضروری ہو، فراہم کنندہ کے سپورٹ عملے کے ساتھ (سپورٹ کے لیے)، اور قانون کے تقاضے پر متعلقہ اداروں کے ساتھ۔',
       'Only with the shop’s authorised users, with third-party companies that run the service (such as hosting) as far as needed, with the Provider’s support staff (for support), and with authorities where the law requires.'],
     ['آپ کے کسٹمرز کا ڈیٹا', 'Your customers’ data',
-      'دکان کے کسٹمرز اور سپلائرز کی معلومات کی قانونی ذمہ داری دکان کی ہے؛ ہم انہیں صرف آپ کی ہدایت پر سروس دینے کیلئے سنبھالتے ہیں۔',
+      'دکان کے کسٹمرز اور سپلائرز کی معلومات کی قانونی ذمہ داری دکان کی ہے؛ ہم انہیں صرف آپ کی ہدایت پر سروس دینے کے لیے سنبھالتے ہیں۔',
       'The shop is responsible, legally, for its customers’ and suppliers’ information; we handle it only to provide the service on your instructions.'],
     ['کیمرا اور تصویر', 'Camera and photo',
-      'کیمرا صرف بارکوڈ / QR اسکین کیلئے ہے اور اسکین کی تصویر محفوظ نہیں کی جاتی۔ پروفائل تصویر آپ خود چنتے ہیں؛ اسے چھوٹا کر کے آپ کے اکاؤنٹ کے ساتھ محفوظ کیا جاتا ہے اور کسی وقت بھی ہٹائی جا سکتی ہے۔',
+      'کیمرا صرف بارکوڈ / QR سکین کے لیے ہے اور سکین کی تصویر محفوظ نہیں کی جاتی۔ پروفائل تصویر آپ خود چنتے ہیں؛ اسے چھوٹا کر کے آپ کے اکاؤنٹ کے ساتھ محفوظ کیا جاتا ہے اور کسی وقت بھی ہٹائی جا سکتی ہے۔',
       'The camera is used only to scan barcodes / QR codes and scan images are not saved. You choose your profile picture yourself; it is shrunk and stored with your account and can be removed at any time.'],
     ['حفاظت', 'Security',
       'ڈیٹا انٹرنیٹ پر محفوظ کنکشن سے جاتا ہے اور رسائی پاس ورڈ، کردار اور ڈیوائس کی حد سے محدود ہے۔ کوئی نظام سو فیصد محفوظ نہیں ہوتا؛ اپنے فون پر لاک لگائیں اور پاس ورڈ کسی کو نہ دیں۔',
@@ -137,7 +137,7 @@ const LEGAL_DOCS = [
       'آپ اپنی معلومات دیکھنے، درست کرانے، ایکسپورٹ کرنے اور حذف کرانے کی درخواست {contact} پر کر سکتے ہیں۔',
       'You may ask to see, correct, export or delete your information at {contact}.'],
     ['بچے', 'Children',
-      'ایپ 18 سال سے کم عمر کیلئے نہیں۔',
+      'ایپ 18 سال سے کم عمر کے لیے نہیں۔',
       'The app is not for people under 18.'],
     ['تبدیلیاں', 'Changes',
       'پالیسی بدلے تو ایپ میں نیا ورژن اور تاریخ دکھائی جائے گی۔',
@@ -167,13 +167,13 @@ const LEGAL_DOCS = [
       'اپ گریڈ فوراً ہو سکتا ہے اور فرق کی رقم بقیہ مدت کے حساب سے لی جاتی ہے۔ ڈاؤن گریڈ اگلی تجدید سے لاگو ہوتا ہے؛ نئے پلان کی حدیں (صارفین، پروڈکٹس، ڈیوائسز) پوری ہونا ضروری ہے۔',
       'An upgrade can take effect immediately, with the difference charged for the remaining period. A downgrade applies from the next renewal; the new plan’s limits (users, products, devices) must be met.'],
     ['منسوخی', 'Cancellation',
-      'منسوخی کیلئے تجدید نہ کریں یا {contact} پر بتا دیں۔ میعاد کے آخر تک سروس چلتی رہتی ہے۔ جانے سے پہلے "ڈیٹا ایکسپورٹ" سے اپنا ڈیٹا نکال لیں۔',
+      'منسوخی کے لیے تجدید نہ کریں یا {contact} پر بتا دیں۔ میعاد کے آخر تک سروس چلتی رہتی ہے۔ جانے سے پہلے "ڈیٹا ایکسپورٹ" سے اپنا ڈیٹا نکال لیں۔',
       'To cancel, simply do not renew or tell us at {contact}. The service continues until the end of the paid period. Export your data with "Data export" before you leave.'],
     ['واپسی کا طریقہ اور وقت', 'How and when refunds are paid',
       'منظور شدہ واپسی اسی ذریعے سے جس سے ادائیگی ہوئی تھی، عام طور پر 14 کاری دنوں میں کی جاتی ہے۔',
       'Approved refunds are paid back through the same channel as the payment, usually within 14 working days.'],
     ['رابطہ', 'Contact',
-      'ادائیگی، تجدید یا واپسی کے سوال کیلئے: {contact}۔',
+      'ادائیگی، تجدید یا واپسی کے سوال کے لیے: {contact}۔',
       'For questions about payment, renewal or refunds: {contact}.']
   ] }
 ];
@@ -192,7 +192,7 @@ function legalDocHtml(doc, L) {
 }
 
 if (typeof I18N !== 'undefined') {
-  Object.assign(I18N.ur, { lg_sec: 'قانونی دستاویزات', lg_accept_title: 'شرائط کی قبولیت', lg_accept_intro: 'ایپ استعمال جاری رکھنے کیلئے براہِ کرم نیچے دی گئی دستاویزات پڑھ کر قبول کریں۔', lg_agree: 'میں نے سروس معاہدہ، شرائط و ضوابط، رازداری اور ادائیگی/واپسی کی پالیسی پڑھ لی ہیں اور قبول کرتا/کرتی ہوں۔', lg_accept_btn: 'قبول کرتا/کرتی ہوں', lg_accepted_on: 'قبول کیا گیا', lg_ver: 'ورژن', lg_logout: 'لاگ آؤٹ' });
+  Object.assign(I18N.ur, { lg_sec: 'قانونی دستاویزات', lg_accept_title: 'شرائط کی قبولیت', lg_accept_intro: 'ایپ استعمال جاری رکھنے کے لیے براہِ کرم نیچے دی گئی دستاویزات پڑھ کر قبول کریں۔', lg_agree: 'میں نے سروس معاہدہ، شرائط و ضوابط، رازداری اور ادائیگی/واپسی کی پالیسی پڑھ لی ہیں اور قبول کرتا/کرتی ہوں۔', lg_accept_btn: 'قبول کرتا/کرتی ہوں', lg_accepted_on: 'قبول کیا گیا', lg_ver: 'ورژن', lg_logout: 'لاگ آؤٹ' });
   Object.assign(I18N.en, { lg_sec: 'Legal documents', lg_accept_title: 'Accept the terms', lg_accept_intro: 'To keep using the app, please read and accept the documents below.', lg_agree: 'I have read and accept the Service Agreement, Terms and Conditions, Privacy Policy and Payment / Refund Policy.', lg_accept_btn: 'I accept', lg_accepted_on: 'Accepted', lg_ver: 'Version', lg_logout: 'Log out' });
 }
 
@@ -208,9 +208,10 @@ function openLegal(id, L) {
   L = L == null ? (LANG === 'ur' ? 0 : 1) : L;
   openModal(`<h2>${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2>
     <div class="row" style="margin-bottom:8px"><button class="btn secondary sm" type="button" id="lg-lang">${L === 0 ? 'English' : 'اردو'}</button>
-      <a class="btn secondary sm" href="legal.html#${d.id}" target="_blank" rel="noopener" style="margin-inline-start:6px">${L === 0 ? 'پرنٹ / PDF' : 'Print / PDF'}</a></div>
+      <button class="btn secondary sm" type="button" id="lg-print" style="margin-inline-start:6px">${L === 0 ? 'پرنٹ / PDF' : 'Print / PDF'}</button></div>
     ${legalDocHtml(d, L)}<div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
   $('lg-lang').onclick = () => openLegal(id, 1 - L);
+  $('lg-print').onclick = () => doPrint(`<div class="legalprint"><h2>${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2>${legalDocHtml(d, L)}</div>`, 'a4');   // printed from inside the app: no separate page or address
 }
 async function termsPush() {
   if (window.POS_DEMO || !S.session || S.session.admin || !navigator.onLine) return;
@@ -244,3 +245,13 @@ async function termsGate() {
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-legal]'); if (b && typeof S !== 'undefined') openLegal(b.dataset.legal);
 });
+
+// Full-screen reader that opens ABOVE whatever is on screen (used by the sign-up form, so the typed form is not lost). No new page, no address bar.
+function legalOverlay(id) {
+  const d = LEGAL_DOCS.find(x => x.id === id), L = LANG === 'ur' ? 0 : 1; if (!d) return;
+  const v = document.createElement('div'); v.className = 'lg-ov';
+  v.innerHTML = `<div class="lg-ov-in"><div class="row"><h2 class="grow" style="margin:0">${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2><button class="btn secondary sm" type="button" data-lgclose>${t('close')}</button></div>${legalDocHtml(d, L)}</div>`;
+  v.onclick = e => { if (e.target === v || e.target.closest('[data-lgclose]')) v.remove(); };
+  document.body.appendChild(v);
+}
+document.addEventListener('click', ev => { const b = ev.target.closest('[data-lgov]'); if (b && typeof S !== 'undefined') { ev.preventDefault(); legalOverlay(b.dataset.lgov); } });

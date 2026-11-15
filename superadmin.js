@@ -32,10 +32,10 @@ const SAT = {
   sa_renew_title: ['سبسکرپشن تجدید', 'Renew subscription'], sa_pick_shop: ['دکان', 'Shop'], sa_new_expiry: ['نئی میعاد', 'New expiry'],
   sa_pay_tab: ['ادائیگیاں', 'Payments'], sa_plans_tab: ['پلانز', 'Plans'], sa_col_month: ['اس ماہ کی وصولی', 'Collected this month'], sa_col_total: ['کل وصولی', 'Total collected'],
   sa_add_payment: ['ادائیگی درج کریں', 'Record payment'], sa_plan_edit: ['پلان میں ترمیم', 'Edit plan'], sa_name_en: ['انگریزی نام', 'English name'], sa_name_ur2: ['اردو نام', 'Urdu name'],
-  sa_price: ['ماہانہ قیمت (Rs)', 'Monthly price (Rs)'], sa_max_users: ['زیادہ سے زیادہ صارفین', 'Max users'], sa_bill_qr: ['بل پر تصدیقی QR کوڈ', 'Verification QR on bills'], sa_barcodes: ['بارکوڈ (فیلڈ، کیمرہ اور اسکینر)', 'Barcodes (field, camera & scanner)'],
+  sa_price: ['ماہانہ قیمت (Rs)', 'Monthly price (Rs)'], sa_max_users: ['زیادہ سے زیادہ صارفین', 'Max users'], sa_bill_qr: ['بل پر تصدیقی QR کوڈ', 'Verification QR on bills'], sa_barcodes: ['بارکوڈ (فیلڈ، کیمرہ اور سکینر)', 'Barcodes (field, camera & scanner)'],
   sa_max_devices: ['ہر آئی ڈی کتنی ڈیوائسز پر چل سکے (0 = لامحدود)', 'Devices allowed per login ID (0 = unlimited)'], sa_devices: ['ڈیوائسز', 'Devices'], sa_dev_blocked: ['بند', 'Blocked'],
   sa_dev_reset: ['گم/چوری: ڈیوائسز ری سیٹ', 'Lost/stolen: reset devices'], sa_dev_block: ['یہ ڈیوائس بند کریں', 'Block this device'], sa_dev_none: ['ابھی کوئی ڈیوائس رجسٹر نہیں', 'No device registered yet'],
-  sa_dev_confirm: ['پرانی ڈیوائس بند ہو جائے گی (بعد میں "اجازت دیں" سے کھولی جا سکتی ہے) اور اس آئی ڈی کے سب لاگ اِن ختم ہوں گے۔ صارف نئی ڈیوائس پر لاگ اِن کر سکے گا۔ جاری رکھیں؟ (احتیاط کیلئے پاس ورڈ بھی ری سیٹ کریں)', 'The old device will be blocked (you can allow it again later) and every login of this ID ends. The user can then log in on a new device. Continue? (Also reset the password to be safe)'],
+  sa_dev_confirm: ['پرانی ڈیوائس بند ہو جائے گی (بعد میں "اجازت دیں" سے کھولی جا سکتی ہے) اور اس آئی ڈی کے سب لاگ اِن ختم ہوں گے۔ صارف نئی ڈیوائس پر لاگ اِن کر سکے گا۔ جاری رکھیں؟ (احتیاط کے لیے پاس ورڈ بھی ری سیٹ کریں)', 'The old device will be blocked (you can allow it again later) and every login of this ID ends. The user can then log in on a new device. Continue? (Also reset the password to be safe)'],
   sa_a_dev_reset: ['ڈیوائسز ری سیٹ', 'Devices reset'], sa_a_dev_allow: ['ڈیوائس کو اجازت', 'Device allowed'],
   sa_dev_allow: ['اجازت دیں', 'Allow'], sa_dev_full: ['حد پوری ہے: پہلے کوئی اور ڈیوائس بند کریں یا پلان کی حد بڑھائیں', 'Limit reached: block another device first or raise the plan limit'], sa_max_products: ['زیادہ سے زیادہ پروڈکٹس (0 = لامحدود)', 'Max products (0 = unlimited)'],
   sa_unlimited: ['لامحدود', 'Unlimited'], sa_per_month: ['ماہانہ', '/ month'], sa_shops_on_plan: ['دکانیں', 'shops'], sa_products: ['پروڈکٹس', 'products'],
@@ -53,6 +53,21 @@ const SAT = {
 SAT.sa_ann_to = ['کس کو دکھانا ہے', 'Show to']; SAT.sa_ann_all = ['تمام دکانیں', 'All shops']; SAT.sa_ann_push = ['فون پر نوٹیفکیشن بھی بھیجیں', 'Also send a phone notification'];
 SAT.sa_push_btn = ['اس دکان کو نوٹیفکیشن', 'Notify this shop']; SAT.sa_push_ask = ['اس دکان کے سب صارفین کو نوٹیفکیشن کا متن لکھیں', 'Write the notification text for all users of this shop'];
 SAT.sa_shop_blocked = ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.'];
+Object.assign(SAT, {
+  sa_st_pending: ['منظوری کا انتظار', 'Pending approval'], sa_st_rejected: ['مسترد', 'Rejected'],
+  sa_a_signup_new: ['Sign up: نئی درخواست', 'Sign-up request'], sa_a_signup_approve: ['Sign up منظور', 'Sign-up approved'], sa_a_signup_reject: ['Sign up مسترد', 'Sign-up rejected'],
+  sa_approve: ['منظور کریں اور ڈیمو شروع کریں', 'Approve and start demo'], sa_reject: ['مسترد کریں', 'Reject'],
+  sa_confirm_reject: ['یہ درخواست مسترد کریں؟ دکاندار لاگ اِن نہیں کر سکے گا۔', 'Reject this request? The shopkeeper will not be able to log in.'],
+  sa_pending_n: ['درخواستیں منظوری کے انتظار میں', 'requests waiting for approval'], sa_signup_src: ['Sign up سے آئی', 'Came from sign-up'],
+  sa_sec_signup: ['Sign up اور ڈیمو', 'Sign-up and demo'],
+  sa_set_signup: ['نئے اکاؤنٹ (Sign up) کی اجازت', 'Allow new accounts (sign-up)'],
+  sa_set_signup_appr: ['ہر نئی درخواست پر میری منظوری ضروری ہو', 'Every new request needs my approval'],
+  sa_set_signup_plan: ['Sign up کا پلان (ڈیمو)', 'Sign-up plan (demo)'], sa_set_demo_days: ['ڈیمو کے دن', 'Demo days'],
+  sa_set_daily: ['روزانہ زیادہ سے زیادہ نئی درخواستیں (0 = لامحدود)', 'Max new requests per day (0 = unlimited)'],
+  sa_max_bills: ['زیادہ سے زیادہ بل (0 = لامحدود)', 'Max bills (0 = unlimited)'], sa_plan_feats: ['اس پلان میں یہ سہولیات', 'Features in this plan'],
+  sa_f_customers: ['کسٹمرز اور ادھار', 'Customers and udhaar'], sa_f_purchases: ['خریداری اور سپلائرز', 'Purchases and suppliers'],
+  sa_f_expenses: ['اخراجات', 'Expenses'], sa_f_reports: ['رپورٹس', 'Reports'], sa_signup_off_hint: ['Sign up آن کرنے سے پہلے Supabase میں 18_signup.sql چلائیں اور signup فنکشن deploy کریں۔', 'Before turning sign-up on, run 18_signup.sql in Supabase and deploy the signup function.']
+});
 for (const k in SAT) { I18N.ur[k] = SAT[k][0]; I18N.en[k] = SAT[k][1]; }
 Object.assign(ICONS, {
   shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
@@ -73,7 +88,7 @@ const saPlan = id => (SAD.plans.find(p => p.id === id) || SAD.plans[0]);
 const saPlanName = p => (LANG === 'ur' ? p.name_ur : p.name) || p.name;
 const saShopName = id => { const s = SAD.shops.find(x => x.id === id); return s ? s.name : '—'; };
 const saFill = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
-function shopState(s) { if (s.archived) return 'archived'; if (s.suspended) return 'suspended'; if (saDays(s.expires_at) < 0) return 'expired'; return s.trial ? 'trial' : 'active'; }
+function shopState(s) { if (s.approval === 'pending') return 'pending'; if (s.approval === 'rejected') return 'rejected'; if (s.archived) return 'archived'; if (s.suspended) return 'suspended'; if (saDays(s.expires_at) < 0) return 'expired'; return s.trial ? 'trial' : 'active'; }
 const stChip = s => { const k = shopState(s); return `<span class="st ${k}">${t('sa_st_' + k)}</span>`; };
 const saExpTxt = s => { const d = saDays(s.expires_at); return d >= 0 ? `${d} ${t('sa_days_left')}` : `${-d} ${t('sa_days_ago')}`; };
 
@@ -81,7 +96,8 @@ function saSeed() {
   const plans = [
     { id: 'basic', name: 'Basic', name_ur: 'بنیادی', price: 1500, max_users: 2, max_products: 500, bill_qr: false, barcodes: false, max_devices: 1 },
     { id: 'standard', name: 'Standard', name_ur: 'اسٹینڈرڈ', price: 3000, max_users: 5, max_products: 3000, bill_qr: false, barcodes: true, max_devices: 1 },
-    { id: 'premium', name: 'Premium', name_ur: 'پریمیم', price: 5000, max_users: 15, max_products: 0, bill_qr: true, barcodes: true, max_devices: 1 }
+    { id: 'premium', name: 'Premium', name_ur: 'پریمیم', price: 5000, max_users: 15, max_products: 0, bill_qr: true, barcodes: true, max_devices: 1 },
+    { id: 'demo', name: 'Demo', name_ur: 'ڈیمو', price: 0, max_users: 1, max_products: 30, bill_qr: false, barcodes: false, max_devices: 1, max_bills: 50, f_customers: true, f_purchases: false, f_expenses: false, f_reports: false }
   ];
   const R = [ // name, owner, phone, city, plan, expiresInDays, flag, bills30, sales30, ageDays
     ['الفلاح جنرل اسٹور', 'محمد الفلاح', '03001112233', 'لاہور', 'standard', 48, '', 412, 1840000, 300],
@@ -99,7 +115,7 @@ function saSeed() {
   R.forEach(([name, owner, phone, city, plan, exp, flag, b, sv, age], i) => {
     const s = { id: uuid(), name, owner_name: owner, phone, city, plan_id: plan, trial: flag === 'trial', suspended: flag === 'suspended',
       suspend_reason: flag === 'suspended' ? 'ادائیگی میں تاخیر' : '', archived: flag === 'archived', created_at: saIso(-age), expires_at: saIso(exp),
-      last_seen: saIso(-(i % 4) - (flag ? 6 : 0)), bills_30d: b, sales_30d: sv, notes: '' };
+      last_seen: saIso(-(i % 4) - (flag ? 6 : 0)), bills_30d: b, sales_30d: sv, notes: '', approval: 'approved', source: 'admin' };
     shops.push(s);
     const mk = (nm, ph, role, k) => users.push({ id: uuid(), shop_id: s.id, name: nm, phone: ph, role, active: true, created_at: saIso(-age + 1), last_login: saIso(-k) });
     mk(owner, phone, 'owner', i % 3);
@@ -119,12 +135,12 @@ function saSeed() {
       { id: uuid(), at: saIso(-5), actor: 'Super Admin', action: 'shop_new', target: shops[3].name, detail: '' }
     ],
     announcements: [{ id: uuid(), text: 'اتوار رات 2 بجے سسٹم کی دیکھ بھال ہوگی، ایپ چند منٹ سست رہ سکتی ہے۔', active: true, at: saIso(-2) }],
-    settings: { trial_days: 14, default_plan: 'standard', support_phone: '03001234567' }
+    settings: { trial_days: 14, default_plan: 'standard', support_phone: '03001234567', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20 }
   };
 }
 function saLoad() {
   if (SAD) return SAD;
-  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '' } });
+  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20 } });
   try { const r = localStorage.getItem(SAK); if (r) SAD = JSON.parse(r); } catch (e) {}
   if (!SAD) { SAD = saSeed(); saSave(); }
   return SAD;
@@ -145,8 +161,8 @@ function saAnnouncement() {
 const SA_LIVE = () => !window.POS_DEMO;
 const SA_TABLES = { plans: 'plans', shops: 'shops', users: 'shop_members', payments: 'sub_payments', audit: 'audit_log', announcements: 'announcements' };
 const SA_COLS = {
-  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products', 'bill_qr', 'barcodes', 'max_devices'],
-  shops: ['id', 'name', 'owner_name', 'phone', 'city', 'plan_id', 'trial', 'suspended', 'suspend_reason', 'archived', 'created_at', 'expires_at', 'last_seen', 'bills_30d', 'sales_30d', 'notes'],
+  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products', 'bill_qr', 'barcodes', 'max_devices', 'max_bills', 'f_customers', 'f_purchases', 'f_expenses', 'f_reports'],
+  shops: ['id', 'name', 'owner_name', 'phone', 'city', 'plan_id', 'trial', 'suspended', 'suspend_reason', 'archived', 'created_at', 'expires_at', 'last_seen', 'bills_30d', 'sales_30d', 'notes', 'approval', 'source'],
   users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
   payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
   audit: ['id', 'at', 'actor', 'action', 'target', 'detail'],
@@ -168,7 +184,8 @@ async function saFetch() {
   const [plans, shops, users, payments, audit, announcements] = res.slice(0, 6).map(r => r.data || []);
   const st = res[6].data || {};
   SAD = { plans, shops, users, payments, audit, announcements,
-    settings: { trial_days: st.trial_days ?? 14, default_plan: st.default_plan || 'standard', support_phone: st.support_phone || '' } };
+    settings: { trial_days: st.trial_days ?? 14, default_plan: st.default_plan || 'standard', support_phone: st.support_phone || '',
+      signup_enabled: st.signup_enabled === true, signup_approval: st.signup_approval !== false, signup_plan: st.signup_plan || 'demo', demo_days: st.demo_days ?? 7, signup_daily_limit: st.signup_daily_limit ?? 20 } };
   saSnap();
 }
 async function saFn(body) {
@@ -281,7 +298,7 @@ function saMonths() {
   return out;
 }
 function saDash() {
-  const d = SAD, live = d.shops.filter(s => !s.archived), st = { active: 0, trial: 0, expired: 0, suspended: 0 };
+  const d = SAD, live = d.shops.filter(s => !s.archived), st = { active: 0, trial: 0, expired: 0, suspended: 0, pending: 0, rejected: 0 };
   live.forEach(s => st[shopState(s)]++);
   const mrr = live.filter(s => shopState(s) === 'active').reduce((a, s) => a + saPlan(s.plan_id).price, 0);
   const soon = live.filter(s => ['active', 'trial'].includes(shopState(s)) && saDays(s.expires_at) <= 7).sort((a, b) => (a.expires_at < b.expires_at ? -1 : 1));
@@ -289,6 +306,7 @@ function saDash() {
   return `
     <div class="today"><div class="cal">${ic('chart', 24)}</div><div class="grow"><div class="muted">${t('sa_mrr')}</div>
       <div class="big">Rs ${money(mrr)}</div><div class="muted">${live.length} ${t('sa_t_shops')} · ${d.users.length} ${t('sa_t_users')}</div></div></div>
+    ${st.pending ? `<button class="btn block" data-sa="stat|pending" style="margin-bottom:12px">${ic('shield', 18)} ${st.pending} ${t('sa_pending_n')}</button>` : ''}
     ${ann ? `<div class="warn" style="margin:0 0 12px;padding:6px 12px">${ic('bell', 16)} ${esc(ann)}</div>` : ''}
     <div class="sa-stats">${['active', 'trial', 'expired', 'suspended'].map(k => `<button class="mod" data-sa="stat|${k}"><span class="mi" style="font-size:24px;font-weight:800">${st[k]}</span>${t('sa_st_' + k)}</button>`).join('')}</div>
     <div class="card"><div class="sa-sec">${t('sa_expiring')}</div>
@@ -302,7 +320,7 @@ function saDash() {
 function saShopsView() {
   return `<div class="row" style="margin-bottom:10px"><input id="sa-q" class="grow" type="search" placeholder="${t('sa_search_shop')}" autocomplete="off" value="${esc(SAS.q)}">
       <button class="btn" data-sa="shopnew" type="button">${ic('plus', 18)} ${t('sa_add_shop')}</button></div>
-    <div class="sa-chips">${['all', 'active', 'trial', 'expired', 'suspended', 'archived'].map(k => `<button class="sa-chip ${SAS.filter === k ? 'on' : ''}" data-sa="filter|${k}">${t('sa_st_' + k)}</button>`).join('')}</div>
+    <div class="sa-chips">${['all', 'pending', 'active', 'trial', 'expired', 'suspended', 'archived'].map(k => `<button class="sa-chip ${SAS.filter === k ? 'on' : ''}" data-sa="filter|${k}">${t('sa_st_' + k)}</button>`).join('')}</div>
     <div id="sa-list"></div>`;
 }
 function saShopsList() {
@@ -325,6 +343,7 @@ function saShopDetail(id) {
     ${s.suspended && s.suspend_reason ? `<div class="warn">${esc(s.suspend_reason)}</div>` : ''}
     <div class="balbox"><span>${esc(saPlanName(p))} · ${money(p.price)} ${t('sa_per_month')}</span><b style="font-size:16px">${s.expires_at.slice(0, 10)}<br><small class="muted">${saExpTxt(s)}</small></b></div>
     <div class="sa-kpis"><div><b>${us.length}</b><span>${t('sa_users_n')}</span></div><div><b>${s.bills_30d}</b><span>${t('sa_bills30')}</span></div><div><b>${money(s.sales_30d)}</b><span>${t('sa_sales30')}</span></div></div>
+    ${s.approval !== 'approved' ? `<div class="warn" style="margin-bottom:8px">${t('sa_st_' + s.approval)}<div class="row" style="margin-top:6px"><button class="btn grow" data-sa="approve|${id}">${ic('shield', 16)} ${t('sa_approve')}</button>${s.approval === 'pending' ? `<button class="btn danger" data-sa="reject|${id}">${t('sa_reject')}</button>` : ''}</div></div>` : ''}
     ${owner ? '' : `<div class="warn" style="margin-bottom:8px">${t('sa_no_owner')}<br><button class="btn sm" type="button" data-sa="mkowner|${id}" style="margin-top:6px">${ic('key', 16)} ${t('sa_make_owner')}</button></div>`}
     <div class="row" style="margin-bottom:8px"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button>${owner ? `<button class="btn secondary" data-sa="resetpw|${owner.id}" aria-label="${t('sa_owner_pw')}" title="${t('sa_owner_pw')}">${ic('key', 18)}</button>` : ''}<button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
     <div class="row" style="margin-bottom:8px">
@@ -358,7 +377,7 @@ function saShopForm(id) {
       saLog('shop_edit', s.name); saSave(); closeModal(); toast(t('saved')); saRender(); return;
     }
     const trial = !!f.trial, ns = { id: uuid(), name: f.name.trim(), owner_name: f.owner_name.trim(), phone, city: f.city.trim(), plan_id: f.plan_id, trial,
-      suspended: false, suspend_reason: '', archived: false, created_at: saIso(0), expires_at: saIso(trial ? d.settings.trial_days : 0), last_seen: saIso(0), bills_30d: 0, sales_30d: 0, notes: f.notes.trim() };
+      suspended: false, suspend_reason: '', archived: false, created_at: saIso(0), expires_at: saIso(trial ? d.settings.trial_days : 0), last_seen: saIso(0), bills_30d: 0, sales_30d: 0, notes: f.notes.trim(), approval: 'approved', source: 'admin' };
     const pw = saPass();
     d.shops.push(ns); d.users.push({ id: uuid(), shop_id: ns.id, name: ns.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw });
     saLog('shop_new', ns.name); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(ns.owner_name, phone, pw); } });
@@ -479,14 +498,17 @@ function saPlanForm(id) {
     <label>${t('sa_price')}</label><input name="price" type="number" inputmode="decimal" min="0" required value="${p.price}">
     <div class="row"><div class="grow"><label>${t('sa_max_users')}</label><input name="max_users" type="number" min="1" required value="${p.max_users}"></div>
       <div class="grow"><label>${t('sa_max_products')}</label><input name="max_products" type="number" min="0" required value="${p.max_products}"></div></div>
-    <label>${t('sa_max_devices')}</label><input name="max_devices" type="number" min="0" required value="${p.max_devices ?? 1}">
+    <div class="row"><div class="grow"><label>${t('sa_max_devices')}</label><input name="max_devices" type="number" min="0" required value="${p.max_devices ?? 1}"></div>
+      <div class="grow"><label>${t('sa_max_bills')}</label><input name="max_bills" type="number" min="0" required value="${p.max_bills || 0}"></div></div>
+    <div class="sa-sec" style="margin-top:10px">${t('sa_plan_feats')}</div>
+    ${['customers', 'purchases', 'expenses', 'reports'].map(k => `<label style="margin-top:4px"><input type="checkbox" name="f_${k}" style="width:auto;min-height:0" ${p['f_' + k] !== false ? 'checked' : ''}> ${t('sa_f_' + k)}</label>`).join('')}
     <label style="margin-top:10px"><input type="checkbox" name="bill_qr" style="width:auto;min-height:0" ${p.bill_qr ? 'checked' : ''}> ${t('sa_bill_qr')}</label>
     <label style="margin-top:6px"><input type="checkbox" name="barcodes" style="width:auto;min-height:0" ${p.barcodes ? 'checked' : ''}> ${t('sa_barcodes')}</label>
     <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
-    Object.assign(p, { name: f.name.trim(), name_ur: f.name_ur.trim(), price: Math.max(0, num(f.price)), max_users: Math.max(1, Math.round(num(f.max_users))), max_products: Math.max(0, Math.round(num(f.max_products))), bill_qr: f.bill_qr === 'on', barcodes: f.barcodes === 'on', max_devices: Math.max(0, Math.round(num(f.max_devices))) });
+    Object.assign(p, { name: f.name.trim(), name_ur: f.name_ur.trim(), price: Math.max(0, num(f.price)), max_users: Math.max(1, Math.round(num(f.max_users))), max_products: Math.max(0, Math.round(num(f.max_products))), bill_qr: f.bill_qr === 'on', barcodes: f.barcodes === 'on', max_bills: Math.max(0, Math.round(num(f.max_bills))), f_customers: f.f_customers === 'on', f_purchases: f.f_purchases === 'on', f_expenses: f.f_expenses === 'on', f_reports: f.f_reports === 'on', max_devices: Math.max(0, Math.round(num(f.max_devices))) });
     saLog('plan_edit', p.name); saSave(); closeModal(); toast(t('saved')); saRender();
   };
 }
@@ -505,6 +527,13 @@ function saMoreView() {
       <label>${t('sa_set_trial')}</label><input id="sa-set-trial" type="number" min="0" inputmode="numeric" value="${d.settings.trial_days}">
       <label>${t('sa_set_plan')}</label><select id="sa-set-plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.default_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
       <label>${t('sa_set_phone')}</label><input id="sa-set-phone" inputmode="tel" dir="ltr" value="${esc(d.settings.support_phone)}"></div>
+    <div class="card"><div class="sa-sec">${t('sa_sec_signup')}</div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sa-set-signup_enabled" style="width:auto;min-height:0" ${d.settings.signup_enabled ? 'checked' : ''}> ${t('sa_set_signup')}</label>
+      ${d.settings.signup_enabled ? '' : `<div class="muted">${t('sa_signup_off_hint')}</div>`}
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sa-set-signup_approval" style="width:auto;min-height:0" ${d.settings.signup_approval ? 'checked' : ''}> ${t('sa_set_signup_appr')}</label>
+      <label>${t('sa_set_signup_plan')}</label><select id="sa-set-signup_plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.signup_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
+      <label>${t('sa_set_demo_days')}</label><input id="sa-set-demo_days" type="number" min="0" inputmode="numeric" value="${d.settings.demo_days}">
+      <label>${t('sa_set_daily')}</label><input id="sa-set-signup_daily_limit" type="number" min="0" inputmode="numeric" value="${d.settings.signup_daily_limit}"></div>
     <button class="btn secondary block" data-sa="export" style="margin-bottom:10px">${ic('download', 18)} ${t('sa_export')}</button>
     ${SA_LIVE() ? '' : '<button class="btn danger block" data-sa="resetsa">' + t('sa_reset_demo') + '</button>'}`;
 }
@@ -531,6 +560,15 @@ const SA_ACT = {
   stat: k => { SAS.tab = 'shops'; SAS.filter = k; SAS.q = ''; saRender(); },
   filter: k => { SAS.filter = k; saRender(); },
   shop: id => saShopDetail(id), shopnew: () => saShopForm(null), shopedit: id => saShopForm(id), renew: id => saRenewForm(id), payadd: () => saRenewForm(null),
+  approve: id => {
+    const s = SAD.shops.find(x => x.id === id); if (!s) return;
+    s.approval = 'approved'; s.trial = true; s.expires_at = saIso(Math.max(0, SAD.settings.demo_days));    // the demo clock starts at approval
+    saLog('signup_approve', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
+  },
+  reject: id => {
+    const s = SAD.shops.find(x => x.id === id); if (!s || !confirm(t('sa_confirm_reject'))) return;
+    s.approval = 'rejected'; saLog('signup_reject', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
+  },
   toggle: id => {
     const s = SAD.shops.find(x => x.id === id);
     if (s.suspended) { if (!confirm(t('sa_confirm_activate'))) return; s.suspended = false; s.suspend_reason = ''; saLog('shop_activate', s.name); }
@@ -612,6 +650,11 @@ document.addEventListener('change', async ev => {
   if (id === 'sa-set-trial') SAD.settings.trial_days = Math.max(0, Math.round(num(v)));
   if (id === 'sa-set-plan') SAD.settings.default_plan = v;
   if (id === 'sa-set-phone') SAD.settings.support_phone = saPhone(v);
+  if (id === 'sa-set-signup_enabled') { SAD.settings.signup_enabled = ev.target.checked; saLog('settings', 'signup ' + (ev.target.checked ? 'on' : 'off')); saSave(); toast(t('saved')); return saRender(); }
+  if (id === 'sa-set-signup_approval') SAD.settings.signup_approval = ev.target.checked;
+  if (id === 'sa-set-signup_plan') SAD.settings.signup_plan = v;
+  if (id === 'sa-set-demo_days') SAD.settings.demo_days = Math.max(0, Math.round(num(v)));
+  if (id === 'sa-set-signup_daily_limit') SAD.settings.signup_daily_limit = Math.max(0, Math.round(num(v)));
   saLog('settings', id.replace('sa-set-', '')); saSave(); toast(t('saved'));
 });
 if (window.POS_DEMO_RESET) { const r0 = window.POS_DEMO_RESET; window.POS_DEMO_RESET = () => { try { localStorage.removeItem(SAK); } catch (e) {} r0(); }; }

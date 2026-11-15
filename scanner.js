@@ -4,8 +4,8 @@
 //    The service worker caches it, so after the first online use it also works offline.
 // Used by startScan() (app.js, product barcodes) and the "Check a bill" QR scan (verify.js). Loaded before app.js.
 const SCAN_I18N = {
-  scan_perm: ['کیمرے کی اجازت نہیں ملی۔ براؤزر کی سیٹنگ میں اس سائٹ کیلئے کیمرا Allow کریں۔', 'Camera permission was denied. Allow the camera for this site in the browser settings.'],
-  scan_lib: ['اسکینر لوڈ نہیں ہو سکا۔ پہلی بار انٹرنیٹ چاہیے۔ فی الحال نام یا بارکوڈ ہاتھ سے لکھ کر سرچ کریں۔', 'The scanner could not load. It needs internet the first time. For now type the name or barcode in the search box.']
+  scan_perm: ['کیمرے کی اجازت نہیں ملی۔ براؤزر کی سیٹنگ میں اس سائٹ کے لیے کیمرا Allow کریں۔', 'Camera permission was denied. Allow the camera for this site in the browser settings.'],
+  scan_lib: ['سکینر لوڈ نہیں ہو سکا۔ پہلی بار انٹرنیٹ چاہیے۔ فی الحال نام یا بارکوڈ ہاتھ سے لکھ کر سرچ کریں۔', 'The scanner could not load. It needs internet the first time. For now type the name or barcode in the search box.']
 };
 for (const k in SCAN_I18N) { I18N.ur[k] = SCAN_I18N[k][0]; I18N.en[k] = SCAN_I18N[k][1]; }
 

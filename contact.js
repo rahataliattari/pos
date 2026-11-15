@@ -19,7 +19,7 @@ const CTT = {
   ct_s_open: ['زیرِ غور', 'Open'], ct_s_answered: ['جواب آ گیا', 'Answered'], ct_s_closed: ['بند', 'Closed'],
   ct_f_open: ['نئے / کھلے', 'New / open'], ct_f_answered: ['جواب دیے گئے', 'Answered'], ct_f_closed: ['بند', 'Closed'],
   ct_new_reply_b: ['نیا جواب', 'New reply'], ct_new_b: ['نیا', 'New'], ct_support: ['سپورٹ ٹیم', 'Support team'], ct_you: ['آپ', 'You'],
-  ct_need_online: ['پیغام بھیجنے اور دیکھنے کیلئے انٹرنیٹ ضروری ہے', 'Internet is needed to send and read messages'],
+  ct_need_online: ['پیغام بھیجنے اور دیکھنے کے لیے انٹرنیٹ ضروری ہے', 'Internet is needed to send and read messages'],
   ct_not_ready: ['یہ سہولت ابھی سرور پر آن نہیں۔ ایڈمن 15_support_tickets.sql چلائے۔', 'This feature is not set up on the server yet. The admin must run 15_support_tickets.sql.'],
   ct_rate: ['بہت زیادہ پیغام بھیجے گئے، ایک گھنٹے بعد دوبارہ کوشش کریں', 'Too many messages, please try again in an hour'],
   ct_short: ['عنوان اور پیغام مکمل لکھیں', 'Please fill in the subject and the message'],
@@ -34,7 +34,7 @@ const CTT = {
   ct_q1: ['آپ کا پیغام مل گیا ہے، ہم جلد دیکھ کر جواب دیتے ہیں۔', 'We received your message and will get back to you shortly.'],
   ct_q2: ['براہِ کرم ایپ بند کر کے دوبارہ کھولیں، انٹرنیٹ آن کر کے "ابھی سنک کریں" دبائیں اور بتائیں مسئلہ ختم ہوا یا نہیں۔', 'Please close and reopen the app, go online, tap "Sync now" and tell us whether the problem is gone.'],
   ct_q3: ['تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', 'Thanks for the suggestion! We are adding it to our list.'],
-  ct_q4: ['مسئلے کی اسکرین کی تصویر واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
+  ct_q4: ['مسئلے کی اسکرین کی تصویر پیغام کے ساتھ لگا دیں ("اسکرین شاٹ لگائیں" بٹن) یا واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
   fp_tab: ['پاس ورڈ درخواستیں', 'Password requests'], fp_done: ['مکمل', 'Done'], fp_mark: ['مکمل کریں', 'Mark done'], fp_none: ['کوئی درخواست نہیں', 'No requests'],
   fp_nouser: ['یہ نمبر کسی صارف کا نہیں ملا', 'No user has this number'],
   ct_notif_on: ['نوٹیفکیشن آن کریں', 'Enable notifications'],
@@ -102,10 +102,10 @@ const ctApi = {
       let tk = o.ticket && d.tickets.find(x => x.id === o.ticket);
       if (!tk) { tk = { id: uuid(), shop_id: s.shop_id, user_id: s.user_id, user_name: s.user_name || 'Demo', shop_name: s.shop_name, phone: '', kind: o.kind, topic: o.topic, subject: o.subject.trim(), meta: ctMeta(), status: 'open', admin_unread: true, user_unread: false, created_at: now, updated_at: now }; d.tickets.push(tk); }
       Object.assign(tk, { status: 'open', admin_unread: true, user_unread: false, updated_at: now });
-      d.messages.push({ id: uuid(), ticket_id: tk.id, sender: 'user', sender_name: s.user_name || '', body, at: now });
+      d.messages.push({ id: uuid(), ticket_id: tk.id, sender: 'user', sender_name: s.user_name || '', body, at: now, image: o.image || null });
       ctDemoSave(d); return tk.id;
     }
-    const { data, error } = await getSb().rpc('support_send', { p_shop: S.session.shop_id, p_ticket: o.ticket || null, p_kind: o.kind || 'problem', p_topic: o.topic || 'other', p_subject: o.subject || '', p_body: body, p_meta: ctMeta() });
+    const { data, error } = await getSb().rpc('support_send', { p_shop: S.session.shop_id, p_ticket: o.ticket || null, p_kind: o.kind || 'problem', p_topic: o.topic || 'other', p_subject: o.subject || '', p_body: body, p_meta: ctMeta(), ...(o.image ? { p_image: o.image } : {}) });
     if (error) throw ctErr(error); return data;
   },
   async read(id) {
@@ -216,7 +216,49 @@ function ctStart() {
 // ───────── Shop user: list / new / thread ─────────
 const ctKindChip = k => `<span class="st ${k === 'problem' ? 'suspended' : k === 'suggestion' ? '' : 'trial'}">${t('ct_k_' + k)}</span>`;
 const ctStatusChip = s => `<span class="st ${s === 'open' ? 'trial' : s === 'closed' ? 'archived' : ''}">${t('ct_s_' + s)}</span>`;
-const ctMsgHtml = (m, me) => `<div class="ct-msg ${m.sender === me ? 'me' : 'them'}"><small>${esc(m.sender === 'admin' ? (me === 'admin' ? t('ct_you') : t('ct_support')) : (m.sender_name || ''))} · ${esc(fmtDate(m.at))}</small>${esc(m.body)}</div>`;
+const ctMsgHtml = (m, me) => `<div class="ct-msg ${m.sender === me ? 'me' : 'them'}"><small>${esc(m.sender === 'admin' ? (me === 'admin' ? t('ct_you') : t('ct_support')) : (m.sender_name || ''))} · ${esc(fmtDate(m.at))}</small>${esc(m.body)}${/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.image || '') ? `<img class="ct-img" src="${m.image}" alt="${esc(t('ct_shot'))}">` : ''}</div>`;
+
+// ───────── Screenshot attach (shrunk to a small JPEG in the browser; the server re-checks type and size) ─────────
+Object.assign(I18N.ur, { ct_attach: 'اسکرین شاٹ لگائیں', ct_shot: 'اسکرین شاٹ', ct_img_remove: 'تصویر ہٹائیں', ct_img_bad: 'یہ تصویر نہیں کھل سکی، کوئی اور تصویر چنیں', ct_img_big: 'تصویر بہت بڑی ہے، کوئی اور چنیں', ct_attach_hint: 'مسئلے کی اسکرین کی تصویر ساتھ لگا دیں تاکہ جلد حل ہو' });
+Object.assign(I18N.en, { ct_attach: 'Attach screenshot', ct_shot: 'Screenshot', ct_img_remove: 'Remove picture', ct_img_bad: 'That picture could not be opened, choose another', ct_img_big: 'The picture is too large, choose another', ct_attach_hint: 'Attach a screenshot of the problem so we can fix it sooner' });
+if (typeof ICONS !== 'undefined') ICONS.image = '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M4 18l5-5 4 4 3-3 4 4"/>';
+const CT_IMG_MAX = 380000;               // characters of the data URL (about 280 KB of picture)
+CT.img = { new: null, reply: null };
+function ctCompress(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(t('ct_img_bad'))); };
+    im.onload = () => {
+      URL.revokeObjectURL(url);
+      let max = 1280, q = 0.72;
+      for (let i = 0; i < 6; i++) {
+        const sc = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * sc)); c.height = Math.max(1, Math.round(im.height * sc));
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        const d = c.toDataURL('image/jpeg', q);
+        if (d.length <= CT_IMG_MAX) return res(d);
+        max *= 0.8; q = Math.max(0.5, q - 0.06);
+      }
+      rej(new Error(t('ct_img_big')));
+    };
+    im.src = url;
+  });
+}
+const ctPickerHtml = k => `<div class="ct-attach"><input type="file" id="ct-file-${k}" accept="image/*" hidden>
+  <button type="button" class="btn secondary sm" data-ct="pick|${k}">${ic('image', 16)} ${t('ct_attach')}</button><div id="ct-prev-${k}" class="ct-prev"></div></div>`;
+function ctPreview(k) {
+  const box = $('ct-prev-' + k); if (!box) return;
+  box.innerHTML = CT.img[k] ? `<img src="${CT.img[k]}" alt=""><button type="button" class="btn secondary sm" data-ct="unpick|${k}" aria-label="${t('ct_img_remove')}">${ic('x', 14)}</button>` : '';
+}
+document.addEventListener('change', async ev => {
+  const m = /^ct-file-(new|reply)$/.exec(ev.target.id || ''); if (!m) return;
+  const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  try { CT.img[m[1]] = await ctCompress(f); ctPreview(m[1]); } catch (e) { toast(e.message, 4000); }
+});
+document.addEventListener('click', ev => {
+  const im = ev.target.closest('img.ct-img'); if (!im) return;                      // tap a picture: full-screen view inside the app
+  const v = document.createElement('div'); v.className = 'ct-zoom'; v.innerHTML = `<img src="${im.src}" alt="">`; v.onclick = () => v.remove(); document.body.appendChild(v);
+});
 
 async function ctOpen() {
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);
@@ -240,17 +282,18 @@ async function ctRenderList(quiet) {
     <div style="margin-top:8px"><button class="btn secondary block" data-close>${t('close')}</button></div>`;
 }
 function ctNewForm() {
-  const box = $('ct-body'); if (!box) return; CT.view = 'new';
+  const box = $('ct-body'); if (!box) return; CT.view = 'new'; CT.img.new = null;
   box.innerHTML = `<h2>${t('ct_new')}</h2><form id="ct-form">
     <div class="row"><div class="grow"><label>${t('ct_kind')}</label><select name="kind">${CT_KINDS.map(k => `<option value="${k}">${t('ct_k_' + k)}</option>`).join('')}</select></div>
       <div class="grow"><label>${t('ct_topic')}</label><select name="topic">${CT_TOPICS.map(k => `<option value="${k}" ${k === 'other' ? 'selected' : ''}>${t('ct_t_' + k)}</option>`).join('')}</select></div></div>
     <label>${t('ct_subject')}</label><input name="subject" maxlength="80" required>
     <label>${t('ct_body')}</label><textarea name="body" id="ct-text" rows="5" maxlength="1000" required placeholder="${esc(t('ct_ph_problem'))}"></textarea>
     <div class="muted" id="ct-cnt" dir="ltr" style="text-align:end">0 / 1000</div>
+    <div class="muted" style="font-size:12px">${t('ct_attach_hint')}</div>${ctPickerHtml('new')}
     <div class="row" style="margin-top:12px"><button class="btn grow" type="submit" id="ct-submit">${ic('send', 18)} ${t('ct_send')}</button><button class="btn secondary" type="button" data-ct="list">${t('cancel')}</button></div></form>`;
 }
 async function ctThread(id) {
-  const box = $('ct-body'); if (!box) return; CT.view = 'thread'; CT.cur = id;
+  const box = $('ct-body'); if (!box) return; CT.view = 'thread'; CT.cur = id; CT.img.reply = null;
   const tk = CT.mine.find(x => x.id === id) || (await ctApi.mine()).find(x => x.id === id); if (!tk) return ctRenderList();
   box.innerHTML = `<div class="muted" style="padding:20px;text-align:center">…</div>`;
   let msgs; try { msgs = await ctApi.thread(id); } catch (e) { return toast(e.message, 4000); }
@@ -260,21 +303,21 @@ async function ctThread(id) {
     <div style="margin:6px 0">${ctKindChip(tk.kind)} ${ctStatusChip(tk.status)} <span class="muted">${t('ct_t_' + (tk.topic || 'other'))}</span></div>
     <div class="ct-thread" id="ct-thread">${msgs.map(m => ctMsgHtml(m, 'user')).join('')}</div>
     ${tk.status === 'closed' ? `<div class="muted" style="margin-bottom:6px">${t('ct_closed_note')}</div>` : ''}
-    <textarea id="ct-reply" rows="3" maxlength="1000" placeholder="${esc(t('ct_reply_ph'))}"></textarea>
+    <textarea id="ct-reply" rows="3" maxlength="1000" placeholder="${esc(t('ct_reply_ph'))}"></textarea>${ctPickerHtml('reply')}
     <div class="row" style="margin-top:10px"><button class="btn grow" data-ct="usend|${id}">${ic('send', 18)} ${t('ct_reply')}</button><button class="btn secondary" data-ct="list">${t('ct_back')}</button></div>`;
   const th = $('ct-thread'); if (th) th.scrollTop = th.scrollHeight;
 }
 async function ctUserReply(id) {
   const ta = $('ct-reply'), body = ta ? ta.value.trim() : ''; if (body.length < 2) return;
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);
-  try { await ctApi.send({ ticket: id, body }); toast(t('ct_sent')); ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); } catch (e) { toast(e.message, 4500); }
+  try { await ctApi.send({ ticket: id, body, image: CT.img.reply }); CT.img.reply = null; toast(t('ct_sent')); ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); } catch (e) { toast(e.message, 4500); }
 }
 async function ctSubmitNew(form) {
   const f = Object.fromEntries(new FormData(form).entries());
   if (String(f.subject).trim().length < 3 || String(f.body).trim().length < 5) return toast(t('ct_short'), 3500);
   if (ctLive() && !(await pingServer())) return toast(t('ct_need_online'), 3500);    // form stays open so the text is not lost
   const btn = $('ct-submit'); btn.disabled = true;
-  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body }); toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); }
+  try { const id = await ctApi.send({ ticket: null, kind: f.kind, topic: f.topic, subject: f.subject.trim(), body: f.body, image: CT.img.new }); CT.img.new = null; toast(t('ct_sent_to'), 3500); CT.mine = []; ctPoll(); pushNotify('ticket_new', { ticket_id: id }); await ctThread(id); }
   catch (e) { toast(e.message, 5000); btn.disabled = false; }
 }
 
@@ -353,6 +396,7 @@ const CT_ACT = {
   rdone: async (id, v) => { try { await ctApi.resetDone(id, v !== '0'); ctPoll(); ctResetList($('ct-alist')); } catch (e) { toast(e.message, 4000); } },
   rreset: id => { const u = ctResetUser(CT.resets.find(x => x.id === id)); if (u) SA_ACT.resetpw(u.id); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
   astatus: async (id, s) => { try { await ctApi.setStatus(id, s); toast(t('saved')); closeModal(); ctAdminList(); } catch (e) { toast(e.message, 4000); } },
+  pick: k => { const f = $('ct-file-' + k); if (f) f.click(); }, unpick: k => { CT.img[k] = null; ctPreview(k); },
   canned: n => { const ta = $('ct-reply'); if (ta) { ta.value = (ta.value ? ta.value + '\n' : '') + t('ct_q' + n); ta.focus(); } },
   notif: async () => { try { await Notification.requestPermission(); } catch (e) {} saRender(); }
 };

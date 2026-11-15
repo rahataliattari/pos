@@ -273,12 +273,13 @@ function syncUi() {
 // ───────── Subscription expiry ─────────
 async function syncCheckExpiry(sb, shop) {
   try {
-    const { data } = await sb.from('shops').select('expires_at, plan_id').eq('id', shop).maybeSingle();
+    const { data } = await sb.from('shops').select('expires_at, plan_id, trial').eq('id', shop).maybeSingle();
     if (!data) return;
-    S.session.expires_at = data.expires_at;
+    S.session.expires_at = data.expires_at; S.session.trial = data.trial === true;
     try {                                            // plan features (e.g. bill QR). On error keep what we already know.
-      const pl = await sb.from('plans').select('name, name_ur, bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
-      if (!pl.error && pl.data) { S.session.plan_name = (LANG === 'ur' ? pl.data.name_ur : pl.data.name) || pl.data.name; S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
+      const pl = await sb.from('plans').select('*').eq('id', data.plan_id).maybeSingle();
+      if (!pl.error && pl.data) { S.session.plan_name = (LANG === 'ur' ? pl.data.name_ur : pl.data.name) || pl.data.name; S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true;
+        Object.assign(S.session, { max_products: pl.data.max_products || 0, max_bills: pl.data.max_bills || 0, f_customers: pl.data.f_customers !== false, f_purchases: pl.data.f_purchases !== false, f_expenses: pl.data.f_expenses !== false, f_reports: pl.data.f_reports !== false }); }
     } catch (x) {}
     try { if (typeof termsPush === 'function') await termsPush(); } catch (x) {}
     try { if (typeof avatarPull === 'function') await avatarPull(sb, shop); } catch (x) {}     // profile picture

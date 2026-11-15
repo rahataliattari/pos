@@ -148,7 +148,7 @@ video#scanvideo { width: 100%; border-radius: 14px; background: #000; display: b
   body.printing > *:not(#receipt-print) { display: none !important; }
   body.printing #receipt-print { display: block !important; }
   #receipt-print .receipt { border: 0; padding: 0; width: var(--paper, 58mm); margin: 0; }
-  @page { margin: 2mm; }
+  @page { margin: 0; }
 }
 
 /* ───── SVG icons (replace emoji) ───── */
@@ -213,7 +213,9 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 :root[data-theme="admin"] header.top { box-shadow: 0 4px 14px rgba(28, 37, 65, .28); }
 #sa { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 .st { display: inline-block; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 800; white-space: nowrap; background: #e4f6ea; color: #14803d; }
-.st.trial { background: var(--warn-bg); color: var(--warn); } .st.expired, .st.suspended { background: #fdecea; color: var(--err); } .st.archived { background: #eef1ef; color: var(--muted); }
+.st.trial { background: var(--warn-bg); color: var(--warn); } .st.expired, .st.suspended { background: #fdecea; color: var(--err); } .st.archived { background: #eef1ef; color: var(--muted); } .st.pending { background: var(--warn-bg); color: var(--warn); } .st.rejected { background: #fdecea; color: var(--err); }
+#lnk-signup { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
+#lnk-signup[hidden] { display: none; }
 .sa-chips { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; padding-bottom: 2px; }
 .sa-chip { flex: none; border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 0 14px; min-height: 38px; font-weight: 700; color: var(--muted); cursor: pointer; }
 .sa-chip.on { background: var(--g700); border-color: var(--g700); color: #fff; }
@@ -228,7 +230,7 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 
 /* ───── Premium receipt / invoice / report print ───── */
 .rcwrap { background: #e9edeb; padding: 16px 12px 22px; border-radius: 16px; }
-.rc { background: #fff; color: #111; font-size: 13px; line-height: 1.8; padding: 16px 14px 14px; position: relative; box-shadow: 0 6px 18px rgba(0, 0, 0, .14); max-width: 340px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rc { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Naskh Arabic", "Noto Sans Arabic", "Noto Nastaliq Urdu", sans-serif; background: #fff; color: #111; font-size: 13px; line-height: 1.8; padding: 16px 14px 14px; position: relative; box-shadow: 0 6px 18px rgba(0, 0, 0, .14); max-width: 340px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .rc::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; background: linear-gradient(-45deg, transparent 6px, #fff 0), linear-gradient(45deg, transparent 6px, #fff 0); background-size: 12px 12px; background-position: left bottom; }
 .rc .num { direction: ltr; unicode-bidi: isolate; white-space: nowrap; font-variant-numeric: tabular-nums; display: inline-block; }
 .rc .hd { text-align: center; } .rc .shopname { font-size: 20px; font-weight: 800; line-height: 1.6; letter-spacing: .2px; }
@@ -343,7 +345,7 @@ nav.bottom button { position: relative; }
 .lglogo { width: 88px; height: 88px; border-radius: 22px; box-shadow: var(--shadow); display: block; margin: 0 auto 8px; }
 .lgtag { margin: 0; color: var(--muted); font-size: 14px; }
 .lgcard { background: var(--card); border-radius: 22px; padding: 6px 18px 12px; box-shadow: var(--shadow); }
-.lglinks { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.lglinks { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 #lnk-forgot { display: inline-flex; align-items: center; min-height: 48px; padding: 0 6px; color: var(--g700); font-weight: 700; }
 .lglang { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--g900); font-weight: 700; cursor: pointer; }
 #login a:focus-visible, #login button:focus-visible { outline: 3px solid var(--g700); outline-offset: 2px; border-radius: 10px; }
@@ -351,13 +353,54 @@ nav.bottom button { position: relative; }
 .rc .li, .rc .qrbox, .rc .grand, .rc .stampwrap { break-inside: avoid; page-break-inside: avoid; }
 .rc .qrbox { margin: 8px auto 4px; }
 @media print {
-  html, body { margin: 0 !important; padding: 0 !important; }
-  body.printing { margin: 0 !important; padding: 0 !important; }
-  body.printing #receipt-print { margin: 0 !important; padding: 0 !important; width: 100% !important; }
-  #receipt-print .rc { margin: 0 auto !important; padding: 0.5mm !important; }
   #receipt-print .rc:not(.a4) { line-height: 1.5; }
-  #receipt-print .rc:not(.a4) .sep { margin: 3px 0; }
-  #receipt-print .rc:not(.a4) .shopname { line-height: 1.35; }
-  #receipt-print .rc:not(.a4) .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .45) !important; height: calc(var(--paper, 58mm) * .45) !important; }
-  #receipt-print .rc .stamp { transform: none !important; }
+  #receipt-print .rc:not(.a4) .sep { margin: 5px 0; }
+  #receipt-print .rc:not(.a4) .shopname { line-height: 1.4; }
 }
+
+/* ───── Premium login ───── */
+#login { max-width: none; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; position: relative; overflow: hidden;
+  padding: calc(40px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: radial-gradient(120% 60% at 50% 0%, var(--g500) 0%, var(--g700) 38%, var(--g900) 100%); }
+#login[hidden] { display: none; }
+#login::before, #login::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; background: rgba(255,255,255,.07); }
+#login::before { width: 320px; height: 320px; top: -120px; inset-inline-end: -110px; }
+#login::after { width: 220px; height: 220px; top: 150px; inset-inline-start: -110px; background: rgba(255,255,255,.05); }
+#login > * { position: relative; z-index: 1; width: 100%; max-width: 420px; }
+.lgbrand { margin-bottom: 22px; }
+.lglogo { width: 84px; height: 84px; border-radius: 24px; padding: 6px; background: rgba(255,255,255,.95); box-shadow: 0 10px 28px rgba(0,0,0,.28), 0 0 0 6px rgba(255,255,255,.14); }
+#login h1 { color: #fff; font-size: 27px; margin: 14px 0 4px; letter-spacing: .2px; text-shadow: 0 1px 8px rgba(0,0,0,.18); }
+.lgtag { color: rgba(255,255,255,.86); font-size: 14.5px; }
+.lgcard { border-radius: 26px; padding: 12px 20px 8px; box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+.lgcard input { min-height: 52px; border-radius: 14px; background: var(--g50); }
+.lgcard input:focus { background: #fff; }
+.lgcard label { font-weight: 700; color: var(--g900); }
+#btn-login { min-height: 54px; border-radius: 16px; font-size: 17px; font-weight: 800; background: linear-gradient(160deg, var(--g500), var(--g700)); box-shadow: 0 8px 18px rgba(15, 123, 63, .35); }
+#btn-login:active { transform: translateY(1px); box-shadow: 0 4px 10px rgba(15, 123, 63, .3); }
+.lglinks { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 4px; }
+.lglang { background: var(--g50); border-color: var(--g200); }
+.lgtrust { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; margin-top: 18px; }
+.lgtrust span { color: #fff; font-size: 12.5px; font-weight: 700; padding: 2px 12px; border-radius: 999px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.22); }
+.lgfoot { text-align: center; margin-top: auto; padding-top: 18px; color: rgba(255,255,255,.6); font-size: 12px; letter-spacing: 1px; }
+#shop-choice:not([hidden]) { background: var(--card); border-radius: 22px; padding: 16px; margin-top: 14px; }
+#login a:focus-visible, #login button:focus-visible { outline-color: #fff; }
+.lgcard a:focus-visible, .lgcard button:focus-visible { outline-color: var(--g700); }
+
+/* Support: screenshot attach */
+.ct-attach { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.ct-prev { display: flex; align-items: center; gap: 6px; }
+.ct-prev img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.ct-img { display: block; max-width: 100%; max-height: 220px; margin-top: 6px; border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in; }
+.ct-zoom { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; padding: 12px; cursor: zoom-out; }
+.ct-zoom img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+
+/* Links that act inside the app (no address, no new tab) */
+a[role="button"] { cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
+#lnk-forgot, #lnk-signup { text-decoration: none; }
+.lnkbtn { color: var(--g700); font-weight: 700; }
+.lg-ov { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
+.lg-ov-in { background: var(--card); width: 100%; max-width: 560px; max-height: 92vh; max-height: 92dvh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 16px; }
+.legalprint { color: #000; font-size: 12pt; line-height: 1.7; } .legalprint h4 { margin: 10px 0 2px; }
+.lglogo3d { display: block; margin: 0 auto; border-radius: 26px; filter: drop-shadow(0 12px 22px rgba(0,0,0,.35)); animation: lgfloat 5s ease-in-out infinite; }
+@keyframes lgfloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .lglogo3d { animation: none; } }

@@ -150,7 +150,9 @@ function applyStaticText() {
   $('lbl-email').textContent = t('phone'); $('lbl-pass').textContent = t('password');
   $('btn-login').textContent = t('login');
   const lf = $('lnk-forgot'); if (lf) lf.textContent = t('fp_link');
+  if (typeof signupLoginHook === 'function') signupLoginHook();
   const lt = $('login-tag'); if (lt) lt.textContent = t('login_tag');
+  const tr = $('login-trust'); if (tr) tr.innerHTML = ['login_t1', 'login_t2', 'login_t3'].map(k => `<span>${t(k)}</span>`).join('');
   const ll = $('login-lang'); if (ll) { ll.textContent = LANG === 'ur' ? 'English' : 'اردو'; ll.lang = LANG === 'ur' ? 'en' : 'ur'; }
   document.querySelectorAll('button.eye').forEach(b => b.setAttribute('aria-label', t('pw_toggle')));
   $('syncnote').textContent = (typeof saAnnouncement === 'function' && saAnnouncement()) || t('sync_note');
@@ -200,13 +202,18 @@ async function doLogin(e) {
     // Membership is decided by the SERVER (RLS), never by the client.
     let isAdm = false;
     try { isAdm = (await sb.rpc('is_platform_admin')).data === true; } catch (x) {}
-    const { data: all, error: e2 } = await sb.from('shop_members').select('shop_id, role, active, name, shops(name, suspended, archived, expires_at)').eq('user_id', user.id);
+    const { data: all, error: e2 } = await sb.from('shop_members').select('shop_id, role, active, name, shops(name, suspended, archived, expires_at, approval)').eq('user_id', user.id);
     if (e2) throw new Error(e2.message);
     if (isAdm && (!all || !all.length)) return enterAdminOnly();
     if (!all || !all.length) throw new Error(t('no_shop'));
     // blocked shops (suspended / archived / expired) and deactivated members can't log in; Super Admin is never blocked
-    const rows = isAdm ? all : all.filter(r => r.active !== false && r.shops && !r.shops.suspended && !r.shops.archived && new Date(r.shops.expires_at).getTime() >= Date.now());
-    if (!rows.length) { try { await sb.auth.signOut(); } catch (x) {} throw new Error(t('sa_shop_blocked')); }
+    const okShop = r => r.active !== false && r.shops && !r.shops.suspended && !r.shops.archived && (r.shops.approval || 'approved') === 'approved' && new Date(r.shops.expires_at).getTime() >= Date.now();
+    const rows = isAdm ? all : all.filter(okShop);
+    if (!rows.length) {
+      try { await sb.auth.signOut(); } catch (x) {}
+      const ap = all.map(r => r.shops && r.shops.approval);   // a sign-up still waiting / refused gets its own message
+      throw new Error(ap.includes('pending') ? t('su_pending_login') : ap.includes('rejected') ? t('su_rejected_login') : t('sa_shop_blocked'));
+    }
     const make = r => ({ user_id: user.id, email: user.email, shop_id: r.shop_id, shop_name: (r.shops && r.shops.name) || '', user_name: r.name || '', role: r.role, admin: isAdm, expires_at: r.shops && r.shops.expires_at });
     if (rows.length === 1) return await finishLogin(make(rows[0]));
     $('login-form').hidden = true;
@@ -285,6 +292,8 @@ async function showApp() {
 const TAB_TITLE = { home: null, bill: 'tab_bill', products: 'tab_products', sales: 'tab_sales', customers: 'customers', purchases: 'mod_purchases', expenses: 'mod_expenses', reports: 'mod_reports', settings: 'tab_settings' };
 const VIEWS = ['home', 'bill', 'products', 'sales', 'customers', 'purchases', 'expenses', 'reports', 'settings'];
 function switchTab(tab) {
+  const FEAT = { customers: 'customers', purchases: 'purchases', expenses: 'expenses', reports: 'reports' };
+  if (FEAT[tab] && typeof planAllows === 'function' && !planAllows(FEAT[tab])) return toast(t('feat_off'), 4000);
   if (tab === 'purchases' && !canPurchase()) return toast(t('owner_mgr_only'), 3000);
   if ((tab === 'expenses' || tab === 'reports') && !canReports()) return toast(t('owner_mgr_only'), 3000);
   S.tab = tab;
@@ -317,14 +326,16 @@ async function renderHome() {
   const sum = await salesSummary(S.session.shop_id, start.toISOString(), end.toISOString());
   const cs = await creditSummary(S.session.shop_id);
   const ps = canPurchase() ? await payableSummary(S.session.shop_id) : { suppliers: 0 };
-  const mods = [
+  const allMods = [
     { tab: 'bill', ic: 'cart', l: 'tab_bill' }, { tab: 'products', ic: 'box', l: 'tab_products' },
     { tab: 'sales', ic: 'receipt', l: 'tab_sales' }, { tab: 'customers', ic: 'users', l: 'mod_customers' },
     { tab: 'expenses', ic: 'wallet', l: 'mod_expenses' }, { tab: 'purchases', ic: 'truck', l: 'mod_purchases' },
     { tab: 'reports', ic: 'chart', l: 'mod_reports' }, { tab: 'settings', ic: 'settings', l: 'tab_settings' }
   ];
   const dateStr = new Date().toLocaleDateString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { dateStyle: 'full' });
-  $('view-home').innerHTML = `
+  const demoBanner = typeof demoBannerHtml === 'function' ? await demoBannerHtml() : '';
+  const mods = allMods.filter(m => typeof planAllows !== 'function' || !['customers', 'purchases', 'expenses', 'reports'].includes(m.tab) || planAllows(m.tab));
+  $('view-home').innerHTML = `${demoBanner}
     <div class="today"><div class="cal">${ic('calendar', 24)}</div>
       <div class="grow"><div class="muted">${esc(dateStr)}</div>
         <div class="big">Rs ${money(sum.total)}</div>
@@ -536,6 +547,7 @@ function persistCart() {
 }
 
 async function completeSale() {
+  if (!S.editing && typeof planLimitCheck === 'function') { try { await planLimitCheck('bills'); } catch (e) { return toast(e.message, 5000); } }
   const tt = cartTotals();
   // Unpaid part of a bill is udhaar: it must belong to a named customer.
   const split = S.paySplit ? Object.fromEntries(PAY_METHODS.map(k => [k, round2(num((S.splitAmt || {})[k]))]).filter(([, v]) => v > 0)) : null;
@@ -1082,3 +1094,5 @@ function variantCombos(sizes, colors) {
   if (!C_.length) return S_;
   return S_.flatMap(s => C_.map(c => `${s} / ${c}`));
 }
+
+document.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.matches && ev.target.matches('a[role="button"]')) { ev.preventDefault(); ev.target.click(); } });

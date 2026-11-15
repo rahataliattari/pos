@@ -3,13 +3,13 @@
 // The QR on a printed bill is made by print.js (billQrText / billCode). This file only reads it back.
 const VFS = {
   vf_btn: ['بل چیک کریں', 'Check a bill'], vf_title: ['بل کی تصدیق', 'Verify a bill'],
-  vf_scan: ['QR اسکین کریں', 'Scan QR'], vf_or: ['یا ہاتھ سے لکھیں', 'or type it'],
+  vf_scan: ['QR سکین کریں', 'Scan QR'], vf_or: ['یا ہاتھ سے لکھیں', 'or type it'],
   vf_inv: ['بل نمبر', 'Bill number'], vf_code: ['تصدیقی کوڈ (QR کے نیچے)', 'Verification code (under the QR)'], vf_go: ['چیک کریں', 'Check'],
   vf_paste: ['QR کا پورا متن یہاں چپکائیں (اختیاری)', 'Paste the full QR text here (optional)'],
   vf_ok: ['✓ یہ بل ہماری دکان کا اصلی بل ہے', '✓ This is a genuine bill of our shop'],
   vf_ok_sub: ['بل نمبر، تاریخ، رقم اور کوڈ ہمارے ریکارڈ سے مل گئے۔', 'Bill number, date, amount and code match our records.'],
   vf_nocode: ['بل ہمارے ریکارڈ میں ملا، مگر کوڈ نہیں ملایا گیا', 'Bill found in our records, but the code was not checked'],
-  vf_nocode_sub: ['مکمل تصدیق کیلئے بل پر چھپا کوڈ بھی لکھیں یا QR اسکین کریں۔', 'For full verification also enter the printed code or scan the QR.'],
+  vf_nocode_sub: ['مکمل تصدیق کے لیے بل پر چھپا کوڈ بھی لکھیں یا QR سکین کریں۔', 'For full verification also enter the printed code or scan the QR.'],
   vf_bad: ['✗ کوڈ یا رقم ہمارے ریکارڈ سے نہیں ملتی', '✗ Code or amount does not match our records'],
   vf_bad_sub: ['بل نمبر موجود ہے مگر تفصیل مختلف ہے۔ بل تبدیل شدہ یا جعلی ہو سکتا ہے۔', 'The bill number exists but the details differ. The bill may be altered or fake.'],
   vf_none: ['✗ یہ بل ہمارے ریکارڈ میں نہیں ملا', '✗ This bill is not in our records'],
@@ -20,8 +20,8 @@ const VFS = {
   vf_unread_sub: ['یہ ہماری ایپ کا تصدیقی QR نہیں لگتا۔', 'This does not look like a verification QR from this app.'],
   vf_void: ['⚠ یہ بل منسوخ (void) ہو چکا ہے', '⚠ This bill has been voided'],
   vf_open: ['بل کھولیں', 'Open bill'], vf_again: ['دوبارہ چیک کریں', 'Check another'],
-  vf_note: ['صرف تصدیق کیلئے — اس سے کوئی ادائیگی یا وصولی نہیں ہوتی۔', 'For verification only — no payment or receipt happens here.'],
-  vf_need: ['بل نمبر لکھیں یا QR اسکین کریں', 'Enter a bill number or scan the QR'],
+  vf_note: ['صرف تصدیق کے لیے — اس سے کوئی ادائیگی یا وصولی نہیں ہوتی۔', 'For verification only — no payment or receipt happens here.'],
+  vf_need: ['بل نمبر لکھیں یا QR سکین کریں', 'Enter a bill number or scan the QR'],
   vf_date: ['تاریخ', 'Date'], vf_total: ['کل رقم', 'Total']
 };
 for (const k in VFS) { I18N.ur[k] = VFS[k][0]; I18N.en[k] = VFS[k][1]; }

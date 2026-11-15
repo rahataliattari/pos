@@ -15,8 +15,8 @@ const EXTT = {
   ex_notif_sec: ['نوٹیفکیشن', 'Notifications'], ex_alerts: ['کم اسٹاک اور سبسکرپشن کی یاد دہانی', 'Low-stock and subscription reminders'],
   ex_alerts_note: ['اطلاعات ایپ کھولنے یا بل بنانے پر چیک ہوتی ہیں؛ دن میں ایک بار فون پر نوٹیفکیشن آتا ہے (اگر اوپر نوٹیفکیشن آن ہوں)۔', 'Checked when you open the app or make a bill; one phone notification per day (if notifications are on above).'],
   ex_low_title: ['کم اسٹاک', 'Low stock'], ex_low_body: ['{n} پروڈکٹس کا اسٹاک کم ہے: {names}', '{n} product(s) are low on stock: {names}'],
-  ex_exp_title: ['سبسکرپشن', 'Subscription'], ex_exp_body: ['آپ کی سبسکرپشن {n} دن میں ختم ہو رہی ہے۔ تجدید کیلئے رابطہ کریں۔', 'Your subscription ends in {n} day(s). Contact us to renew.'],
-  ex_exp_today: ['آپ کی سبسکرپشن آج ختم ہو رہی ہے۔ تجدید کیلئے رابطہ کریں۔', 'Your subscription ends today. Contact us to renew.'],
+  ex_exp_title: ['سبسکرپشن', 'Subscription'], ex_exp_body: ['آپ کی سبسکرپشن {n} دن میں ختم ہو رہی ہے۔ تجدید کے لیے رابطہ کریں۔', 'Your subscription ends in {n} day(s). Contact us to renew.'],
+  ex_exp_today: ['آپ کی سبسکرپشن آج ختم ہو رہی ہے۔ تجدید کے لیے رابطہ کریں۔', 'Your subscription ends today. Contact us to renew.'],
   ex_see: ['دیکھیں', 'View'], ex_contact: ['رابطہ کریں', 'Contact'],
   // forgot password
   fp_link: ['پاس ورڈ بھول گئے؟', 'Forgot password?'], fp_title: ['پاس ورڈ بھول گئے', 'Forgot password'],
@@ -26,7 +26,7 @@ const EXTT = {
   fp_busy: ['ابھی بہت درخواستیں ہیں، کچھ دیر بعد کوشش کریں', 'Too many requests right now, try again later'],
   // bulk reminders
   br_btn: ['سب کو یاد دہانی', 'Remind all'], br_title: ['ادھار کی یاد دہانی', 'Udhaar reminders'], br_min: ['کم از کم رقم (Rs)', 'Minimum amount (Rs)'],
-  br_hint: ['واٹس ایپ پر ہر کسٹمر کیلئے الگ بٹن دبائیں؛ پیغام تیار ہو کر کھلے گا، آپ "بھیجیں" دبائیں۔ (واٹس ایپ خود بخود سب کو نہیں بھیجنے دیتا۔)', 'Tap the WhatsApp button for each customer; the message opens ready and you press Send. (WhatsApp does not allow sending to everyone automatically.)'],
+  br_hint: ['واٹس ایپ پر ہر کسٹمر کے لیے الگ بٹن دبائیں؛ پیغام تیار ہو کر کھلے گا، آپ "بھیجیں" دبائیں۔ (واٹس ایپ خود بخود سب کو نہیں بھیجنے دیتا۔)', 'Tap the WhatsApp button for each customer; the message opens ready and you press Send. (WhatsApp does not allow sending to everyone automatically.)'],
   br_last: ['آخری یاد دہانی', 'Last reminded'], br_none: ['کوئی کسٹمر نہیں', 'No customers'], br_nophone: ['{n} کسٹمرز کا نمبر نہیں لکھا', '{n} customer(s) have no phone number'], br_sent: ['بھیج دیا', 'Sent']
 };
 for (const k in EXTT) { I18N.ur[k] = EXTT[k][0]; I18N.en[k] = EXTT[k][1]; }

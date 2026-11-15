@@ -349,6 +349,7 @@ async function saveProduct(data, opts = {}) {
   if (data.variant_group) { fields.variant_group = data.variant_group; fields.variant_label = String(data.variant_label || '').trim() || null; }
   if (data.units !== undefined) fields.units = normalizeUnits(data.units, fields.unit);   // undefined = keep what the product has
   if (fields.sale_price < 0 || fields.cost_price < 0) throw new Error('Invalid price');
+  if (!data.id && typeof planLimitCheck === 'function') await planLimitCheck('products');   // plan / demo product limit
 
   return db.transaction('rw', db.products, db.stock_movements, db.sync_queue, db.app_settings, async () => {
     let rec;

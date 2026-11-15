@@ -147,8 +147,13 @@ function catalogRenderCount() {
 async function catalogAddSelected() {
   const shop = S.session.shop_id;
   const have = await catalogHave(shop);
-  const rows = CAT.rows.filter(r => CAT.sel.has(r.id) && !have.ids.has(r.id) && !have.names.has(r.name.toLowerCase()));
+  let rows = CAT.rows.filter(r => CAT.sel.has(r.id) && !have.ids.has(r.id) && !have.names.has(r.name.toLowerCase()));
   if (!rows.length) { toast(t('cat_nothing_new')); return; }
+  if (typeof planRoom === 'function') {                      // plan / demo product limit: add only what fits
+    const room = await planRoom('products');
+    if (room <= 0) return toast(suFill(t('lim_products'), { n: S.session.max_products }), 5000);
+    if (rows.length > room) { rows = rows.slice(0, room); toast(suFill(t('lim_products'), { n: S.session.max_products }), 5000); }
+  }
   let added = 0;
   await db.transaction('rw', db.products, db.categories, db.sync_queue, db.app_settings, async () => {
     const existing = await db.categories.where('[shop_id+name]').between([shop, ''], [shop, '\uffff']).toArray();

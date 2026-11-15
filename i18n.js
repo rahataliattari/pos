@@ -18,7 +18,7 @@ const I18N = {
     online: 'آن لائن', offline: 'آف لائن', pending: 'زیرِ انتظار',
     sync_note: 'تمام ریکارڈ پہلے فون میں محفوظ ہوتے ہیں، انٹرنیٹ آنے پر خود بخود سنک ہو جاتے ہیں۔',
     shop_name: 'دکان کا نام', set_sec_account: 'اکاؤنٹ', set_sec_billing: 'بلنگ اور ٹیکس', set_sec_receipt: 'رسید', set_sec_look: 'زبان اور رنگ', set_sec_data: 'سنک اور ڈیٹا', return_items: 'آئٹم واپسی', returned_total: 'واپس شدہ رقم', refund_cash: 'گاہک کو لوٹائے', ret_none: 'واپس ہونے والی مقدار لکھیں', ret_confirm: 'یہ آئٹمز اسٹاک میں واپس جائیں گے اور بل کی رقم کم ہو جائے گی۔ جاری رکھیں؟', void_sale: 'بل منسوخ کریں (واپسی)', sale_void: 'منسوخ شدہ بل', void_confirm: 'یہ بل منسوخ ہوگا، مال اسٹاک میں واپس آئے گا اور حساب سے نکل جائے گا۔ جاری رکھیں؟', void_reason: 'منسوخی کی وجہ (اختیاری)', sub_days: 'سبسکرپشن {n} دن میں ختم ہو رہی ہے، تجدید کروائیں', sub_expired: 'سبسکرپشن ختم ہو چکی ہے', cf_review: 'ٹکراؤ دیکھیں', cf_local: 'فون', cf_server: 'سرور', cf_keep_server: 'سرور والا رکھیں', cf_keep_local: 'فون والا رکھیں', cf_none: 'کوئی ٹکراؤ نہیں', import_data: 'بیک اپ سے ڈیٹا بحال کریں', import_bad: 'یہ درست بیک اپ فائل نہیں', import_done: '{n} ریکارڈ بحال ہوئے', change_pw: 'پاس ورڈ بدلیں', new_password: 'نیا پاس ورڈ (کم از کم 6)', pw_short: 'پاس ورڈ کم از کم 6 حروف کا ہو', logout_unsynced: 'ابھی {n} ریکارڈ سرور پر نہیں پہنچے۔ وہ اس فون میں محفوظ ہیں اور انٹرنیٹ پر سنک ہو جائیں گے۔ پھر بھی لاگ آؤٹ کریں؟', my_phone: 'لاگ اِن موبائل نمبر بدلیں', cur_password: 'موجودہ پاس ورڈ', phone_confirm: 'آئندہ اسی نئے نمبر سے لاگ اِن ہوگا:', sync_title: 'سنک', sync_now: 'ابھی سنک کریں', sync_retry: 'ناکام دوبارہ بھیجیں', sync_running: 'سنک ہو رہا ہے…', sync_ok: 'آخری سنک', sync_idle: 'ابھی سنک نہیں ہوا', sync_error: 'سنک میں خرابی', sync_auth: 'دوبارہ لاگ اِن کریں', sync_failed_n: 'ناکام', sync_conflicts: 'ٹکراؤ (سرور کا ورژن رکھا گیا)',
-    search_ph: 'نام یا بارکوڈ لکھیں', scan: 'اسکین', scan_unsupported: 'اس فون پر کیمرا اسکین دستیاب نہیں',
+    search_ph: 'نام یا بارکوڈ لکھیں', scan: 'سکین', scan_unsupported: 'اس فون پر کیمرا سکین دستیاب نہیں',
     no_results: 'کوئی پروڈکٹ نہیں ملی', cart_empty: 'بل خالی ہے',
     subtotal: 'ذیلی کل', discount: 'رعایت', tax: 'ٹیکس', total: 'کل رقم',
     paid: 'وصول رقم', balance: 'باقی', change: 'واپسی',
@@ -125,3 +125,7 @@ function setLang(l) {
 // Removing a cancelled bill from the sales history
 Object.assign(I18N.ur, { del_void_sale: 'منسوخ شدہ بل ہمیشہ کے لیے حذف کریں', del_void_confirm: 'یہ منسوخ شدہ بل فروخت کی تاریخ سے ہٹا دیا جائے گا۔ اسٹاک پہلے ہی واپس آ چکا ہے۔ جاری رکھیں؟' });
 Object.assign(I18N.en, { del_void_sale: 'Delete this cancelled bill', del_void_confirm: 'This cancelled bill will be removed from the sales history. Stock was already put back. Continue?' });
+
+// Login page trust line
+Object.assign(I18N.ur, { login_t1: 'محفوظ ڈیٹا', login_t2: 'آف لائن بھی چلے', login_t3: 'اردو اور English' });
+Object.assign(I18N.en, { login_t1: 'Secure data', login_t2: 'Works offline', login_t3: 'Urdu & English' });
