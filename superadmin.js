@@ -248,7 +248,7 @@ async function exitSuperAdmin() {
   applyTheme(); applyStaticText(); renderBillShell(); switchTab(S.tab);
 }
 function saRender() {
-  const tabs = [['dash', 'sa_t_dash', 'chart'], ['shops', 'sa_t_shops', 'store'], ['users', 'sa_t_users', 'users'], ['bill', 'sa_t_bill', 'wallet'], ['more', 'sa_t_more', 'settings']];
+  const tabs = [['dash', 'sa_t_dash', 'chart'], ['shops', 'sa_t_shops', 'store'], ['users', 'sa_t_users', 'users'], ['bill', 'sa_t_bill', 'wallet'], ['inbox', 'sa_t_inbox', 'chat'], ['more', 'sa_t_more', 'settings']];
   $('sa').innerHTML = `
     <header class="top"><div class="hrow">
       <div class="avatar">${ic('shield', 24)}</div>
@@ -260,8 +260,10 @@ function saRender() {
     <nav class="bottom">${tabs.map(([k, l, i]) => `<button data-sa="tab|${k}" class="${SAS.tab === k ? 'active' : ''}"><span class="ico">${ic(i, 22)}</span><span>${t(l)}</span></button>`).join('')}</nav>`;
   if (SAS.tab === 'shops') saShopsList();
   if (SAS.tab === 'users') saUsersList();
+  if (SAS.tab === 'inbox' && typeof ctAdminList === 'function') ctAdminList();
+  if (typeof ctPaint === 'function') ctPaint();
 }
-function saView() { return ({ dash: saDash, shops: saShopsView, users: saUsersView, bill: saBillView, more: saMoreView })[SAS.tab](); }
+function saView() { return ({ dash: saDash, shops: saShopsView, users: saUsersView, bill: saBillView, inbox: () => ctAdminView(), more: saMoreView })[SAS.tab](); }
 const saActRow = a => `<div class="lrow"><span class="lic">${ic('list', 16)}</span><div class="grow"><b>${t('sa_a_' + a.action)}</b><div class="muted">${esc(a.target)}${a.detail ? ' · ' + esc(a.detail) : ''}</div></div><div class="muted" style="font-size:12px">${esc(fmtDate(a.at))}</div></div>`;
 
 // ───────── Dashboard ─────────

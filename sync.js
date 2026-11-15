@@ -280,6 +280,7 @@ async function syncCheckExpiry(sb, shop) {
       const pl = await sb.from('plans').select('bill_qr, barcodes').eq('id', data.plan_id).maybeSingle();
       if (!pl.error && pl.data) { S.session.bill_qr = pl.data.bill_qr === true; S.session.barcodes = pl.data.barcodes === true; }
     } catch (x) {}
+    try { if (typeof termsPush === 'function') await termsPush(); } catch (x) {}
     try { if (typeof avatarPull === 'function') await avatarPull(sb, shop); } catch (x) {}     // profile picture
     try {                                            // sessions saved before names existed: fetch the person's name once
       const m = await sb.from('shop_members').select('name').eq('shop_id', shop).eq('user_id', S.session.user_id).maybeSingle();

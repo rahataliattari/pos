@@ -130,6 +130,7 @@ function applyStaticText() {
   $('hdr-avatar').innerHTML = avatarHtml(24);
   $('nav').innerHTML = [['home', 'tab_home', 'home'], ['products', 'tab_inventory', 'box'], ['bill', 'tab_sale', 'cart'], ['sales', 'tab_sales', 'receipt'], ['settings', 'tab_more', 'settings']]
     .map(([k, l, icon]) => `<button data-tab="${k}" class="${k === 'bill' ? 'fab ' : ''}${S.tab === k ? 'active' : ''}"><span class="ico">${ic(icon, k === 'bill' ? 28 : 22)}</span><span>${t(l)}</span></button>`).join('');
+  if (typeof ctPaint === 'function') ctPaint();
 }
 function showLogin() { S.avatar = ''; $('app').hidden = true; $('login').hidden = false; applyStaticText(); const ip = $('in-pass'); if (ip) ip.type = 'password'; initEyes(); }
 
@@ -241,6 +242,7 @@ async function showApp() {
   if (typeof syncStart === 'function') syncStart();
   if (typeof catalogFirstRun === 'function') catalogFirstRun().catch(() => {});
   if (!window.POS_DEMO && navigator.onLine) saLoadAnnouncement().catch(() => {});
+  termsGate().catch(() => {});                       // first login: accept the agreement / terms / privacy / refund policy
   if (showApp._timer) return;
   showApp._timer = setInterval(async () => { if (S.session) { const p = await pendingCount(), f = await failedCount();
     $('chip-pend').hidden = !p; $('chip-pend').textContent = `${t('pending')}: ${p}`;
@@ -651,7 +653,7 @@ async function openProductForm(id) {
 // ───────── Sales history ─────────
 async function renderSales(append = false) {
   const v = $('view-sales');
-  if (!append) v.innerHTML = `<h3 style="margin:0 0 8px">${t('sales_hist')}</h3><div id="sales-list"></div><div id="sales-more"></div>`;
+  if (!append) v.innerHTML = `<div class="row" style="margin-bottom:8px"><h3 class="grow" style="margin:0">${t('sales_hist')}</h3><button class="btn secondary sm" id="btn-verify" type="button">${ic('check', 16)} ${t('vf_btn')}</button></div><div id="sales-list"></div><div id="sales-more"></div>`;
   const list = await listSales(S.session.shop_id, S.salesPage, 30);
   const cmap = {};
   const cids = [...new Set(list.map(s => s.customer_id).filter(Boolean))];
@@ -724,15 +726,18 @@ async function renderSettings() {
       </div></div>
     </div>
     ${account ? sec('account', 'user', t('set_sec_account'), account) : ''}
+    ${sec('legal', 'shield', t('lg_sec'), legalListHtml(await getSetting(termsKey(), null)))}
     ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
     ${sec('receipt', 'print', t('set_sec_receipt'), receipt)}
     ${sec('look', 'settings', t('set_sec_look'), look)}
     ${sec('data', 'download', t('set_sec_data') + warnDot, data)}
     <div style="margin-top:12px">
     ${(window.POS_DEMO || (S.session && S.session.admin)) ? `<button class="btn block" id="btn-sa-open" style="margin-bottom:10px">${ic('shield', 18)} ${t('sa_open')}</button>` : ''}
+    <button class="btn secondary block" id="btn-contact" style="margin-bottom:10px">${ic('chat', 18)} ${t('ct_btn')}</button>
     <button class="btn secondary block" id="btn-help" style="margin-bottom:10px">${ic('help', 18)} ${t('help_btn')}</button>
     <button class="btn danger block" id="btn-logout">${ic('logout', 18)} ${t('logout')}</button></div>`;
   if (typeof syncUi === 'function') syncUi();
+  if (typeof ctPaint === 'function') ctPaint();
 }
 
 // ───────── Event wiring (delegation) ─────────
@@ -784,6 +789,7 @@ document.addEventListener('click', async ev => {
   const cu = el.closest('[data-cust]'); if (cu) return openCustomerDetail(cu.dataset.cust);
   if (el.closest('#btn-lang')) return toggleLang();
   if (el.closest('#btn-logout')) return doLogout();
+  if (el.closest('#btn-verify')) { openVerify(); return; }
   if (el.closest('#btn-avatar-del')) { avatarSet(''); return; }
   if (el.closest('#btn-pw')) {
     const oldp = $('set-oldpw').value, newp = $('set-newpw').value;

@@ -297,3 +297,26 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
   #receipt-print .rc.a4 .qrbox .qrsvg { width: 28mm; height: 28mm; }
   #receipt-print .rc .qrnote { color: #000; }
 }
+
+/* Bill verification result */
+.vres { border-radius: 14px; padding: 14px; text-align: center; line-height: 1.7; border: 2px solid; }
+.vres b { display: block; font-size: 17px; }
+.vres.ok { background: #e7f6ec; border-color: #2e9e5b; color: #17632f; }
+.vres.bad { background: #fdeaea; border-color: #d64545; color: #9b1c1c; }
+.vres.warn { background: #fff4de; border-color: #e0a030; color: #8a5a00; }
+
+/* Legal */
+.legal { line-height: 1.9; font-size: 15px; } .legal h4 { margin: 14px 0 4px; color: var(--g900); } .legal p { margin: 0 0 6px; white-space: pre-line; }
+#terms-gate { position: fixed; inset: 0; z-index: 40; background: var(--bg, #f4f7f5); overflow-y: auto; display: flex; justify-content: center; padding: 18px 14px; }
+#terms-gate .tg-card { width: 100%; max-width: 520px; height: fit-content; background: #fff; border-radius: 20px; padding: 18px; box-shadow: var(--shadow); }
+#terms-gate h2 { margin: 0 0 6px; color: var(--g900); }
+
+/* Contact us / support inbox (Stage 8) */
+textarea { min-height: 110px; resize: vertical; line-height: 1.7; }
+nav.bottom button { position: relative; }
+.tbadge { display: inline-block; background: var(--err); color: #fff; font-size: 12px; font-weight: 800; min-width: 20px; height: 20px; line-height: 20px; padding: 0 6px; border-radius: 999px; text-align: center; margin-inline-start: 8px; font-style: normal; }
+.tbadge.abs { position: absolute; top: 2px; inset-inline-end: calc(50% - 30px); margin: 0; }
+.ct-thread { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; max-height: 46vh; overflow-y: auto; padding: 2px; }
+.ct-msg { max-width: 86%; padding: 8px 12px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid var(--line); align-self: flex-start; }
+.ct-msg.me { background: var(--g100); border-color: var(--g200); align-self: flex-end; }
+.ct-msg small { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
