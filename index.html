@@ -17,11 +17,11 @@
     <h1 id="login-title"></h1>
     <form id="login-form" autocomplete="on">
       <label id="lbl-email" for="in-email"></label>
-      <input id="in-email" type="tel" inputmode="numeric" pattern="[0-9+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
+      <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
       <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="show/hide password"></button></div>
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
-      <div class="errtext" id="login-err" hidden></div>
+      <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
     </form>
     <div style="text-align:center;margin-top:14px"><a href="#" id="lnk-forgot" style="color:var(--g700);font-weight:700"></a></div>
     <div id="shop-choice" hidden></div>
@@ -62,9 +62,9 @@
   <div id="toast" hidden></div>
   <div id="receipt-print"></div>
 
-  <!-- Libraries: the service worker caches these on first load so the app works offline afterwards. -->
-  <script src="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <!-- Libraries: loaded from lib/ (upload dexie.min.js and supabase.js there); if missing, falls back to the CDN. The service worker caches them for offline use. -->
+  <script src="lib/dexie.min.js" data-cdn="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js" onerror="document.write(unescape('%3Cscript src=%22'+this.dataset.cdn+'%22%3E%3C/script%3E'))"></script>
+  <script src="lib/supabase.js" data-cdn="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" onerror="document.write(unescape('%3Cscript src=%22'+this.dataset.cdn+'%22%3E%3C/script%3E'))"></script>
   <script src="config.js"></script>
   <script src="icons.js"></script>
   <script src="i18n.js"></script>
@@ -87,6 +87,7 @@
   <script src="push.js"></script>
   <script src="billing-plus.js"></script>
   <script src="extras.js"></script>
+  <script src="quickbill.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

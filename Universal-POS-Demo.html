@@ -11,12 +11,12 @@
 :root {
   --g900: #0a5a2e; --g700: #0f7b3f; --g600: #178a49; --g500: #1f9d55; --g200: #cfe9da; --g100: #e6f4ec; --g50: #f4fbf7;
   --text: #17261e; --muted: #66756c; --line: #dfe9e3; --bg: #f6f8f7; --card: #ffffff;
-  --warn: #b26a00; --warn-bg: #fff4e0; --err: #b3261e;
+  --warn: #8a5200; --warn-bg: #fff4e0; --err: #b3261e;
   --shadow: 0 2px 10px rgba(15, 80, 45, .08);
 }
 /* Orange theme: same layout, different palette */
 :root[data-theme="orange"] {
-  --g900: #b33a00; --g700: #f4510b; --g600: #ff6a2a; --g500: #ff7a3d; --g200: #ffd2bd; --g100: #ffe9df; --g50: #fff6f1;
+  --g900: #8f2d00; --g700: #c23b00; --g600: #d04300; --g500: #ff7a3d; --g200: #ffd2bd; --g100: #ffe9df; --g50: #fff6f1;
   --shadow: 0 2px 10px rgba(180, 60, 0, .10);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -338,6 +338,12 @@ nav.bottom button { position: relative; }
 .line { grid-template-columns: minmax(0, 1fr) auto; }
 .line .sa-chips { max-width: 100%; }
 
+/* Quick Bill */
+.qbhome { width: 100%; display: flex; align-items: center; gap: 12px; border: 0; border-radius: 20px; padding: 14px 16px; margin-bottom: 12px; background: linear-gradient(160deg, var(--g700), var(--g900)); color: #fff; font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; box-shadow: var(--shadow); text-align: start; }
+.qbhome small { display: block; font-weight: 600; font-size: 13px; }
+.qbamt { font-size: 28px; font-weight: 800; text-align: center; }
+.qbline { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+
 </style>
 </head>
 <body>
@@ -347,11 +353,11 @@ nav.bottom button { position: relative; }
     <h1 id="login-title"></h1>
     <form id="login-form" autocomplete="on">
       <label id="lbl-email" for="in-email"></label>
-      <input id="in-email" type="tel" inputmode="numeric" pattern="[0-9+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
+      <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
       <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="show/hide password"></button></div>
       <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
-      <div class="errtext" id="login-err" hidden></div>
+      <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
     </form>
     <div style="text-align:center;margin-top:14px"><a href="#" id="lnk-forgot" style="color:var(--g700);font-weight:700"></a></div>
     <div id="shop-choice" hidden></div>
@@ -523,6 +529,7 @@ const ICONS = {
   box: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
   cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 11.2a1.5 1.5 0 001.5 1.2h9.1a1.5 1.5 0 001.5-1.1L21 7H6"/>',
   receipt: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h3"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3h0a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5h0a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9v0a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
   calendar: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>',
   scan: '<path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2"/><path d="M7 12h10"/>',
@@ -841,10 +848,12 @@ async function saveSale(sale, items) {
           unit_price: round2(it.unit_price),
           cost_price: round2(it.cost_price || 0),
           discount: round2(it.item_discount || 0),
-          line_total: lineAmt(it)
+          line_total: lineAmt(it),
+          ...(it.quick ? { quick: true } : {})          // Quick Bill line: no real product, stock is never touched
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
+        if (it.quick) continue;
 
         const mv = await newRecord({
           product_id: it.product_id,
@@ -872,6 +881,7 @@ async function voidSale(saleId, reason = '', opts = {}) {
     await db.sales.put(rec); await enqueue('sales', rec, 'update');
     const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
     for (const it of items) {
+      if (it.quick) continue;                     // Quick Bill line: there is no stock to put back
       const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty) * unitFactor(it)),
                                    reason: 'sale_void', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
@@ -903,6 +913,7 @@ async function returnSaleItems(saleId, lines, reason = '') {
                     line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };
       await db.sale_items.put(upd); await enqueue('sale_items', upd, 'update');
       byId[it.id] = upd;
+      if (it.quick) continue;                     // Quick Bill line: there is no stock to put back
       const mv = await newRecord({ product_id: it.product_id, qty_change: round3(q * unitFactor(it)), reason: 'sale_return', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
     }
@@ -4794,6 +4805,122 @@ document.addEventListener('change', async ev => { if (ev.target.id === 'set-exal
 
 </script>
 <script>
+// ── quickbill.js
+// Universal POS — Quick Bill (فوری بل): a fast bill for an amount typed by hand, with no product picking.
+// - Always fully paid, walk-in customer (no udhaar), no discount. Tax follows the shop's tax rate like every other bill.
+// - Saved through the normal saveSale(), so numbering, sync, receipt/print, reports, cancel and return all work as usual.
+// - Its lines are marked quick:true and carry the fixed product_id 'quick-bill' (no real product): stock is NEVER touched.
+// Loaded before app.js; uses app.js globals only when called.
+const QB_I18N = {
+  qb_title: ['فوری بل', 'Quick Bill'],
+  qb_sub: ['بغیر پروڈکٹ، صرف رقم لکھیں', 'No products, just type the amount'],
+  qb_amount: ['رقم (Rs)', 'Amount (Rs)'],
+  qb_name: ['تفصیل (اختیاری)', 'Description (optional)'],
+  qb_item: ['فوری آئٹم', 'Quick item'],
+  qb_add: ['لائن شامل کریں', 'Add line'],
+  qb_hint: ['اسٹاک پر کوئی اثر نہیں پڑتا۔ بل مکمل ادائیگی کے ساتھ بنتا ہے۔', 'Stock is not affected. The bill is saved as fully paid.'],
+  qb_need_amount: ['پہلے رقم لکھیں', 'Enter an amount first'],
+  qb_big: ['رقم بہت زیادہ ہے', 'Amount is too large'],
+  qb_no_edit: ['فوری بل کی ایڈیٹ نہیں ہو سکتی۔ اسے کینسل کر کے نیا بنائیں۔', 'A quick bill cannot be edited. Cancel it and make a new one.'],
+  qb_busy: ['پہلے موجودہ بل کی درستی مکمل یا منسوخ کریں', 'Finish or cancel the bill you are correcting first']
+};
+for (const k in QB_I18N) { I18N.ur[k] = QB_I18N[k][0]; I18N.en[k] = QB_I18N[k][1]; }
+
+const QB = { lines: [], pm: 'cash', busy: false };
+const qbRound = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const QB_MAX = 1e9;
+
+function qbPending() { const a = $('qb-amt'); const v = a ? parseFloat(a.value) : 0; return isFinite(v) && v > 0 ? v : 0; }
+function qbSums() {      // same arithmetic as saveSale(): subtotal -> tax -> total, each rounded to 2 decimals
+  const pend = qbPending();
+  const sub = qbRound(QB.lines.reduce((s, l) => s + l.amount, 0) + (pend && pend <= QB_MAX ? pend : 0));
+  const rate = num(S.cfg.tax_rate), tax = qbRound(sub * rate / 100);
+  return { sub, rate, tax, total: qbRound(sub + tax) };
+}
+
+function qbHtml() {
+  return `<h2>${ic('bolt', 22)} ${t('qb_title')}</h2>
+    <div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>
+    <div id="qb-lines"></div>
+    <label for="qb-amt">${t('qb_amount')}</label>
+    <input id="qb-amt" class="qbamt" type="number" inputmode="decimal" step="any" min="0" placeholder="0" autocomplete="off">
+    <label for="qb-name" style="margin-top:8px">${t('qb_name')}</label>
+    <input id="qb-name" type="text" maxlength="60" autocomplete="off" placeholder="${esc(t('qb_item'))}">
+    <button type="button" class="btn secondary block" id="qb-add" style="margin-top:8px">${ic('plus', 18)} ${t('qb_add')}</button>
+    <div class="totals" id="qb-totals" style="margin-top:10px"></div>
+    <div class="muted" style="margin:6px 0">${t('pm_label')}</div>
+    <div class="sa-chips" id="qb-pm">${PAY_METHODS.map(k => `<button type="button" class="sa-chip ${QB.pm === k ? 'on' : ''}" data-qbpm="${k}">${t('pm_' + k)}</button>`).join('')}</div>
+    <div class="muted" style="font-size:13px;margin-bottom:8px">${t('qb_hint')}</div>
+    <div class="row"><button type="button" class="btn grow" id="qb-save">${t('complete_sale')}</button>
+      <button type="button" class="btn secondary grow" data-close>${t('cancel')}</button></div>`;
+}
+
+function qbRenderLines() {
+  const box = $('qb-lines'); if (!box) return;
+  box.innerHTML = QB.lines.map((l, i) => `<div class="qbline"><div class="grow">${esc(l.name)}</div><b class="num">${money(l.amount)}</b>
+    <button type="button" class="iconbtn" style="width:40px;height:40px;color:var(--err)" data-qbrm="${i}" aria-label="${t('delete')}">${ic('x', 18)}</button></div>`).join('');
+}
+function qbRenderTotals() {
+  const box = $('qb-totals'); if (!box) return;
+  const s = qbSums();
+  box.innerHTML = (QB.lines.length > 1 || s.rate ? `<div><span>${t('subtotal')}</span><span>${money(s.sub)}</span></div>` : '')
+    + (s.rate ? `<div><span>${t('tax')} (${esc(S.cfg.tax_rate)}%)</span><span>${money(s.tax)}</span></div>` : '')
+    + `<div class="grand"><span>${t('total')}</span><span>Rs ${money(s.total)}</span></div>`;
+}
+
+function qbOpen() {
+  if (!S.session) return;
+  if (S.editing) return toast(t('qb_busy'), 3500);
+  QB.lines = []; QB.pm = 'cash'; QB.busy = false;
+  openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
+  setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
+}
+
+function qbAdd() {
+  const a = $('qb-amt'), n = $('qb-name'); if (!a) return false;
+  const v = parseFloat(a.value);
+  if (!(isFinite(v) && v > 0)) { toast(t('qb_need_amount'), 2500); a.focus(); return false; }
+  if (v > QB_MAX) { toast(t('qb_big'), 2500); return false; }
+  QB.lines.push({ name: (n.value || '').trim().slice(0, 60) || t('qb_item'), amount: qbRound(v) });
+  a.value = ''; n.value = ''; a.focus();
+  qbRenderLines(); qbRenderTotals();
+  return true;
+}
+
+async function qbSave() {
+  if (QB.busy) return;
+  const a = $('qb-amt');
+  if (a && a.value.trim() !== '' && qbPending() > 0 && !qbAdd()) return;       // an amount typed but not yet added is included
+  if (!QB.lines.length) return toast(t('qb_need_amount'), 2500);
+  QB.busy = true; const btn = $('qb-save'); if (btn) btn.disabled = true;
+  try {
+    const items = QB.lines.map(l => ({ product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
+      line_total: l.amount, item_discount: 0, cost_price: 0, quick: true }));
+    const sale = await saveSale({ customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
+      payment_method: PAY_METHODS.includes(QB.pm) ? QB.pm : 'cash', pay_split: null, created_by: S.session.user_id }, items);
+    QB.lines = [];
+    try { refreshStatus(); if (typeof exCheck === 'function') exCheck(); if (S.tab === 'home') renderHome(); } catch (e) { /* display refresh only */ }
+    await showReceipt(sale.id);
+  } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); const b = $('qb-save'); if (b) b.disabled = false; }
+  finally { QB.busy = false; }
+}
+
+document.addEventListener('click', e => {
+  const el = e.target; if (!el || !el.closest) return;
+  if (el.closest('#btn-qb-home') || el.closest('#btn-quickbill')) return qbOpen();
+  if (!el.closest('#sheet')) return;
+  if (el.closest('#qb-add')) return qbAdd();
+  if (el.closest('#qb-save')) return qbSave();
+  const pm = el.closest('[data-qbpm]');
+  if (pm) { QB.pm = pm.dataset.qbpm; document.querySelectorAll('[data-qbpm]').forEach(b => b.classList.toggle('on', b.dataset.qbpm === QB.pm)); return; }
+  const rm = el.closest('[data-qbrm]');
+  if (rm) { QB.lines.splice(+rm.dataset.qbrm, 1); qbRenderLines(); qbRenderTotals(); return; }
+});
+document.addEventListener('input', e => { if (e.target && e.target.id === 'qb-amt') qbRenderTotals(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && (e.target.id === 'qb-amt' || e.target.id === 'qb-name')) { e.preventDefault(); qbAdd(); } });
+
+</script>
+<script>
 // ── app.js
 // Universal POS — app logic (Stage 2: offline billing MVP).
 // The UI reads/writes ONLY the local database. Network is used for login and the connectivity check.
@@ -4912,6 +5039,7 @@ async function boot() {
 // turned into a hidden technical id <92number>@LOGIN_DOMAIN; nobody ever types or sees an e-mail. Anything with '@' is rejected.
 function loginIdToEmail(v) {
   v = (v || '').trim();
+  v = v.replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0);   // Urdu / Arabic digits -> 0-9
   if (v.includes('@')) throw new Error(t('bad_phone'));
   let d = v.replace(/\D/g, '');
   if (d.startsWith('00')) d = d.slice(2);
@@ -4964,11 +5092,12 @@ function getSb() {
 
 async function doLogin(e) {
   e.preventDefault();
+  if ($('btn-login').disabled) return;                  // already signing in: ignore extra taps
   const err = $('login-err'); err.hidden = true;
   let loginEmail;
   try { loginEmail = loginIdToEmail($('in-email').value); } catch (ex) { err.textContent = ex.message; err.hidden = false; return; }
-  if (!(await pingServer())) { err.textContent = t('login_need_online'); err.hidden = false; return; }
-  $('btn-login').disabled = true;
+  $('btn-login').disabled = true; $('btn-login').textContent = '…';       // instant feedback while the server is checked
+  if (!(await pingServer())) { err.textContent = t('login_need_online'); err.hidden = false; $('btn-login').disabled = false; $('btn-login').textContent = t('login'); return; }
   try {
     const sb = getSb();
     const pw = $('in-pass').value;
@@ -4999,7 +5128,7 @@ async function doLogin(e) {
       `<button class="btn secondary block" style="margin-bottom:8px" data-shop="${i}">${esc(r.shops && r.shops.name)} (${t(r.role)})</button>`).join('');
     box.onclick = ev => { const b = ev.target.closest('[data-shop]'); if (b) finishLogin(make(rows[+b.dataset.shop])); };
   } catch (ex) { err.textContent = ex.message || t('err_generic'); err.hidden = false; }
-  finally { $('btn-login').disabled = false; }
+  finally { $('btn-login').disabled = false; $('btn-login').textContent = t('login'); }
 }
 function enterAdminOnly() {   // platform admin with no shop of their own: straight to Super Admin
   S.isAdmin = true; $('login').hidden = true; $('login-form').hidden = false; $('shop-choice').hidden = true; $('in-pass').value = '';
@@ -5120,6 +5249,7 @@ async function renderHome() {
       <div class="grow"><div class="muted">${t('total_payable')}</div><div class="big">Rs ${money(ps.total)}</div>
         <div class="muted">${ps.count} ${t('owed_n')}</div></div></div>` : ''}
     ${typeof exBannerHtml === 'function' ? exBannerHtml() : ''}
+    <button class="qbhome" id="btn-qb-home" type="button"><span class="mi">${ic('bolt', 28)}</span><span class="grow">${t('qb_title')}<small>${t('qb_sub')}</small></span></button>
     <div class="mods">${mods.map(m => m.soon
       ? `<button class="mod soon" disabled><span class="soonb">${t('soon')}</span><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`
       : `<button class="mod" data-tab="${m.tab}"><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`).join('')}</div>`;
@@ -5132,6 +5262,7 @@ function renderBillShell() {
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
       ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
       <button class="iconbtn" id="btn-heldlist" type="button" aria-label="${t('hold_list')}">${ic('clock', 22)}${(S.heldN || 0) ? `<b class="tbadge abs">${S.heldN}</b>` : ''}</button>
+      <button class="iconbtn" id="btn-quickbill" type="button" aria-label="${t('qb_title')}">${ic('bolt', 22)}</button>
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
     <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
@@ -5350,6 +5481,7 @@ async function completeSale() {
 // The old bill is cancelled (stock put back) and the corrected copy is saved as a new bill that points back to it.
 async function startEditSale(saleId) {
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
+  if (r.items.some(i => i.quick)) return toast(t('qb_no_edit'), 4000);     // Quick Bills are cancelled and re-made, not edited
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
   if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
   const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
@@ -5412,7 +5544,7 @@ async function showReceipt(saleId) {
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
       + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
-      : canEditProducts() ? `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button><button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+      : canEditProducts() ? `${r.items.some(i => i.quick) ? '' : `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button>`}<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
   if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);

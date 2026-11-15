@@ -1,11 +1,13 @@
 // Service worker: makes the app shell and libraries available offline.
-// Bump CACHE when any shell file changes.
-const CACHE = 'pos-shell-v33';
+// IMPORTANT: bump CACHE (v34 -> v35 ...) every time ANY shell file changes. Files are served from the cache only,
+// and a new CACHE version downloads ALL files fresh together, so old and new files are never mixed.
+const CACHE = 'pos-shell-v35';
 
 const SHELL = [
-  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'app.js',
-  'manifest.webmanifest', 'icon-192.png', 'icon-512.png'
+  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'quickbill.js', 'app.js',
+  'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'legal.html'
 ];
+const LOCAL_LIBS = ['lib/dexie.min.js', 'lib/supabase.js'];   // optional: used when uploaded to the lib/ folder
 const LIBS = [
   'https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'
@@ -14,8 +16,12 @@ const LIBS = [
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(SHELL);                       // shell must succeed
-    for (const u of LIBS) {                      // libraries: try each, report if one fails
+    // 'reload' skips the browser's HTTP cache, so a new version always gets fresh files (never a mix of old and new)
+    await c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })));            // shell must succeed
+    for (const u of LOCAL_LIBS) {                // local libraries: cache if present
+      try { await c.add(new Request(u, { cache: 'reload' })); } catch (err) { /* not uploaded: CDN fallback is used */ }
+    }
+    for (const u of LIBS) {                      // CDN libraries: try each, retried on next fetch if one fails
       try { await c.add(new Request(u, { mode: 'cors' })); } catch (err) { /* retried on next fetch */ }
     }
     self.skipWaiting();
@@ -42,14 +48,17 @@ self.addEventListener('fetch', e => {
 
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
+    // Cache-first for everything: files only change together when CACHE is bumped (see top of this file).
     const cached = await c.match(req, { ignoreSearch: true });
-    // Libraries are version-pinned, so cache-first. Shell files: serve cache, refresh in background.
-    const refresh = fetch(req).then(res => { if (res && res.ok) c.put(req, res.clone()); return res; }).catch(() => null);
-    if (cached) { if (!isLib) e.waitUntil(refresh); return cached; }
-    const res = await refresh;
-    if (res) return res;
-    if (req.mode === 'navigate') return (await c.match('index.html')) || Response.error();
-    return Response.error();
+    if (cached) return cached;
+    try {
+      const res = await fetch(req);
+      if (res && res.ok) c.put(req, res.clone());
+      return res;
+    } catch (err) {
+      if (req.mode === 'navigate') return (await c.match('index.html')) || Response.error();
+      return Response.error();
+    }
   })());
 });
 

@@ -115,6 +115,7 @@ async function boot() {
 // turned into a hidden technical id <92number>@LOGIN_DOMAIN; nobody ever types or sees an e-mail. Anything with '@' is rejected.
 function loginIdToEmail(v) {
   v = (v || '').trim();
+  v = v.replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0);   // Urdu / Arabic digits -> 0-9
   if (v.includes('@')) throw new Error(t('bad_phone'));
   let d = v.replace(/\D/g, '');
   if (d.startsWith('00')) d = d.slice(2);
@@ -167,11 +168,12 @@ function getSb() {
 
 async function doLogin(e) {
   e.preventDefault();
+  if ($('btn-login').disabled) return;                  // already signing in: ignore extra taps
   const err = $('login-err'); err.hidden = true;
   let loginEmail;
   try { loginEmail = loginIdToEmail($('in-email').value); } catch (ex) { err.textContent = ex.message; err.hidden = false; return; }
-  if (!(await pingServer())) { err.textContent = t('login_need_online'); err.hidden = false; return; }
-  $('btn-login').disabled = true;
+  $('btn-login').disabled = true; $('btn-login').textContent = '…';       // instant feedback while the server is checked
+  if (!(await pingServer())) { err.textContent = t('login_need_online'); err.hidden = false; $('btn-login').disabled = false; $('btn-login').textContent = t('login'); return; }
   try {
     const sb = getSb();
     const pw = $('in-pass').value;
@@ -202,7 +204,7 @@ async function doLogin(e) {
       `<button class="btn secondary block" style="margin-bottom:8px" data-shop="${i}">${esc(r.shops && r.shops.name)} (${t(r.role)})</button>`).join('');
     box.onclick = ev => { const b = ev.target.closest('[data-shop]'); if (b) finishLogin(make(rows[+b.dataset.shop])); };
   } catch (ex) { err.textContent = ex.message || t('err_generic'); err.hidden = false; }
-  finally { $('btn-login').disabled = false; }
+  finally { $('btn-login').disabled = false; $('btn-login').textContent = t('login'); }
 }
 function enterAdminOnly() {   // platform admin with no shop of their own: straight to Super Admin
   S.isAdmin = true; $('login').hidden = true; $('login-form').hidden = false; $('shop-choice').hidden = true; $('in-pass').value = '';
@@ -323,6 +325,7 @@ async function renderHome() {
       <div class="grow"><div class="muted">${t('total_payable')}</div><div class="big">Rs ${money(ps.total)}</div>
         <div class="muted">${ps.count} ${t('owed_n')}</div></div></div>` : ''}
     ${typeof exBannerHtml === 'function' ? exBannerHtml() : ''}
+    <button class="qbhome" id="btn-qb-home" type="button"><span class="mi">${ic('bolt', 28)}</span><span class="grow">${t('qb_title')}<small>${t('qb_sub')}</small></span></button>
     <div class="mods">${mods.map(m => m.soon
       ? `<button class="mod soon" disabled><span class="soonb">${t('soon')}</span><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`
       : `<button class="mod" data-tab="${m.tab}"><span class="mi">${ic(m.ic, 28)}</span>${t(m.l)}</button>`).join('')}</div>`;
@@ -335,6 +338,7 @@ function renderBillShell() {
       <input id="bill-search" class="grow" type="search" placeholder="${t('search_ph')}" autocomplete="off" value="${esc(S.billQuery)}">
       ${planHasBarcode() ? `<button class="iconbtn green" id="btn-scan" type="button" aria-label="${t('scan')}">${ic('scan', 22)}</button>` : ''}
       <button class="iconbtn" id="btn-heldlist" type="button" aria-label="${t('hold_list')}">${ic('clock', 22)}${(S.heldN || 0) ? `<b class="tbadge abs">${S.heldN}</b>` : ''}</button>
+      <button class="iconbtn" id="btn-quickbill" type="button" aria-label="${t('qb_title')}">${ic('bolt', 22)}</button>
       ${canEditProducts() ? `<button class="iconbtn" id="btn-addprod2" type="button" aria-label="${t('add_product')}">${ic('plus', 22)}</button>` : ''}
     </div>
     <div class="tiles" id="tiles"></div><div id="tiles-more" style="margin-top:10px"></div>`;
@@ -553,6 +557,7 @@ async function completeSale() {
 // The old bill is cancelled (stock put back) and the corrected copy is saved as a new bill that points back to it.
 async function startEditSale(saleId) {
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
+  if (r.items.some(i => i.quick)) return toast(t('qb_no_edit'), 4000);     // Quick Bills are cancelled and re-made, not edited
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
   if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
   const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
@@ -615,7 +620,7 @@ async function showReceipt(saleId) {
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
       + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
-      : canEditProducts() ? `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button><button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+      : canEditProducts() ? `${r.items.some(i => i.quick) ? '' : `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button>`}<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
   if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);

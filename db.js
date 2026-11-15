@@ -147,10 +147,12 @@ async function saveSale(sale, items) {
           unit_price: round2(it.unit_price),
           cost_price: round2(it.cost_price || 0),
           discount: round2(it.item_discount || 0),
-          line_total: lineAmt(it)
+          line_total: lineAmt(it),
+          ...(it.quick ? { quick: true } : {})          // Quick Bill line: no real product, stock is never touched
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
+        if (it.quick) continue;
 
         const mv = await newRecord({
           product_id: it.product_id,
@@ -178,6 +180,7 @@ async function voidSale(saleId, reason = '', opts = {}) {
     await db.sales.put(rec); await enqueue('sales', rec, 'update');
     const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
     for (const it of items) {
+      if (it.quick) continue;                     // Quick Bill line: there is no stock to put back
       const mv = await newRecord({ product_id: it.product_id, qty_change: round3(Math.abs(it.qty) * unitFactor(it)),
                                    reason: 'sale_void', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
@@ -209,6 +212,7 @@ async function returnSaleItems(saleId, lines, reason = '') {
                     line_total: round2(it.line_total - amount), version: it.version + 1, updated_at: now, sync_status: 'pending' };
       await db.sale_items.put(upd); await enqueue('sale_items', upd, 'update');
       byId[it.id] = upd;
+      if (it.quick) continue;                     // Quick Bill line: there is no stock to put back
       const mv = await newRecord({ product_id: it.product_id, qty_change: round3(q * unitFactor(it)), reason: 'sale_return', ref_type: 'sale', ref_id: saleId });
       await db.stock_movements.add(mv); await enqueue('stock_movements', mv);
     }
