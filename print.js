@@ -89,7 +89,6 @@ function reportPrintHtml(r, low, period) {
 
 async function doPrint(html, paper) {
   const host = $('receipt-print');
-  host.innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
 
   const isA4 = paper === 'a4';
@@ -99,14 +98,81 @@ async function doPrint(html, paper) {
   document.documentElement.style.setProperty('--receipt-content', isA4 ? '100%' : contentWidth + 'mm');
 
   if (isA4) {
+    host.innerHTML = html;
     st.textContent = '@page{size:A4;margin:12mm}';
   } else {
-    // Use repeatable 200mm roll segments. Long receipts flow onto additional pages
-    // at normal text size instead of being forced into one oversized/scaled page.
+    // Split long thermal bills into real, independently sized receipt pages.
+    // This prevents Android print services from shrinking one oversized bill to fit.
     st.textContent = '@page{size:' + width + 'mm 200mm;margin:0}';
+    const source = document.createElement('div');
+    source.innerHTML = html;
+    const original = source.querySelector('.rc');
+    if (!original) { host.innerHTML = html; }
+    else {
+      const nodes = Array.from(original.children);
+      const firstItem = nodes.findIndex(n => n.classList.contains('it'));
+      const sumIndex = nodes.findIndex(n => n.classList.contains('sumbox'));
+      if (firstItem < 0 || sumIndex < 0 || sumIndex <= firstItem) {
+        host.innerHTML = html;
+      } else {
+        const before = nodes.slice(0, firstItem);
+        const between = nodes.slice(firstItem, sumIndex);
+        const after = nodes.slice(sumIndex);
+        const groups = [];
+        for (let i = 0; i < between.length; i++) {
+          if (between[i].classList.contains('it')) {
+            const group = [between[i]];
+            if (between[i + 1] && between[i + 1].classList.contains('q')) group.push(between[++i]);
+            groups.push(group);
+          }
+        }
+        // Keep the trailing separator with the item area, not as a detached page.
+        const trailing = between.filter(n => !n.classList.contains('it') && !n.classList.contains('q'));
+        host.innerHTML = '';
+        host.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;top:0;width:100%;';
+        const maxHeight = 185 * 96 / 25.4; // 185mm of a 200mm roll page, leaving safe printer margins.
+        const makePage = () => {
+          const page = document.createElement('div');
+          page.className = 'rc print-page';
+          page.style.cssText = 'width:' + contentWidth + 'mm;max-width:none;box-sizing:border-box;padding:0 1mm;margin:0 auto;';
+          return page;
+        };
+        const appendClones = (page, list) => list.forEach(n => page.appendChild(n.cloneNode(true)));
+        const pages = [];
+        let page = makePage();
+        appendClones(page, before);
+        host.appendChild(page);
+        const measureWithEnding = p => {
+          const temp = [];
+          [...trailing, ...after].forEach(n => {
+            const c = n.cloneNode(true); p.appendChild(c); temp.push(c);
+          });
+          const h = p.getBoundingClientRect().height;
+          temp.forEach(n => n.remove());
+          return h;
+        };
+        for (const group of groups) {
+          const added = group.map(n => n.cloneNode(true));
+          added.forEach(n => page.appendChild(n));
+          if (measureWithEnding(page) > maxHeight && page.querySelector('.it')) {
+            added.forEach(n => n.remove());
+            if (page.querySelector('.it')) pages.push(page);
+            page = makePage();
+            host.appendChild(page);
+            group.forEach(n => page.appendChild(n.cloneNode(true)));
+          }
+        }
+        appendClones(page, trailing);
+        appendClones(page, after);
+        pages.push(page);
+        pages.forEach((p, i) => { if (i < pages.length - 1) p.classList.add('print-page-break'); });
+        // If a single item is unusually tall, it remains at full size rather than being scaled.
+      }
+    }
   }
 
+  host.style.cssText = '';
   document.body.classList.add('printing');
   window.print();
-  setTimeout(() => document.body.classList.remove('printing'), 1000);
+  setTimeout(() => { document.body.classList.remove('printing'); host.innerHTML = ''; }, 1000);
 }
