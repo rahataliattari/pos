@@ -69,7 +69,7 @@ function receiptHtml(sale, items, cust) {
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
     ${a4 ? '' : billQrHtml(sale)}
     <hr class="sep"><div class="sub c">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
-    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
+    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div></div>`;
 }
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
@@ -87,7 +87,7 @@ function reportPrintHtml(r, low, period) {
     <table class="rt">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}</table>
     ${r.top.length ? `<div class="sec">${t('rp_top')}</div><table class="rt"><thead><tr><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${r.top.map(([n, x]) => `<tr><td>${esc(n)}</td><td class="num">${x.qty}</td><td class="num">${money(x.rev)}</td></tr>`).join('')}</tbody></table>` : ''}
     ${low.length ? `<div class="sec">${t('rp_low')}</div><table class="rt"><tbody>${low.map(({ p, st }) => `<tr><td>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</td><td class="num">${st} / ${p.min_stock}</td></tr>`).join('')}</tbody></table>` : ''}
-    <div class="sub c pw">${t('rc_powered')}</div></div>`;
+    </div>`;
 }
 
 function doPrint(html, paper) {
