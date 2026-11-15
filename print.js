@@ -52,6 +52,13 @@ function rcHead(title, qr = '') {
     <div class="doc">${title}</div>${side}</div>`;
 }
 
+// Ignore the old vendor-credit footer even if it is still saved in a shop's receipt settings.
+function receiptFooterText() {
+  const saved = String(S.cfg.receipt_footer || '');
+  const clean = saved.split(/\\r?\\n/).filter(line => !/یونیورسل\\s*پی\\s*او\\s*ایس\\s*سے\\s*تیار|Powered\\s+by\\s+Universal\\s+POS/i.test(line)).join('\\n').trim();
+  return clean || t('thanks');
+}
+
 function receiptHtml(sale, items, cust) {
   const a4 = S.cfg.paper === 'a4', due = Math.max(0, round2(sale.total - sale.paid)), qtySum = round3(items.reduce((a, i) => a + i.qty, 0));
   const meta = kv(t('invoice'), esc(sale.invoice_no)) + (sale.edited_from_no ? kv(t('edit_of'), esc(sale.edited_from_no), '', true) : '') + kv(t('ex_date'), `<bdi dir="ltr">${esc(rcDate(sale.created_at))}</bdi>`, '', true) + (cust ? `<div class="kv"><span>${t('customer')}</span><b>${esc(cust.name)}</b></div>` : '');
@@ -69,13 +76,13 @@ function receiptHtml(sale, items, cust) {
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
     ${a4 ? '' : billQrHtml(sale)}
     <hr class="sep"><div class="sub c">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
-    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div></div>`;
+    <div class="thanks">${esc(receiptFooterText())}</div></div>`;
 }
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
     ...items.map(i => `${iname(i)}  ${i.qty}${i.unit_name ? ' ' + i.unit_name : ''} × ${money(i.unit_price)} = ${money(i.line_total)}`), '',
     `*${t('total')}: Rs ${money(sale.total)}*`, `${t('paid')}: Rs ${money(sale.paid)}${sale.payment_method && sale.payment_method !== 'cash' ? ' (' + t('pm_' + sale.payment_method) + ')' : ''}`,
-    ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', S.cfg.receipt_footer || t('thanks')].join('\n');
+    ...(sale.paid < sale.total ? [`${t('balance')}: Rs ${money(sale.total - sale.paid)}`] : []), '', receiptFooterText()].join('\n');
 }
 
 function reportPrintHtml(r, low, period) {
