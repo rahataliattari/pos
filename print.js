@@ -38,7 +38,7 @@ function billQrHtml(sale) {
   if (!planHasQr() || S.cfg.receipt_qr === false) return '';
   try {
     return `<div class="qrbox">${qrSvg(billQrText(sale), { size: 120 })}<div class="qrcap">${t('rc_verify')}</div>
-      <div class="qrcode num">${t('rc_code')}: ${billCode(sale)}</div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
+      <div class="qrcode num">${t('rc_code')}: <span dir="ltr" class="num">${billCode(sale)}</span></div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
   } catch (e) { return ''; }   // never block printing a bill because of the QR
 }
 
@@ -63,7 +63,7 @@ function receiptHtml(sale, items, cust) {
   const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
   const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
+  return `<div class="rc ${a4 ? 'a4' : ''}" dir="rtl">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
       <div class="stampwrap"><span class="stamp ${due > 0 ? 'owe' : 'paid'}">${due > 0 ? t('rc_due') : t('rc_paid')}</span></div></div>
@@ -93,7 +93,7 @@ function reportPrintHtml(r, low, period) {
 function doPrint(html, paper) {
   $('receipt-print').innerHTML = html;
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
-  st.textContent = paper === 'a4' ? '@page{size:A4;margin:12mm}' : `@page{size:${paper || 58}mm auto;margin:2mm}`;
+  st.textContent = paper === 'a4' ? '@page{size:A4;margin:8mm}' : `@page{size:${paper || 58}mm auto;margin:0}`;
   document.documentElement.style.setProperty('--paper', paper === 'a4' ? '100%' : (paper || 58) + 'mm');
   document.body.classList.add('printing'); window.print();
   setTimeout(() => document.body.classList.remove('printing'), 500);
