@@ -297,14 +297,14 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 
 /* Bill verification QR (verification only) */
 .rc .qrbox { text-align: center; margin: 0 auto 6px; line-height: 1.5; }
-.rc .qrbox .qrsvg { display: block; margin: 0 auto; width: 120px; height: 120px; max-width: 100%; }
+.rc .qrbox .qrsvg { display: block; margin: 0 auto; width: 150px; height: 150px; max-width: 100%; }
 .rc .qrcap { font-size: 11px; font-weight: 700; } .rc .qrcode { font-size: 11px; letter-spacing: 1px; font-weight: 800; }
 .rc .qrnote { font-size: 10px; color: #666; }
 .rc.a4 .hd .hi { flex: 1; } .rc.a4 .hd .doc { align-self: flex-start; margin-top: 0; }
-.rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 104px; height: 104px; }
+.rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 132px; height: 132px; }
 @media print {
-  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .5); height: calc(var(--paper, 58mm) * .5); }
-  #receipt-print .rc.a4 .qrbox .qrsvg { width: 28mm; height: 28mm; }
+  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .62); height: calc(var(--paper, 58mm) * .62); }
+  #receipt-print .rc.a4 .qrbox .qrsvg { width: 34mm; height: 34mm; }
   #receipt-print .rc .qrnote { color: #000; }
 }
 
@@ -849,7 +849,7 @@ async function saveSale(sale, items) {
           cost_price: round2(it.cost_price || 0),
           discount: round2(it.item_discount || 0),
           line_total: lineAmt(it),
-          ...(it.quick ? { quick: true } : {})          // Quick Bill line: no real product, stock is never touched
+          ...(it.quick ? { quick: true, line_no: it.line_no || 0 } : {})          // Quick Bill line: no real product, stock is never touched
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
@@ -939,6 +939,7 @@ async function getSaleWithItems(saleId) {
   const sale = await db.sales.get(saleId);
   if (!sale) return null;
   const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
+  if (items.length > 1 && items.every(i => i.line_no != null)) items.sort((a, b) => a.line_no - b.line_no);     // Quick Bill lines keep the order they were typed in
   return { sale, items };
 }
 
@@ -2842,11 +2843,10 @@ function billCode(sale) {
   const c = billHash(s).toString(36).toUpperCase().padStart(10, '0').slice(-8);
   return c.slice(0, 4) + '-' + c.slice(4);
 }
-function billQrText(sale) {
+function billQrText(sale) {      // kept SHORT on purpose: fewer bytes = a smaller, coarser QR that scans reliably when printed small
   const d = new Date(sale.created_at), p2 = n => String(n).padStart(2, '0');
   const when = isNaN(d) ? '' : `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-  return ['UNIVERSAL POS - BILL VERIFICATION', 'Shop: ' + String(S.session.shop_name || '').slice(0, 40), 'Bill: ' + sale.invoice_no, 'Date: ' + when,
-    'Total: Rs ' + round2(sale.total), 'Code: ' + billCode(sale)].join('\n');
+  return ['BILL VERIFICATION', 'Bill: ' + sale.invoice_no, 'Date: ' + when, 'Total: ' + round2(sale.total), 'Code: ' + billCode(sale)].join('\n');
 }
 // The bill QR is a plan feature: the demo always has it; live shops get it only when their plan has bill_qr = true.
 const planHasQr = () => !!window.POS_DEMO || !!(S.session && S.session.bill_qr === true);
@@ -2984,7 +2984,7 @@ function vfResultHtml(r) {
 }
 function openVerify() {
   openModal(`<h2>${t('vf_title')}</h2><div id="vf-body">
-    ${'BarcodeDetector' in window && navigator.mediaDevices ? `<button class="btn block" id="vf-scan">${ic('scan', 20)} ${t('vf_scan')}</button><div class="muted" style="text-align:center;margin:8px 0">${t('vf_or')}</div>` : ''}
+    ${navigator.mediaDevices ? `<button class="btn block" id="vf-scan">${ic('scan', 20)} ${t('vf_scan')}</button><div class="muted" style="text-align:center;margin:8px 0">${t('vf_or')}</div>` : ''}
     <label>${t('vf_inv')}</label><input id="vf-inv" dir="ltr" autocomplete="off" placeholder="INV-000123">
     <label>${t('vf_code')}</label><input id="vf-code" dir="ltr" autocomplete="off" placeholder="XXXX-XXXX" style="text-transform:uppercase">
     <label>${t('vf_paste')}</label><textarea id="vf-paste" dir="ltr" rows="3"></textarea>
@@ -2998,19 +2998,11 @@ function openVerify() {
     openModal(`<h2>${t('vf_scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
       <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
     try {
-      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      const v = $('scanvideo'); v.srcObject = scanStream; await v.play();
-      let det; try { det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { det = new BarcodeDetector(); }
-      scanTimer = setInterval(async () => {
-        try {
-          const codes = await det.detect(v);
-          if (codes.length) {
-            const raw = codes[0].rawValue; stopScan(); closeModal();
-            openVerify(); const p = billQrParse(raw); $('vf-body').innerHTML = ''; await show(p);
-          }
-        } catch (e) {}
-      }, 300);
-    } catch (e) { closeModal(); toast(t('scan_unsupported'), 3500); }
+      await posScanStart($('scanvideo'), async raw => {
+        stopScan(); closeModal();
+        openVerify(); const p = billQrParse(raw); $('vf-body').innerHTML = ''; await show(p);
+      }, true);
+    } catch (e) { closeModal(); toast(scanErrorMsg(e), 4500); }
   };
   $('vf-go').onclick = async () => {
     const pasted = billQrParse($('vf-paste').value);
@@ -4805,6 +4797,62 @@ document.addEventListener('change', async ev => { if (ev.target.id === 'set-exal
 
 </script>
 <script>
+// ── scanner.js
+// Universal POS — camera scanning that works on every phone.
+// 1) If the browser has the built-in BarcodeDetector, it is used (fast, nothing to download).
+// 2) Otherwise the ZXing library is loaded: first from lib/zxing.min.js (if you upload it), else from the CDN.
+//    The service worker caches it, so after the first online use it also works offline.
+// Used by startScan() (app.js, product barcodes) and the "Check a bill" QR scan (verify.js). Loaded before app.js.
+const SCAN_I18N = {
+  scan_perm: ['کیمرے کی اجازت نہیں ملی۔ براؤزر کی سیٹنگ میں اس سائٹ کیلئے کیمرا Allow کریں۔', 'Camera permission was denied. Allow the camera for this site in the browser settings.'],
+  scan_lib: ['اسکینر لوڈ نہیں ہو سکا۔ پہلی بار انٹرنیٹ چاہیے۔ فی الحال نام یا بارکوڈ ہاتھ سے لکھ کر سرچ کریں۔', 'The scanner could not load. It needs internet the first time. For now type the name or barcode in the search box.']
+};
+for (const k in SCAN_I18N) { I18N.ur[k] = SCAN_I18N[k][0]; I18N.en[k] = SCAN_I18N[k][1]; }
+
+let scanZx = null;
+const ZX_URLS = ['lib/zxing.min.js', 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js', 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'];
+function zxLoad() {
+  return new Promise((resolve, reject) => {
+    if (window.ZXing && window.ZXing.BrowserMultiFormatReader) return resolve();
+    let i = 0;
+    const next = () => {
+      if (i >= ZX_URLS.length) return reject(new Error('scanlib'));
+      const s = document.createElement('script'); s.src = ZX_URLS[i++];
+      s.onload = () => (window.ZXing && window.ZXing.BrowserMultiFormatReader ? resolve() : next());
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+}
+function scanErrorMsg(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'PermissionDeniedError' || n === 'SecurityError') return t('scan_perm');
+  if (e && e.message === 'scanlib') return t('scan_lib');
+  return t('scan_unsupported');
+}
+// Start the camera in <video> `v`; onCode(text) is called once, for the first code read. Throws when the camera/scanner cannot start.
+async function posScanStart(v, onCode, qrOnly) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nocamera');
+  let done = false;
+  const fire = val => { if (done || !val) return; done = true; onCode(String(val)); };
+  if ('BarcodeDetector' in window) {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    v.srcObject = scanStream; await v.play();
+    let det; try { det = qrOnly ? new BarcodeDetector({ formats: ['qr_code'] }) : new BarcodeDetector(); } catch (e) { det = new BarcodeDetector(); }
+    scanTimer = setInterval(async () => { try { const c = await det.detect(v); if (c.length) fire(c[0].rawValue); } catch (e) { /* next frame */ } }, 300);
+    return;
+  }
+  await zxLoad();
+  let hints = null;
+  if (qrOnly) { try { hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]]]); } catch (e) { hints = null; } }
+  scanZx = new ZXing.BrowserMultiFormatReader(hints, 300);
+  await scanZx.decodeFromConstraints({ video: { facingMode: 'environment' } }, v, res => { if (res) fire(res.getText()); });
+}
+function posScanStop() { if (scanZx) { try { scanZx.reset(); } catch (e) { /* already stopped */ } scanZx = null; } }
+
+</script>
+<script>
 // ── quickbill.js
 // Universal POS — Quick Bill (فوری بل): a fast bill for an amount typed by hand, with no product picking.
 // - Always fully paid, walk-in customer (no udhaar), no discount. Tax follows the shop's tax rate like every other bill.
@@ -4821,12 +4869,11 @@ const QB_I18N = {
   qb_hint: ['اسٹاک پر کوئی اثر نہیں پڑتا۔ بل مکمل ادائیگی کے ساتھ بنتا ہے۔', 'Stock is not affected. The bill is saved as fully paid.'],
   qb_need_amount: ['پہلے رقم لکھیں', 'Enter an amount first'],
   qb_big: ['رقم بہت زیادہ ہے', 'Amount is too large'],
-  qb_no_edit: ['فوری بل کی ایڈیٹ نہیں ہو سکتی۔ اسے کینسل کر کے نیا بنائیں۔', 'A quick bill cannot be edited. Cancel it and make a new one.'],
   qb_busy: ['پہلے موجودہ بل کی درستی مکمل یا منسوخ کریں', 'Finish or cancel the bill you are correcting first']
 };
 for (const k in QB_I18N) { I18N.ur[k] = QB_I18N[k][0]; I18N.en[k] = QB_I18N[k][1]; }
 
-const QB = { lines: [], pm: 'cash', busy: false };
+const QB = { lines: [], pm: 'cash', busy: false, edit: null };     // edit = { id, invoice } while a saved Quick Bill is being corrected
 const qbRound = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const QB_MAX = 1e9;
 
@@ -4840,7 +4887,7 @@ function qbSums() {      // same arithmetic as saveSale(): subtotal -> tax -> to
 
 function qbHtml() {
   return `<h2>${ic('bolt', 22)} ${t('qb_title')}</h2>
-    <div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>
+    ${QB.edit ? `<div class="warn" style="margin-bottom:10px">${t('edit_banner').replace('{no}', esc(QB.edit.invoice))}</div>` : `<div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>`}
     <div id="qb-lines"></div>
     <label for="qb-amt">${t('qb_amount')}</label>
     <input id="qb-amt" class="qbamt" type="number" inputmode="decimal" step="any" min="0" placeholder="0" autocomplete="off">
@@ -4871,7 +4918,21 @@ function qbRenderTotals() {
 function qbOpen() {
   if (!S.session) return;
   if (S.editing) return toast(t('qb_busy'), 3500);
-  QB.lines = []; QB.pm = 'cash'; QB.busy = false;
+  QB.lines = []; QB.pm = 'cash'; QB.busy = false; QB.edit = null;
+  openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
+  setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
+}
+
+// Correct a saved Quick Bill: the old bill is cancelled (no stock involved) and a corrected copy is saved that points back to it,
+// exactly like editing a normal bill. Called from startEditSale() in app.js.
+async function qbEdit(saleId) {
+  if (S.editing) return toast(t('qb_busy'), 3500);
+  const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
+  if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
+  QB.lines = r.items.filter(i => i.qty > 0).map(i => ({ name: i.product_name, amount: qbRound(i.line_total) }));
+  if (!QB.lines.length) return;
+  QB.pm = PAY_METHODS.includes(r.sale.payment_method) ? r.sale.payment_method : 'cash'; QB.busy = false;
+  QB.edit = { id: saleId, invoice: r.sale.invoice_no };
   openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
   setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
 }
@@ -4894,11 +4955,13 @@ async function qbSave() {
   if (!QB.lines.length) return toast(t('qb_need_amount'), 2500);
   QB.busy = true; const btn = $('qb-save'); if (btn) btn.disabled = true;
   try {
-    const items = QB.lines.map(l => ({ product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
+    const items = QB.lines.map((l, k) => ({ line_no: k, product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
       line_total: l.amount, item_discount: 0, cost_price: 0, quick: true }));
-    const sale = await saveSale({ customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
+    const editing = QB.edit;
+    const sale = await saveSale({ edited_from: editing ? editing.id : null, edited_from_no: editing ? editing.invoice : null, customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
       payment_method: PAY_METHODS.includes(QB.pm) ? QB.pm : 'cash', pay_split: null, created_by: S.session.user_id }, items);
-    QB.lines = [];
+    QB.lines = []; QB.edit = null;
+    if (editing) { try { await voidSale(editing.id, t('edit_void_reason').replace('{no}', sale.invoice_no), { edited: true }); toast(t('edit_done'), 3000); } catch (e) { toast((e && e.message) || t('err_generic'), 6000); } }
     try { refreshStatus(); if (typeof exCheck === 'function') exCheck(); if (S.tab === 'home') renderHome(); } catch (e) { /* display refresh only */ }
     await showReceipt(sale.id);
   } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); const b = $('qb-save'); if (b) b.disabled = false; }
@@ -5481,7 +5544,7 @@ async function completeSale() {
 // The old bill is cancelled (stock put back) and the corrected copy is saved as a new bill that points back to it.
 async function startEditSale(saleId) {
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
-  if (r.items.some(i => i.quick)) return toast(t('qb_no_edit'), 4000);     // Quick Bills are cancelled and re-made, not edited
+  if (r.items.some(i => i.quick)) return qbEdit(saleId);                    // a Quick Bill is corrected in the Quick Bill sheet
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
   if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
   const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
@@ -5544,7 +5607,7 @@ async function showReceipt(saleId) {
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
       + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
-      : canEditProducts() ? `${r.items.some(i => i.quick) ? '' : `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button>`}<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+      : canEditProducts() ? `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button><button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
   if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);
@@ -5566,23 +5629,15 @@ async function showReceipt(saleId) {
 // ───────── Barcode camera scan (where BarcodeDetector exists) ─────────
 let scanStream = null, scanTimer = null;
 async function startScan() {
-  if (!('BarcodeDetector' in window) || !navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
+  if (!navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
   openModal(`<h2>${t('scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
     <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
   try {
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    const v = $('scanvideo'); v.srcObject = scanStream; await v.play();
-    const det = new BarcodeDetector();
-    scanTimer = setInterval(async () => {
-      try {
-        const codes = await det.detect(v);
-        if (codes.length) { const val = codes[0].rawValue; closeModal(); await handleBarcode(val); }
-      } catch (e) {}
-    }, 300);
-  } catch (e) { closeModal(); toast(t('scan_unsupported'), 3500); }
+    await posScanStart($('scanvideo'), async val => { closeModal(); await handleBarcode(val); }, false);
+  } catch (e) { closeModal(); toast(scanErrorMsg(e), 4500); }
 }
 function stopScan() {
-  clearInterval(scanTimer); scanTimer = null;
+  clearInterval(scanTimer); scanTimer = null; posScanStop();
   if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
 }
 

@@ -557,7 +557,7 @@ async function completeSale() {
 // The old bill is cancelled (stock put back) and the corrected copy is saved as a new bill that points back to it.
 async function startEditSale(saleId) {
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
-  if (r.items.some(i => i.quick)) return toast(t('qb_no_edit'), 4000);     // Quick Bills are cancelled and re-made, not edited
+  if (r.items.some(i => i.quick)) return qbEdit(saleId);                    // a Quick Bill is corrected in the Quick Bill sheet
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
   if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
   const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
@@ -620,7 +620,7 @@ async function showReceipt(saleId) {
     </div>
     ${r.sale.status === 'void' ? `<div class="warn" style="margin-top:10px">${t('sale_void')}${r.sale.void_reason ? ': ' + esc(r.sale.void_reason) : ''}</div>`
       + (canEditProducts() ? `<button class="btn danger block" id="btn-delvoid" style="margin-top:10px">${t('del_void_sale')}</button>` : '')
-      : canEditProducts() ? `${r.items.some(i => i.quick) ? '' : `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button>`}<button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
+      : canEditProducts() ? `<button class="btn block" id="btn-editsale" style="margin-top:10px">${ic('edit', 18)} ${t('edit_btn')}</button><button class="btn secondary block" id="btn-return" style="margin-top:10px">${t('return_items')}</button><button class="btn danger block" id="btn-void" style="margin-top:10px">${t('void_sale')}</button>` : ''}
     ${r.sale.returned_total > 0 ? `<div class="muted" style="margin-top:8px">${t('returned_total')}: ${money(r.sale.returned_total)}${r.sale.refunded > 0 ? ' · ' + t('refund_cash') + ': ' + money(r.sale.refunded) : ''}</div>` : ''}`);
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
   if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);
@@ -642,23 +642,15 @@ async function showReceipt(saleId) {
 // ───────── Barcode camera scan (where BarcodeDetector exists) ─────────
 let scanStream = null, scanTimer = null;
 async function startScan() {
-  if (!('BarcodeDetector' in window) || !navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
+  if (!navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
   openModal(`<h2>${t('scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
     <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
   try {
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    const v = $('scanvideo'); v.srcObject = scanStream; await v.play();
-    const det = new BarcodeDetector();
-    scanTimer = setInterval(async () => {
-      try {
-        const codes = await det.detect(v);
-        if (codes.length) { const val = codes[0].rawValue; closeModal(); await handleBarcode(val); }
-      } catch (e) {}
-    }, 300);
-  } catch (e) { closeModal(); toast(t('scan_unsupported'), 3500); }
+    await posScanStart($('scanvideo'), async val => { closeModal(); await handleBarcode(val); }, false);
+  } catch (e) { closeModal(); toast(scanErrorMsg(e), 4500); }
 }
 function stopScan() {
-  clearInterval(scanTimer); scanTimer = null;
+  clearInterval(scanTimer); scanTimer = null; posScanStop();
   if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
 }
 

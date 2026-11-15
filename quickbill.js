@@ -13,12 +13,11 @@ const QB_I18N = {
   qb_hint: ['اسٹاک پر کوئی اثر نہیں پڑتا۔ بل مکمل ادائیگی کے ساتھ بنتا ہے۔', 'Stock is not affected. The bill is saved as fully paid.'],
   qb_need_amount: ['پہلے رقم لکھیں', 'Enter an amount first'],
   qb_big: ['رقم بہت زیادہ ہے', 'Amount is too large'],
-  qb_no_edit: ['فوری بل کی ایڈیٹ نہیں ہو سکتی۔ اسے کینسل کر کے نیا بنائیں۔', 'A quick bill cannot be edited. Cancel it and make a new one.'],
   qb_busy: ['پہلے موجودہ بل کی درستی مکمل یا منسوخ کریں', 'Finish or cancel the bill you are correcting first']
 };
 for (const k in QB_I18N) { I18N.ur[k] = QB_I18N[k][0]; I18N.en[k] = QB_I18N[k][1]; }
 
-const QB = { lines: [], pm: 'cash', busy: false };
+const QB = { lines: [], pm: 'cash', busy: false, edit: null };     // edit = { id, invoice } while a saved Quick Bill is being corrected
 const qbRound = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const QB_MAX = 1e9;
 
@@ -32,7 +31,7 @@ function qbSums() {      // same arithmetic as saveSale(): subtotal -> tax -> to
 
 function qbHtml() {
   return `<h2>${ic('bolt', 22)} ${t('qb_title')}</h2>
-    <div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>
+    ${QB.edit ? `<div class="warn" style="margin-bottom:10px">${t('edit_banner').replace('{no}', esc(QB.edit.invoice))}</div>` : `<div class="muted" style="margin-bottom:10px">${t('qb_sub')}</div>`}
     <div id="qb-lines"></div>
     <label for="qb-amt">${t('qb_amount')}</label>
     <input id="qb-amt" class="qbamt" type="number" inputmode="decimal" step="any" min="0" placeholder="0" autocomplete="off">
@@ -63,7 +62,21 @@ function qbRenderTotals() {
 function qbOpen() {
   if (!S.session) return;
   if (S.editing) return toast(t('qb_busy'), 3500);
-  QB.lines = []; QB.pm = 'cash'; QB.busy = false;
+  QB.lines = []; QB.pm = 'cash'; QB.busy = false; QB.edit = null;
+  openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
+  setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
+}
+
+// Correct a saved Quick Bill: the old bill is cancelled (no stock involved) and a corrected copy is saved that points back to it,
+// exactly like editing a normal bill. Called from startEditSale() in app.js.
+async function qbEdit(saleId) {
+  if (S.editing) return toast(t('qb_busy'), 3500);
+  const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
+  if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
+  QB.lines = r.items.filter(i => i.qty > 0).map(i => ({ name: i.product_name, amount: qbRound(i.line_total) }));
+  if (!QB.lines.length) return;
+  QB.pm = PAY_METHODS.includes(r.sale.payment_method) ? r.sale.payment_method : 'cash'; QB.busy = false;
+  QB.edit = { id: saleId, invoice: r.sale.invoice_no };
   openModal(qbHtml()); qbRenderLines(); qbRenderTotals();
   setTimeout(() => { const a = $('qb-amt'); if (a) a.focus(); }, 80);
 }
@@ -86,11 +99,13 @@ async function qbSave() {
   if (!QB.lines.length) return toast(t('qb_need_amount'), 2500);
   QB.busy = true; const btn = $('qb-save'); if (btn) btn.disabled = true;
   try {
-    const items = QB.lines.map(l => ({ product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
+    const items = QB.lines.map((l, k) => ({ line_no: k, product_id: 'quick-bill', product_name: l.name, qty: 1, unit_name: null, unit_factor: 1, unit_price: l.amount,
       line_total: l.amount, item_discount: 0, cost_price: 0, quick: true }));
-    const sale = await saveSale({ customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
+    const editing = QB.edit;
+    const sale = await saveSale({ edited_from: editing ? editing.id : null, edited_from_no: editing ? editing.invoice : null, customer_id: null, discount: 0, tax_rate: num(S.cfg.tax_rate), paid: null,      // paid null = full total
       payment_method: PAY_METHODS.includes(QB.pm) ? QB.pm : 'cash', pay_split: null, created_by: S.session.user_id }, items);
-    QB.lines = [];
+    QB.lines = []; QB.edit = null;
+    if (editing) { try { await voidSale(editing.id, t('edit_void_reason').replace('{no}', sale.invoice_no), { edited: true }); toast(t('edit_done'), 3000); } catch (e) { toast((e && e.message) || t('err_generic'), 6000); } }
     try { refreshStatus(); if (typeof exCheck === 'function') exCheck(); if (S.tab === 'home') renderHome(); } catch (e) { /* display refresh only */ }
     await showReceipt(sale.id);
   } catch (ex) { toast((ex && ex.message) || t('err_generic'), 4000); const b = $('qb-save'); if (b) b.disabled = false; }

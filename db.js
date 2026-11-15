@@ -148,7 +148,7 @@ async function saveSale(sale, items) {
           cost_price: round2(it.cost_price || 0),
           discount: round2(it.item_discount || 0),
           line_total: lineAmt(it),
-          ...(it.quick ? { quick: true } : {})          // Quick Bill line: no real product, stock is never touched
+          ...(it.quick ? { quick: true, line_no: it.line_no || 0 } : {})          // Quick Bill line: no real product, stock is never touched
         });
         await db.sale_items.add(itemRec);
         await enqueue('sale_items', itemRec);
@@ -238,6 +238,7 @@ async function getSaleWithItems(saleId) {
   const sale = await db.sales.get(saleId);
   if (!sale) return null;
   const items = await db.sale_items.where('[shop_id+sale_id]').equals([sale.shop_id, saleId]).toArray();
+  if (items.length > 1 && items.every(i => i.line_no != null)) items.sort((a, b) => a.line_no - b.line_no);     // Quick Bill lines keep the order they were typed in
   return { sale, items };
 }
 

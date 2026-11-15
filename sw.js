@@ -1,16 +1,17 @@
 // Service worker: makes the app shell and libraries available offline.
 // IMPORTANT: bump CACHE (v34 -> v35 ...) every time ANY shell file changes. Files are served from the cache only,
 // and a new CACHE version downloads ALL files fresh together, so old and new files are never mixed.
-const CACHE = 'pos-shell-v35';
+const CACHE = 'pos-shell-v37';
 
 const SHELL = [
-  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'quickbill.js', 'app.js',
+  './', 'index.html', 'styles.css', 'config.js', 'icons.js', 'i18n.js', 'db.js', 'catalog.js', 'catalog/kiryana.json', 'catalog/medical.json', 'catalog/garments.json', 'catalog/general.json', 'catalog/auto.json', 'catalog/hardware.json', 'sync.js', 'device.js', 'profile.js', 'legal.js', 'customers.js', 'purchases.js', 'qr.js', 'print.js', 'verify.js', 'expenses.js', 'reports.js', 'help.js', 'superadmin.js', 'contact.js', 'push.js', 'billing-plus.js', 'extras.js', 'quickbill.js', 'scanner.js', 'app.js',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'legal.html'
 ];
-const LOCAL_LIBS = ['lib/dexie.min.js', 'lib/supabase.js'];   // optional: used when uploaded to the lib/ folder
+const LOCAL_LIBS = ['lib/dexie.min.js', 'lib/supabase.js', 'lib/zxing.min.js'];   // optional: used when uploaded to the lib/ folder
 const LIBS = [
   'https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
+  'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'      // camera scanner for phones without BarcodeDetector
 ];
 
 self.addEventListener('install', e => {

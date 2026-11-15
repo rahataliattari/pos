@@ -26,11 +26,10 @@ function billCode(sale) {
   const c = billHash(s).toString(36).toUpperCase().padStart(10, '0').slice(-8);
   return c.slice(0, 4) + '-' + c.slice(4);
 }
-function billQrText(sale) {
+function billQrText(sale) {      // kept SHORT on purpose: fewer bytes = a smaller, coarser QR that scans reliably when printed small
   const d = new Date(sale.created_at), p2 = n => String(n).padStart(2, '0');
   const when = isNaN(d) ? '' : `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-  return ['UNIVERSAL POS - BILL VERIFICATION', 'Shop: ' + String(S.session.shop_name || '').slice(0, 40), 'Bill: ' + sale.invoice_no, 'Date: ' + when,
-    'Total: Rs ' + round2(sale.total), 'Code: ' + billCode(sale)].join('\n');
+  return ['BILL VERIFICATION', 'Bill: ' + sale.invoice_no, 'Date: ' + when, 'Total: ' + round2(sale.total), 'Code: ' + billCode(sale)].join('\n');
 }
 // The bill QR is a plan feature: the demo always has it; live shops get it only when their plan has bill_qr = true.
 const planHasQr = () => !!window.POS_DEMO || !!(S.session && S.session.bill_qr === true);

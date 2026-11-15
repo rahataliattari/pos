@@ -287,14 +287,14 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
 
 /* Bill verification QR (verification only) */
 .rc .qrbox { text-align: center; margin: 0 auto 6px; line-height: 1.5; }
-.rc .qrbox .qrsvg { display: block; margin: 0 auto; width: 120px; height: 120px; max-width: 100%; }
+.rc .qrbox .qrsvg { display: block; margin: 0 auto; width: 150px; height: 150px; max-width: 100%; }
 .rc .qrcap { font-size: 11px; font-weight: 700; } .rc .qrcode { font-size: 11px; letter-spacing: 1px; font-weight: 800; }
 .rc .qrnote { font-size: 10px; color: #666; }
 .rc.a4 .hd .hi { flex: 1; } .rc.a4 .hd .doc { align-self: flex-start; margin-top: 0; }
-.rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 104px; height: 104px; }
+.rc.a4 .qrbox { flex: none; margin: 0; } .rc.a4 .qrbox .qrsvg { width: 132px; height: 132px; }
 @media print {
-  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .5); height: calc(var(--paper, 58mm) * .5); }
-  #receipt-print .rc.a4 .qrbox .qrsvg { width: 28mm; height: 28mm; }
+  #receipt-print .rc .qrbox .qrsvg { width: calc(var(--paper, 58mm) * .62); height: calc(var(--paper, 58mm) * .62); }
+  #receipt-print .rc.a4 .qrbox .qrsvg { width: 34mm; height: 34mm; }
   #receipt-print .rc .qrnote { color: #000; }
 }
 

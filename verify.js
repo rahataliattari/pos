@@ -66,7 +66,7 @@ function vfResultHtml(r) {
 }
 function openVerify() {
   openModal(`<h2>${t('vf_title')}</h2><div id="vf-body">
-    ${'BarcodeDetector' in window && navigator.mediaDevices ? `<button class="btn block" id="vf-scan">${ic('scan', 20)} ${t('vf_scan')}</button><div class="muted" style="text-align:center;margin:8px 0">${t('vf_or')}</div>` : ''}
+    ${navigator.mediaDevices ? `<button class="btn block" id="vf-scan">${ic('scan', 20)} ${t('vf_scan')}</button><div class="muted" style="text-align:center;margin:8px 0">${t('vf_or')}</div>` : ''}
     <label>${t('vf_inv')}</label><input id="vf-inv" dir="ltr" autocomplete="off" placeholder="INV-000123">
     <label>${t('vf_code')}</label><input id="vf-code" dir="ltr" autocomplete="off" placeholder="XXXX-XXXX" style="text-transform:uppercase">
     <label>${t('vf_paste')}</label><textarea id="vf-paste" dir="ltr" rows="3"></textarea>
@@ -80,19 +80,11 @@ function openVerify() {
     openModal(`<h2>${t('vf_scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
       <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
     try {
-      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      const v = $('scanvideo'); v.srcObject = scanStream; await v.play();
-      let det; try { det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { det = new BarcodeDetector(); }
-      scanTimer = setInterval(async () => {
-        try {
-          const codes = await det.detect(v);
-          if (codes.length) {
-            const raw = codes[0].rawValue; stopScan(); closeModal();
-            openVerify(); const p = billQrParse(raw); $('vf-body').innerHTML = ''; await show(p);
-          }
-        } catch (e) {}
-      }, 300);
-    } catch (e) { closeModal(); toast(t('scan_unsupported'), 3500); }
+      await posScanStart($('scanvideo'), async raw => {
+        stopScan(); closeModal();
+        openVerify(); const p = billQrParse(raw); $('vf-body').innerHTML = ''; await show(p);
+      }, true);
+    } catch (e) { closeModal(); toast(scanErrorMsg(e), 4500); }
   };
   $('vf-go').onclick = async () => {
     const pasted = billQrParse($('vf-paste').value);
