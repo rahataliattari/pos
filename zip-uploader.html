@@ -28,7 +28,7 @@ h2{font-size:17px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1
 <main class="wrap">
 <section class="card">
 <h2>1۔ GitHub کنکشن</h2>
-<div class="note warning">GitHub Token صرف اس صفحے کی میموری میں رہے گا، محفوظ نہیں کیا جائے گا۔ Fine-grained token بنائیں: صرف مطلوبہ Repository منتخب کریں اور Contents کی Read and write اجازت دیں۔ Token کسی کے ساتھ شیئر نہ کریں۔</div>
+<div class="note warning">GitHub Token صرف اس صفحے کی میموری میں رہے گا، محفوظ نہیں کیا جائے گا۔ Fine-grained token بنائیں: صرف مطلوبہ Repository منتخب کریں اور Code (Contents) کی Read and write اجازت دیں۔ Token کسی کے ساتھ شیئر نہ کریں۔</div>
 <div class="field"><label for="token">GitHub Personal Access Token</label><input id="token" class="ltr" type="password" autocomplete="off" placeholder="github_pat_…"></div>
 <div class="grid">
 <div class="field"><label for="repo">Repository (owner/name)</label><input id="repo" class="ltr" value="rahataliattari/pos" autocomplete="off"></div>
@@ -117,12 +117,11 @@ async function checkConnection(){
   try{r=await gh("", "GET");}
   catch(authError){throw new Error("بغیر Token والی API درست ہے، لیکن Token کے ساتھ درخواست ناکام ہوئی۔ "+authError.message+" Token کی اجازت یا Browser کی Authorization/CORS رکاوٹ چیک کریں۔");}
   repoInfo.defaultBranch=r.default_branch;
-  if(!r.permissions||!r.permissions.push)throw new Error("اس Token کو Repository میں Push کی اجازت نہیں۔ Contents: Read and write فعال کریں۔");
   if(!$("branch").value.trim())$("branch").value=r.default_branch;
   var b=$("branch").value.trim();
   await gh("git/ref/heads/"+branchPath(b),"GET");
   connectionOK=true;
-  $("connection").textContent="✓ کنکشن درست · "+r.full_name+" · "+b;
+  $("connection").textContent="✓ GitHub کنکشن درست · "+r.full_name+" · "+b+" · Write اجازت اپ لوڈ کے وقت تصدیق ہوگی۔;
   $("connection").style.color="#08783e";
   updateUploadButton();
  }catch(e){connectionOK=false;$("connection").textContent="✕ "+e.message;$("connection").style.color="#b42318"}
