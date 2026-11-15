@@ -286,7 +286,9 @@ svg.ic { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-w
     margin-right: auto !important;
     padding: 0 1mm;
   }
-  #receipt-print .rc:not(.a4) { break-inside: auto !important; page-break-inside: auto !important; }
+  #receipt-print .rc:not(.a4) { break-inside: avoid !important; page-break-inside: avoid !important; }
+  #receipt-print .rc.print-page { height: auto; min-height: 0; overflow: visible !important; }
+  #receipt-print .rc.print-page-break { break-after: page !important; page-break-after: always !important; }
   #receipt-print .rc.a4 { width: 100%; padding: 4mm 0 0; } #receipt-print .rc::after { display: none; }
 }
 .rc td.num, .rc th.num { display: table-cell; }
