@@ -87,7 +87,7 @@ function quoteHtml(q) {
   const sums = kv(t('subtotal'), money(tt.subtotal)) + (tt.discount ? kv(t('discount'), '−' + money(tt.discount)) : '') + (tt.tax ? kv(t('tax'), money(tt.tax)) : '');
   return `<div class="rc ${a4 ? 'a4' : ''}">${rcHead(t('qt_title'))}<hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(tt.total)}</span></div></div>
-    <hr class="sep"><div class="sub c">${t('qt_note')}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
+    <hr class="sep"><div class="sub c">${t('qt_note')}</div></div>`;
 }
 function quoteText(q) {
   const tt = bpTotals(q.lines, q.discount, q.discMode, q.discPct);
