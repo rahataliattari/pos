@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08783e">
+<title>ZIP to GitHub Uploader | Universal POS</title>
+<style>
+:root{--green:#08783e;--green2:#0c9650;--ink:#173326;--muted:#687b70;--line:#dce9e0;--bg:#f3f8f4;--white:#fff;--red:#b42318;--amber:#986500}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Nastaliq Urdu","Noto Sans Arabic",sans-serif;line-height:1.65}
+header{background:linear-gradient(120deg,#075c31,#0b8b49);color:#fff;padding:18px 16px 22px}
+.wrap{max-width:850px;margin:auto;padding:16px}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:19px;font-weight:800}.back{color:#fff;text-decoration:none;border:1px solid #ffffff70;padding:6px 11px;border-radius:10px;font-size:13px}
+.sub{opacity:.9;font-size:13px;margin-top:4px}.card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 4px 18px #17452a0a}
+h2{font-size:17px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px;margin:9px 0}.field label{font-size:13px;font-weight:700}.field input{width:100%;min-height:44px;border:1px solid #cbdacf;border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;background:#fff;color:#152d20}
+.ltr{direction:ltr;text-align:left}.btn{border:0;border-radius:11px;padding:12px 16px;background:var(--green);color:white;font:inherit;font-weight:750;min-height:46px;cursor:pointer}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.secondary{background:#e9f4ec;color:#075c31;border:1px solid #cfe4d5}.btn.danger{background:#a52b22}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.drop{border:2px dashed #9ac8a8;background:#f5fbf6;border-radius:14px;padding:22px 12px;text-align:center;cursor:pointer}.drop strong{display:block;color:var(--green);font-size:16px}.drop small{color:var(--muted)}.drop.drag{background:#e3f5e8;border-color:var(--green)}
+.note{background:#f0f7f2;border-right:4px solid var(--green);padding:10px 12px;border-radius:8px;font-size:13px;color:#385544;margin:10px 0}.warning{background:#fff8e7;border-color:#e7bd56;color:#6d510d}.error{background:#fff0ef;border-color:#e4a39d;color:#8a2119}.success{background:#eaf8ee;border-color:#80c494;color:#145c2b}
+.muted{color:var(--muted);font-size:12px}.stats{display:flex;gap:8px;flex-wrap:wrap}.stat{background:#f1f7f2;border-radius:10px;padding:7px 10px;font-size:12px}.tree{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:9px;direction:ltr;text-align:left;font:12px ui-monospace,monospace;background:#fbfdfb}.tree div{padding:3px 0;overflow-wrap:anywhere}.progress{height:10px;background:#e7eee9;border-radius:20px;overflow:hidden;margin:10px 0}.progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,#0a7a40,#34b66d);transition:width .2s}
+.check{display:flex;align-items:flex-start;gap:9px;font-size:13px;margin:12px 0}.check input{margin-top:6px;transform:scale(1.15)}.hidden{display:none!important}a{color:var(--green)}.footer{text-align:center;color:var(--muted);font-size:11px;padding:12px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.wrap{padding:10px}.card{padding:13px}.brand{font-size:17px}}
+</style>
+</head>
+<body>
+<header><div class="wrap" style="padding:0 4px">
+<div class="topline"><div class="brand">📦 ZIP to GitHub Uploader</div><a class="back" href="./index.html">POS پر واپس</a></div>
+<div class="sub">ایک ZIP منتخب کریں، فولڈرز برقرار رکھیں، GitHub پر ایک ہی Commit میں اپ لوڈ کریں۔</div>
+</div></header>
+<main class="wrap">
+<section class="card">
+<h2>1۔ GitHub کنکشن</h2>
+<div class="note warning">GitHub Token صرف اس صفحے کی میموری میں رہے گا، محفوظ نہیں کیا جائے گا۔ Fine-grained token بنائیں: صرف مطلوبہ Repository منتخب کریں اور Contents کی Read and write اجازت دیں۔ Token کسی کے ساتھ شیئر نہ کریں۔</div>
+<div class="field"><label for="token">GitHub Personal Access Token</label><input id="token" class="ltr" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+<div class="grid">
+<div class="field"><label for="repo">Repository (owner/name)</label><input id="repo" class="ltr" value="rahataliattari/pos" autocomplete="off"></div>
+<div class="field"><label for="branch">Branch</label><input id="branch" class="ltr" value="main" autocomplete="off"></div>
+</div>
+<div class="actions"><button id="check" class="btn secondary" type="button">کنکشن چیک کریں</button><span id="connection" class="muted" style="align-self:center">ابھی کنکشن چیک نہیں ہوا۔</span></div>
+</section>
+
+<section class="card">
+<h2>2۔ ZIP فائل منتخب کریں</h2>
+<label class="drop" id="drop" for="zipfile"><strong>ZIP فائل یہاں منتخب کریں</strong><small>موبائل File Manager سے ZIP منتخب کریں یا یہاں Drag & Drop کریں</small><div class="muted" style="margin-top:7px">صرف .zip فائل</div></label>
+<input id="zipfile" type="file" accept=".zip,application/zip" class="hidden">
+<div id="zipinfo" class="hidden" style="margin-top:13px">
+<div class="stats"><span class="stat" id="filecount">0 فائلیں</span><span class="stat" id="filesize">0 MB</span></div>
+<div class="field"><label for="prefix">GitHub میں اضافی Destination Folder (اختیاری)</label><input id="prefix" class="ltr" placeholder="مثلاً releases/november یا خالی چھوڑیں"></div>
+<div class="muted">ZIP کے اندر موجود اصل فولڈر اور فائلوں کے راستے برقرار رہیں گے۔</div>
+<div id="filetree" class="tree" style="margin-top:10px"></div>
+</div>
+</section>
+
+<section class="card">
+<h2>3۔ اپ لوڈ کی تصدیق</h2>
+<div class="field"><label for="message">Commit Message</label><input id="message" value="Upload ZIP files via Universal POS Uploader" class="ltr"></div>
+<div class="note">صرف ZIP میں موجود فائلیں شامل یا اپ ڈیٹ ہوں گی۔ اسی Path پر پہلے سے فائل موجود ہو تو وہ تبدیل ہوگی؛ باقی Repository فائلیں برقرار رہیں گی۔ GitHub خالی فولڈرز محفوظ نہیں کرتا۔</div>
+<label class="check"><input type="checkbox" id="confirm"><span>میں نے ZIP کا Preview دیکھ لیا ہے۔ اگر کوئی فائل اسی Path پر پہلے سے موجود ہے تو اسے Replace کرنے کی اجازت دیتا ہوں۔</span></label>
+<button id="upload" class="btn" type="button" disabled>تمام فائلیں ایک Commit میں اپ لوڈ کریں</button>
+<div id="progressbox" class="hidden" style="margin-top:14px">
+<div id="status" class="muted">تیاری ہو رہی ہے…</div><div class="progress"><span id="bar"></span></div><div id="progressdetail" class="muted"></div>
+</div>
+<div id="result" class="hidden" style="margin-top:12px"></div>
+</section>
+<div class="footer">Universal POS · ZIP to GitHub Uploader · Token اس ڈیوائس میں محفوظ نہیں کیا جاتا۔</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var selectedZip=null,zipFiles=[],tokenValue="",repoInfo=null,connectionOK=false,working=false;
+var MAX_FILES=300,MAX_TOTAL=60*1024*1024,MAX_FILE=15*1024*1024;
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function fmt(n){return n<1024*1024?(n/1024).toFixed(1)+" KB":(n/1024/1024).toFixed(2)+" MB"}
+function show(el,yes){el.classList.toggle("hidden",!yes)}
+function setStatus(s){$("status").textContent=s}
+function setProgress(p,s){$("bar").style.width=Math.max(0,Math.min(100,p))+"%";if(s)$("progressdetail").textContent=s}
+function setResult(msg,kind){$("result").className="note "+kind;$("result").innerHTML=msg;show($("result"),true)}
+function safePath(path){
+ path=String(path||"").replace(/\\/g,"/");
+ if(path.startsWith("/")||/^[A-Za-z]:/.test(path)||path.indexOf("\0")>=0)throw new Error("ZIP میں غیر محفوظ file path ملا: "+path);
+ var parts=path.split("/").filter(function(x){return x&&x!=="."});
+ if(parts.some(function(x){return x===".."||x===".git"}))throw new Error("ZIP میں ممنوعہ folder/path ملا: "+path);
+ return parts.join("/");
+}
+function branchPath(b){return b.split("/").map(encodeURIComponent).join("/")}
+async function gh(endpoint,method,body){
+ var headers={"Accept":"application/vnd.github+json","Authorization":"Bearer "+tokenValue,"X-GitHub-Api-Version":"2022-11-28"};
+ if(body)headers["Content-Type"]="application/json";
+ var res=await fetch("https://api.github.com/repos/"+repoInfo.full+"/"+endpoint,{method:method||"GET",headers:headers,body:body?JSON.stringify(body):undefined});
+ var data={};try{data=await res.json()}catch(e){}
+ if(!res.ok)throw new Error((data.message||("GitHub API error "+res.status))+" (HTTP "+res.status+")");
+ return data;
+}
+function validateRepo(){var r=$("repo").value.trim();if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(r))throw new Error("Repository کا نام owner/repository کی صورت میں لکھیں۔");return r}
+async function checkConnection(){
+ if(working)return;
+ tokenValue=$("token").value.trim();
+ if(!tokenValue){$("connection").textContent="پہلے Token درج کریں۔";return}
+ try{
+  var full=validateRepo();repoInfo={full:full};
+  $("check").disabled=true;$("connection").textContent="GitHub سے رابطہ ہو رہا ہے…";
+  var r=await gh("", "GET");
+  repoInfo.defaultBranch=r.default_branch;
+  if(!r.permissions||!r.permissions.push)throw new Error("اس Token کو Repository میں Push کی اجازت نہیں۔ Contents: Read and write فعال کریں۔");
+  if(!$("branch").value.trim())$("branch").value=r.default_branch;
+  var b=$("branch").value.trim();
+  await gh("git/ref/heads/"+branchPath(b),"GET");
+  connectionOK=true;
+  $("connection").textContent="✓ کنکشن درست · "+r.full_name+" · "+b;
+  $("connection").style.color="#08783e";
+  updateUploadButton();
+ }catch(e){connectionOK=false;$("connection").textContent="✕ "+e.message;$("connection").style.color="#b42318"}
+ finally{$("check").disabled=false}
+}
+function updateUploadButton(){
+ $("upload").disabled=working||!connectionOK||!zipFiles.length||!$("confirm").checked||!$("message").value.trim();
+}
+async function inspectZip(file){
+ selectedZip=file;zipFiles=[];show($("zipinfo"),false);show($("result"),false);
+ if(!file||!(/\.zip$/i.test(file.name)||file.type==="application/zip"))throw new Error("براہِ کرم ZIP فائل منتخب کریں۔");
+ if(typeof JSZip==="undefined")throw new Error("ZIP لائبریری لوڈ نہیں ہوئی۔ انٹرنیٹ کنکشن چیک کریں۔");
+ var z=await JSZip.loadAsync(file,{checkCRC32:false});
+ var seen=new Set(),total=0;
+ Object.keys(z.files).forEach(function(k){
+  var entry=z.files[k];if(entry.dir)return;
+  var p=safePath(entry.name);if(!p)return;
+  if(seen.has(p))throw new Error("ZIP میں ایک ہی Path دو بار موجود ہے: "+p);
+  seen.add(p);
+  var size=entry._data&&Number(entry._data.uncompressedSize)||0;
+  if(size>MAX_FILE)throw new Error("ایک فائل 15 MB کی حد سے بڑی ہے: "+p);
+  total+=size;
+  zipFiles.push({path:p,entry:entry,size:size});
+ });
+ if(!zipFiles.length)throw new Error("ZIP میں کوئی فائل نہیں ملی۔");
+ if(zipFiles.length>MAX_FILES)throw new Error("زیادہ سے زیادہ "+MAX_FILES+" فائلیں اپ لوڈ کی جا سکتی ہیں۔");
+ if(total>MAX_TOTAL)throw new Error("ZIP کھلنے کے بعد مجموعی سائز 60 MB سے زیادہ ہے۔");
+ $("filecount").textContent=zipFiles.length+" فائلیں";
+ $("filesize").textContent=fmt(total);
+ $("filetree").innerHTML=zipFiles.slice(0,180).map(function(f){return "<div>📄 "+esc(f.path)+" <span style='color:#839187'>("+fmt(f.size)+")</span></div>"}).join("")+(zipFiles.length>180?"<div>… مزید "+(zipFiles.length-180)+" فائلیں</div>":"");
+ show($("zipinfo"),true);updateUploadButton();
+}
+$("zipfile").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)inspectZip(f).catch(function(err){setResult(esc(err.message),"error")})});
+$("drop").addEventListener("dragover",function(e){e.preventDefault();$("drop").classList.add("drag")});
+$("drop").addEventListener("dragleave",function(){$("drop").classList.remove("drag")});
+$("drop").addEventListener("drop",function(e){e.preventDefault();$("drop").classList.remove("drag");var f=e.dataTransfer.files&&e.dataTransfer.files[0];if(f)inspectZip(f).catch(function(err){setResult(esc(err.message),"error")})});
+$("check").addEventListener("click",checkConnection);
+$("confirm").addEventListener("change",updateUploadButton);
+$("message").addEventListener("input",updateUploadButton);
+$("repo").addEventListener("input",function(){connectionOK=false;updateUploadButton()});
+$("branch").addEventListener("input",function(){connectionOK=false;updateUploadButton()});
+function bytesToBase64(bytes){
+ var binary="",step=0x8000;
+ for(var i=0;i<bytes.length;i+=step)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+step,bytes.length)));
+ return btoa(binary);
+}
+async function uploadAll(){
+ if(working)return;
+ if(!connectionOK){setResult("پہلے GitHub کنکشن چیک کریں۔","warning");return}
+ var prefix=$("prefix").value.trim().replace(/^\/+|\/+$/g,"");
+ try{if(prefix)safePath(prefix)}catch(e){setResult(esc(e.message),"error");return}
+ var branch=$("branch").value.trim(),message=$("message").value.trim();
+ if(!branch||!message){setResult("Branch اور Commit Message لازمی ہیں۔","error");return}
+ working=true;updateUploadButton();$("upload").textContent="اپ لوڈ جاری ہے…";show($("progressbox"),true);show($("result"),false);
+ try{
+  setStatus("موجودہ GitHub Branch اور Tree حاصل ہو رہی ہے…");setProgress(2,"Repository کو محفوظ رکھتے ہوئے نیا Tree بنایا جائے گا۔");
+  var ref=await gh("git/ref/heads/"+branchPath(branch),"GET");
+  var parentSha=ref.object.sha;
+  var commit=await gh("git/commits/"+parentSha,"GET");
+  var baseTree=commit.tree.sha;
+  var entries=new Array(zipFiles.length),done=0,next=0,failed=null;
+  async function worker(){
+   while(true){
+    var i=next++;if(i>=zipFiles.length||failed)return;
+    try{
+     var f=zipFiles[i],bytes=await f.entry.async("uint8array");
+     if(bytes.length>MAX_FILE)throw new Error("فائل حد سے بڑی ہے: "+f.path);
+     var path=(prefix?prefix+"/":"")+f.path;
+     var clean=safePath(path);
+     var blob=await gh("git/blobs","POST",{content:bytesToBase64(bytes),encoding:"base64"});
+     entries[i]={path:clean,mode:"100644",type:"blob",sha:blob.sha};
+     done++;setProgress(5+(done/zipFiles.length)*75,done+" / "+zipFiles.length+" فائلیں GitHub پر تیار ہوئیں۔");
+    }catch(e){failed=e;return}
+   }
+  }
+  await Promise.all([worker(),worker(),worker()]);
+  if(failed)throw failed;
+  setStatus("تمام فائلیں تیار؛ ایک Git Tree بنایا جا رہا ہے…");setProgress(83,"پرانے Repository Tree کو برقرار رکھا جا رہا ہے۔");
+  var tree=await gh("git/trees","POST",{base_tree:baseTree,tree:entries});
+  setStatus("ایک Commit بنایا جا رہا ہے…");setProgress(90,"تمام "+entries.length+" فائلیں ایک Commit میں شامل ہیں۔");
+  var newCommit=await gh("git/commits","POST",{message:message,tree:tree.sha,parents:[parentSha]});
+  setStatus("Branch کو محفوظ طریقے سے اپ ڈیٹ کیا جا رہا ہے…");setProgress(96,"Force Push استعمال نہیں ہوگا۔");
+  await gh("git/refs/heads/"+branchPath(branch),"PATCH",{sha:newCommit.sha,force:false});
+  setProgress(100,"مکمل");
+  setStatus("اپ لوڈ کامیاب!");
+  var url="https://github.com/"+repoInfo.full+"/commit/"+newCommit.sha;
+  setResult("✓ کامیابی! "+entries.length+" فائلیں ایک ہی Commit میں اپ لوڈ ہو گئیں۔<br><a href='"+url+"' target='_blank' rel='noopener'>GitHub پر Commit دیکھیں</a>","success");
+ }catch(e){
+  setStatus("اپ لوڈ مکمل نہیں ہو سکا۔");
+  setResult("✕ "+esc(e.message)+"<br>اگر Branch اپ ڈیٹ کے وقت مسئلہ آیا ہے تو دوبارہ کنکشن چیک کرکے کوشش کریں۔ کوئی Force Push نہیں کیا گیا۔","error");
+ }finally{
+  working=false;$("upload").textContent="تمام فائلیں ایک Commit میں اپ لوڈ کریں";updateUploadButton();
+ }
+}
+$("upload").addEventListener("click",uploadAll);
+window.addEventListener("pagehide",function(){tokenValue="";$("token").value=""});
+})();
+</script>
+</body>
+</html>
