@@ -824,6 +824,8 @@ async function renderSettings() {
         ? `<label style="margin-top:10px"><input type="checkbox" id="set-rqr" style="width:auto;min-height:0" ${c.receipt_qr !== false ? 'checked' : ''}> ${t('rc_qr_show')}</label>`
         : `<div class="muted" style="margin-top:10px">${ic('shield', 16)} ${t('rc_qr_locked')}</div>`}`;
 
+  const push = live && typeof pushCardHtml === 'function' ? await pushCardHtml() : '';
+
   const data = (live ? `<div class="muted" id="sync-state"></div>
       <div class="muted">${t('pending')}: ${nPend} · ${t('sync_failed_n')}: ${nFail} · ${t('sync_conflicts')}: ${nConf}</div>
       ${syncDaysLeft() !== null ? `<div class="${syncDaysLeft() <= 7 ? 'warn' : 'muted'}">${syncExpiryText()}</div>` : ''}
@@ -848,6 +850,7 @@ async function renderSettings() {
     ${sec('billing', 'receipt', t('set_sec_billing'), billing)}
     ${sec('receipt', 'print', t('set_sec_receipt'), receipt)}
     ${sec('look', 'settings', t('set_sec_look'), look)}
+    ${push ? sec('push', 'bell', t('pu_title'), push) : ''}
     ${sec('notif', 'bell', t('ex_notif_sec'), await exNotifBodyHtml())}
     ${sec('data', 'download', t('set_sec_data') + warnDot, data)}
     <div style="margin-top:12px">
