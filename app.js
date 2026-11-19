@@ -254,6 +254,7 @@ async function doLogout() {
 // ───────── App shell ─────────
 async function showApp() {
   $('login').hidden = true; $('app').hidden = false;
+  if (typeof subTick === 'function') { subTick(); await setSetting('session', S.session); if (subState().state !== 'ok') toast(syncExpiryText(), 7000); }
   await avatarLoad();
   if (typeof actLog === 'function') { actLog('s', 'open'); actFlush(); }
   $('hdr-shop').textContent = S.session.shop_name || t('app_name');

@@ -25,6 +25,7 @@ const SAT = {
   sa_make_owner: ['مالک کا لاگ اِن بنائیں', 'Create owner login'], sa_owner_pw: ['مالک کا پاس ورڈ ری سیٹ', 'Reset owner password'], sa_confirm_reset: ['نیا عارضی پاس ورڈ بنائیں؟', 'Generate a new temporary password?'],
   sa_confirm_deluser: ['یہ صارف حذف کریں؟', 'Delete this user?'], sa_last_owner: ['دکان کا واحد مالک ہٹایا یا بدلا نہیں جا سکتا', 'The only owner of a shop cannot be removed or changed'],
   sa_limit_users: ['اس پلان میں صارفین کی حد پوری ہو چکی', 'User limit of this plan reached'], sa_phone_used: ['یہ نمبر پہلے سے کسی صارف کا ہے', 'This number already belongs to a user'],
+  sa_existing_login: ['اس نمبر کا لاگ اِن پہلے سے موجود ہے۔ اسے نئی دکان میں شامل کر دیا گیا ہے اور اس کا پاس ورڈ نہیں بدلا گیا۔ وہ اپنے پرانے پاس ورڈ سے لاگ اِن کریں گے۔ بھول گئے ہوں تو اسی صارف کا "پاس ورڈ ری سیٹ" کریں۔', 'This number already had a login. It was added to the new shop and its password was NOT changed — they log in with their existing password. If they forgot it, use "Reset password" for that user.'],
   sa_creds_title: ['لاگ اِن تفصیل', 'Login details'], sa_login_no: ['لاگ اِن نمبر', 'Login number'], sa_temp_pw: ['عارضی پاس ورڈ', 'Temporary password'],
   sa_copy: ['کاپی', 'Copy'], sa_copied: ['کاپی ہو گیا', 'Copied'], sa_send_wa: ['واٹس ایپ پر بھیجیں', 'Send on WhatsApp'],
   sa_wa_creds_msg: ['السلام علیکم {name}، آپ کا لاگ اِن: {phone}  عارضی پاس ورڈ: {pw}  (پہلی بار لاگ اِن کے بعد بدل لیں)', 'Hello {name}, your login: {phone}  temporary password: {pw}  (please change it after first login)'],
@@ -191,6 +192,7 @@ async function saFetch() {
       signup_enabled: st.signup_enabled === true, signup_approval: st.signup_approval !== false, signup_plan: st.signup_plan || 'demo', demo_days: st.demo_days ?? 7, signup_daily_limit: st.signup_daily_limit ?? 20, inactive_days: st.inactive_days ?? 5, inactive_message: st.inactive_message || '' } };
   saSnap();
 }
+const SA_EXISTING = new Set();   // member ids whose phone already had a login (password untouched)
 async function saFn(body) {
   const { data, error } = await getSb().functions.invoke('admin-users', { body });
   if (error) { let m = error.message; try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
@@ -213,7 +215,7 @@ async function saPushNow() {
         if (!SAB.shops.has(u.shop_id)) { try { await sb.from('shops').delete().eq('id', u.shop_id); } catch (x) {} }
         throw e;
       }
-      u.user_id = r.user_id; delete u._pw;
+      u.user_id = r.user_id; delete u._pw; if (r.existing) SA_EXISTING.add(u.id);   // same number already had a login: its password was NOT changed
       if (!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: true });
     } else if (o.k !== saKey('users', u)) {
       if (o.r.phone !== u.phone) await saFn({ action: 'phone', user_id: u.user_id, phone: u.phone, email: loginIdToEmail(u.phone) });
@@ -425,6 +427,13 @@ function saShopForm(id) {
   };
 }
 function saShowCreds(name, phone, pw) {
+  if (pw == null) {   // this number already had a login (another shop): nothing was changed, the old password still works
+    openModal(`<h2>${t('sa_creds_title')}</h2><div class="muted">${esc(name)}</div>
+      <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b class="u-fs-18">${esc(phone)}</b></div>
+      <div class="u-mt-10">${t('sa_existing_login')}</div>
+      <div class="u-mt-10"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+    return;
+  }
   const wa = waNumber(phone), msg = saFill(t('sa_wa_creds_msg'), { name, phone, pw });
   openModal(`<h2>${t('sa_creds_title')}</h2><div class="muted">${esc(name)}</div>
     <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b class="u-fs-18">${esc(phone)}</b></div>
@@ -515,7 +524,7 @@ function saUserForm(id, shopId) {
     if ((!id || f.shop_id !== u.shop_id) && d.users.filter(x => x.shop_id === f.shop_id).length >= saPlan(d.shops.find(s => s.id === f.shop_id).plan_id).max_users) return toast(t('sa_limit_users'), 4000);
     if (id) { Object.assign(u, { name: f.name.trim(), phone, shop_id: f.shop_id, role: f.role, active }); saLog('user_edit', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender(); return; }
     const pw = saPass(), nu = { id: uuid(), shop_id: f.shop_id, name: f.name.trim(), phone, role: f.role, active, created_at: saIso(0), last_login: null, _pw: pw };
-    d.users.push(nu); saLog('user_new', nu.name, saShopName(nu.shop_id)); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, pw); } });
+    d.users.push(nu); saLog('user_new', nu.name, saShopName(nu.shop_id)); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, SA_EXISTING.has(nu.id) ? null : pw); } });
   };
 }
 
@@ -637,7 +646,7 @@ const SA_ACT = {
     if (SAD.users.some(x => saPhone(x.phone) === phone)) return toast(t('sa_phone_used'), 4000);
     const pw = saPass(), nu = { id: uuid(), shop_id: sid, name: s.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw };
     SAD.users.push(nu); saLog('user_new', nu.name, s.name);
-    saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, pw); } });
+    saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, SA_EXISTING.has(nu.id) ? null : pw); } });
   },
   userdel: id => {
     const u = SAD.users.find(x => x.id === id);

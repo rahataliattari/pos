@@ -106,6 +106,7 @@ async function nextInvoiceNo() {
 // items: [{ product_id, product_name, qty, unit_price, cost_price }]
 // Everything is written in ONE transaction: a crash can never leave a half-saved sale.
 async function saveSale(sale, items) {
+  if (typeof subTick === 'function') { subTick(); if (subLocked()) throw new Error(t('sub_locked')); }   // expired + grace over: no new bills until renewed
   if (!items || !items.length) throw new Error('Cart is empty');
   for (const it of items) {
     if (!(it.qty > 0)) throw new Error('Invalid quantity');

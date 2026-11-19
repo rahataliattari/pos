@@ -46,23 +46,26 @@ Deno.serve(async req => {
 
     if (b.action === 'create') {                       // {member_id, shop_id, name, phone, role, active, password?}
       const email = pickEmail(b), password = b.password || genPw();
-      const { data: ex } = await admin.from('shop_members').select('user_id').eq('phone', b.phone).maybeSingle();
+      // The same phone number may already have a login (e.g. the same person works in two shops). In that case we only ADD the
+      // new shop membership: the existing password and email are NEVER touched, so the other shop's user is not locked out.
+      const { data: exRows } = await admin.from('shop_members').select('user_id, shop_id').eq('phone', b.phone).limit(50);
+      const ex = exRows?.[0];
+      if (exRows?.some(r => r.shop_id === b.shop_id)) return json({ error: 'already_member' }, 400);
       let user_id = ex?.user_id as string | undefined;
       if (!user_id) {
         const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
         if (error) return json({ error: error.message }, 400);
         user_id = data.user.id;
-      } else {
-        const { error } = await admin.auth.admin.updateUserById(user_id, { password, email, email_confirm: true });
-        if (error) return json({ error: error.message }, 400);
       }
       // prove the account really works before the app shows the login details
-      const probe2 = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false } });
-      const { error: pe2 } = await probe2.auth.signInWithPassword({ email, password });
-      if (pe2) { if (!ex?.user_id) await admin.auth.admin.deleteUser(user_id); return json({ error: 'login_check_failed: ' + pe2.message + ' (' + email + ')' }, 400); }
+      if (!ex?.user_id) {
+        const probe2 = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false } });
+        const { error: pe2 } = await probe2.auth.signInWithPassword({ email, password });
+        if (pe2) { await admin.auth.admin.deleteUser(user_id); return json({ error: 'login_check_failed: ' + pe2.message + ' (' + email + ')' }, 400); }
+      }
       const { error: e2 } = await admin.from('shop_members').insert({ id: b.member_id, shop_id: b.shop_id, user_id, name: b.name, phone: b.phone, role: b.role, active: b.active !== false });
-      if (e2) return json({ error: e2.message }, 400);
-      return json({ user_id, password });
+      if (e2) { if (!ex?.user_id) await admin.auth.admin.deleteUser(user_id); return json({ error: e2.message }, 400); }
+      return ex?.user_id ? json({ user_id, existing: true }) : json({ user_id, password });
     }
     if (b.action === 'reset') {                        // {user_id, password?}
       const password = b.password || genPw();

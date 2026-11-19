@@ -290,6 +290,7 @@ async function syncCheckExpiry(sb, shop) {
         if (S.tab === 'home') { const h = document.getElementById('hdr-hello'); if (h) h.textContent = m.data.name; }
       }
     } catch (x) {}
+    subTick();
     await setSetting('session', S.session);
     const d = syncDaysLeft();
     if (d !== null && d <= 7 && !syncCheckExpiry._warned) { syncCheckExpiry._warned = true; toast(syncExpiryText(), 6000); }
@@ -303,7 +304,26 @@ function syncDaysLeft() {
 }
 function syncExpiryText() {
   const d = syncDaysLeft();
-  return d === null ? '' : d < 0 ? t('sub_expired') : t('sub_days').replace('{n}', d);
+  if (d === null) return '';
+  const g = subState();
+  return g.state === 'locked' ? t('sub_locked_short') : g.state === 'grace' ? t('sub_grace').replace('{n}', g.graceLeft) : d < 0 ? t('sub_expired') : t('sub_days').replace('{n}', d);
+}
+// Local enforcement of the subscription (the server only checks at login/sync, so an offline phone must stop itself).
+// After expires_at there is a short grace period; after that NEW bills are blocked (data stays readable, sync keeps working).
+// The clock can only move forward for this check (clock_max), so setting the phone's date back does not unlock the app.
+const SUB_GRACE_DAYS = 3;
+function subState() {
+  if (window.POS_DEMO || !S.session || S.session.admin || !S.session.expires_at) return { state: 'ok' };
+  const end = new Date(S.session.expires_at).getTime(); if (!isFinite(end)) return { state: 'ok' };
+  const now = Math.max(Date.now(), Number(S.session.clock_max) || 0);
+  if (now <= end) return { state: 'ok' };
+  const graceEnd = end + SUB_GRACE_DAYS * 86400000;
+  return now <= graceEnd ? { state: 'grace', graceLeft: Math.max(1, Math.ceil((graceEnd - now) / 86400000)) } : { state: 'locked', graceLeft: 0 };
+}
+const subLocked = () => subState().state === 'locked';
+function subTick() {             // remember the latest time seen (anti clock-rollback); called on open, on sync and before each bill
+  if (!S.session || window.POS_DEMO) return;
+  const n = Date.now(); if (n > (Number(S.session.clock_max) || 0)) { S.session.clock_max = n; }
 }
 
 // ───────── Conflict resolution (data part) ─────────
