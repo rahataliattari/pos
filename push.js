@@ -1,18 +1,6 @@
-// Universal POS — Web Push (client). Server side: supabase/16_push.sql + Edge Function push-notify.
+// Universal POS — Web Push (client). Server side: supabase/schema.sql (push_subscriptions) + Edge Function push-notify.
 // Loaded AFTER contact.js and BEFORE app.js. Push works only in the live build (the demo has no server).
 // Android/Chrome/Edge: works even when the app is closed. iPhone: only after "Add to Home Screen" (iOS 16.4+).
-
-const PUT = {
-  pu_title: ['فوری نوٹیفکیشن', 'Instant notifications'],
-  pu_on: ['نوٹیفکیشن آن کریں', 'Turn notifications on'], pu_off: ['نوٹیفکیشن بند کریں', 'Turn notifications off'],
-  pu_state_on: ['آن ہیں: ایپ بند ہو تب بھی اطلاع آئے گی', 'On: you get alerts even when the app is closed'],
-  pu_state_off: ['بند ہیں', 'Off'], pu_state_blocked: ['براؤزر میں بلاک ہیں: براؤزر کی سائٹ سیٹنگ سے اجازت دیں', 'Blocked in the browser: allow them in the site settings'],
-  pu_unsupported: ['اس براؤزر/فون پر پش نوٹیفکیشن دستیاب نہیں۔ iPhone پر پہلے "Add to Home Screen" کریں۔', 'Push is not available on this browser/phone. On iPhone first use "Add to Home Screen".'],
-  pu_nokey: ['پش کی سیٹنگ مکمل نہیں (VAPID key)', 'Push is not configured (VAPID key)'],
-  pu_done: ['نوٹیفکیشن آن ہو گئے', 'Notifications are on'], pu_done_off: ['نوٹیفکیشن بند ہو گئے', 'Notifications are off'],
-  pu_denied: ['اجازت نہیں ملی', 'Permission was not granted'], pu_demo: ['ڈیمو میں پش دستیاب نہیں (سرور درکار)', 'Push is not available in the demo (needs the server)']
-};
-for (const k in PUT) { I18N.ur[k] = PUT[k][0]; I18N.en[k] = PUT[k][1]; }
 
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const pushB64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
@@ -63,7 +51,7 @@ function pushNotify(action, body) {    // fire-and-forget: a failed push must ne
 async function pushCardHtml() {        // small settings block (shop users + admin inbox)
   const st = await pushStatus();
   const txt = { on: t('pu_state_on'), off: t('pu_state_off'), blocked: t('pu_state_blocked'), unsupported: window.POS_DEMO ? t('pu_demo') : t('pu_unsupported') }[st];
-  return `<div id="pu-card"><div class="muted">${t('pu_title')}: <b>${txt}</b></div>${st === 'on' ? `<button class="btn secondary block" data-pu="off" style="margin-top:8px">${ic('bell', 18)} ${t('pu_off')}</button>` : st === 'off' ? `<button class="btn block" data-pu="on" style="margin-top:8px">${ic('bell', 18)} ${t('pu_on')}</button>` : ''}</div>`;
+  return `<div id="pu-card"><div class="muted">${t('pu_title')}: <b>${txt}</b></div>${st === 'on' ? `<button class="btn secondary block u-mt-8" data-pu="off">${ic('bell', 18)} ${t('pu_off')}</button>` : st === 'off' ? `<button class="btn block u-mt-8" data-pu="on">${ic('bell', 18)} ${t('pu_on')}</button>` : ''}</div>`;
 }
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-pu]'); if (!b) return;
@@ -74,7 +62,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   if (!ev.data || ev.data.type !== 'push-open') return;
   const d = ev.data.data || {};
   if (d.kind === 'ticket' || d.kind === 'reset') {
-    if (ctIsAdmin() && typeof showSuperAdmin === 'function') { SAS.tab = 'inbox'; if ($('sa').hidden) showSuperAdmin(); else saRender(); }
+    if (ctIsAdmin()) loadAdmin().then(() => { SAS.tab = 'inbox'; if ($('sa').hidden) showSuperAdmin(); else saRender(); }, () => toast(t('offline'), 4000));
     else if (S.session) ctOpen();
   }
 });

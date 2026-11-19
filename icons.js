@@ -44,3 +44,5 @@ function ic(name, size) {
   const s = size ? ` style="width:${size}px;height:${size}px"` : '';
   return `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${s}>${p}</svg>`;
 }
+
+if (typeof ICONS !== 'undefined') ICONS.chev = '<path d="M9 5l7 7-7 7"/>';

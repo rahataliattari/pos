@@ -38,6 +38,20 @@ const shopSubs = async (shopId: string | null) => {
   return (await admin.from('push_subscriptions').select('endpoint,p256dh,auth').in('user_id', ids)).data as Sub[];
 };
 
+
+// میٹھی یاد دہانی کا ڈیفالٹ متن؛ سپر ایڈمن platform_settings.inactive_message سے بدل سکتا ہے. {name} اور {shop} بدل دیے جاتے ہیں.
+const SWEET = 'السلام علیکم {name}! کچھ دنوں سے آپ کی دکان "{shop}" ایپ میں نظر نہیں آئی، ہمیں آپ کی کمی محسوس ہوئی۔ آج کا ایک بل بنا کر دیکھیں، آپ کا سارا حساب محفوظ اور تیار ہے۔ ہم ہمیشہ آپ کے ساتھ ہیں۔';
+const sweet = (tpl: string, name: string, shop: string) => (tpl || SWEET).replaceAll('{name}', name || '').replaceAll('{shop}', shop || '').replace(/\s+/g, ' ').trim();
+async function nudge(rows: { user_id: string; name: string; shop_name: string }[], tpl: string) {
+  let sent = 0; const noPush: string[] = [];
+  for (const r of rows) {
+    const n = await send(await userSubs(r.user_id), { title: 'آپ کی دکان آپ کو یاد کر رہی ہے', body: clip(sweet(tpl, r.name, r.shop_name), 220), tag: 'nudge', kind: 'nudge' });
+    if (n > 0) sent++; else noPush.push(r.user_id);
+    await admin.from('shop_members').update({ last_nudge_at: new Date().toISOString() }).eq('user_id', r.user_id);
+  }
+  return { sent, noPush };
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -55,6 +69,20 @@ Deno.serve(async req => {
         n += await send(await shopSubs(s.id), { title: 'سبسکرپشن کی یاد دہانی', body: `"${s.name}" کی سبسکرپشن ${d} دن میں ختم ہو رہی ہے۔ تجدید کیلئے رابطہ کریں۔`, tag: 'expiry-' + s.id, kind: 'expiry' });
       }
       return json({ ok: true, shops: shops?.length ?? 0, sent: n });
+    }
+
+    // 1b) cron: جو صارف inactive_days (ڈیفالٹ 5) دن سے ایپ میں نہیں آیا اسے میٹھی یاد دہانی؛ ہر صارف کو ہر inactive_days دن میں زیادہ سے زیادہ ایک بار
+    if (b.action === 'inactive_sweep') {
+      if (!Deno.env.get('CRON_SECRET') || req.headers.get('x-cron-secret') !== Deno.env.get('CRON_SECRET')) return json({ error: 'forbidden' }, 403);
+      const { data: st } = await admin.from('platform_settings').select('inactive_days,inactive_message').eq('id', 1).maybeSingle();
+      const days = Number(st?.inactive_days ?? 5); if (!days) return json({ ok: true, off: true });
+      const cut = new Date(Date.now() - days * 864e5).toISOString();
+      const { data: ms } = await admin.from('shop_members').select('user_id,name,last_login,created_at,last_nudge_at,shops!inner(name,suspended,archived,expires_at,approval)')
+        .eq('active', true).eq('shops.suspended', false).eq('shops.archived', false).eq('shops.approval', 'approved').gte('shops.expires_at', new Date().toISOString());
+      const due = (ms ?? []).filter((m: any) => (m.last_login ?? m.created_at) < cut && (!m.last_nudge_at || m.last_nudge_at < cut))
+        .map((m: any) => ({ user_id: m.user_id, name: m.name, shop_name: m.shops?.name ?? '' }));
+      const r = await nudge(due, st?.inactive_message ?? '');
+      return json({ ok: true, users: due.length, sent: r.sent });
     }
 
     // 2) پاس ورڈ بھول گئے: لاگ اِن سے پہلے صارف (anon) — صرف تازہ، نہ بھیجی گئی درخواست پر، ایک بار
@@ -92,6 +120,15 @@ Deno.serve(async req => {
       const text = clip(b.action === 'announce' ? b.text : b.body, 200);
       if (!text) return json({ error: 'empty' }, 400);
       return json({ ok: true, sent: await send(await shopSubs(b.shop_id || null), { title, body: text, tag: 'ann', kind: 'announce' }) });
+    }
+    // 6) سپر ایڈمن: چنے ہوئے صارفین کو میٹھی یاد دہانی (جن کا پش بند ہے وہ no_push میں واپس آتے ہیں، تاکہ واٹس ایپ سے بھیجا جا سکے)
+    if (b.action === 'user_nudge') {
+      const ids = (Array.isArray(b.user_ids) ? b.user_ids : []).slice(0, 100).map(String);
+      if (!ids.length) return json({ error: 'empty' }, 400);
+      const { data: st } = await admin.from('platform_settings').select('inactive_message').eq('id', 1).maybeSingle();
+      const { data: ms } = await admin.from('shop_members').select('user_id,name,shops(name)').in('user_id', ids).eq('active', true);
+      const r = await nudge((ms ?? []).map((m: any) => ({ user_id: m.user_id, name: m.name, shop_name: m.shops?.name ?? '' })), st?.inactive_message ?? '');
+      return json({ ok: true, sent: r.sent, no_push: r.noPush });
     }
     return json({ error: 'unknown action' }, 400);
   } catch (e) { return json({ error: String((e as Error).message || e) }, 400); }

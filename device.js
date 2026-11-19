@@ -1,13 +1,6 @@
 // Universal POS — device limit: one login ID works on the number of devices its plan allows (default 1).
-// Enforced on the SERVER (see supabase/11_device_limit.sql). This file only registers the device and shows the messages.
+// Enforced on the SERVER (see supabase/schema.sql: register_device / sync_check_device). This file only registers the device and shows the messages.
 // Super Admin is never limited.
-const DVS = {
-  dev_limit: ['یہ آئی ڈی پہلے ہی کسی اور ڈیوائس پر لاگ اِن ہے۔ نئی ڈیوائس پر چلانے کے لیے سپر ایڈمن سے رابطہ کریں۔', 'This ID is already logged in on another device. Contact the admin to move it to a new device.'],
-  dev_revoked: ['یہ ڈیوائس اس آئی ڈی کے لیے بند کر دی گئی ہے۔ سپر ایڈمن سے رابطہ کریں۔', 'This device has been blocked for this ID. Contact the admin.'],
-  dev_login_again: ['سیکیورٹی کے لیے دوبارہ لاگ اِن کریں۔', 'For security, please log in again.']
-};
-for (const k in DVS) { I18N.ur[k] = DVS[k][0]; I18N.en[k] = DVS[k][1]; }
-
 function deviceName() {
   const ua = navigator.userAgent || '';
   const os = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Windows/i.test(ua) ? 'Windows' : /Mac/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : 'Device';

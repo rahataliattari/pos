@@ -5,7 +5,7 @@
 const DAY = 864e5, SAK = 'pos_sa_demo_v1';
 
 const SAT = {
-  sa_open: ['سپر ایڈمن پینل کھولیں', 'Open Super Admin panel'], sa_title: ['سپر ایڈمن', 'Super Admin'], sa_sub: ['پلیٹ فارم کنٹرول', 'Platform control'],
+  sa_title: ['سپر ایڈمن', 'Super Admin'], sa_sub: ['پلیٹ فارم کنٹرول', 'Platform control'],
   sa_t_dash: ['ڈیش بورڈ', 'Dashboard'], sa_t_shops: ['دکانیں', 'Shops'], sa_t_users: ['صارفین', 'Users'], sa_t_bill: ['بلنگ', 'Billing'], sa_t_more: ['مزید', 'More'],
   sa_exit: ['دکان', 'Shop'], sa_mrr: ['ماہانہ آمدن (فعال دکانیں)', 'Monthly revenue (active shops)'],
   sa_st_active: ['فعال', 'Active'], sa_st_trial: ['ٹرائل', 'Trial'], sa_st_expired: ['میعاد ختم', 'Expired'], sa_st_suspended: ['معطل', 'Suspended'], sa_st_archived: ['آرکائیو', 'Archived'], sa_st_all: ['سب', 'All'],
@@ -52,8 +52,16 @@ const SAT = {
 };
 SAT.sa_ann_to = ['کس کو دکھانا ہے', 'Show to']; SAT.sa_ann_all = ['تمام دکانیں', 'All shops']; SAT.sa_ann_push = ['فون پر نوٹیفکیشن بھی بھیجیں', 'Also send a phone notification'];
 SAT.sa_push_btn = ['اس دکان کو نوٹیفکیشن', 'Notify this shop']; SAT.sa_push_ask = ['اس دکان کے سب صارفین کو نوٹیفکیشن کا متن لکھیں', 'Write the notification text for all users of this shop'];
-SAT.sa_shop_blocked = ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.'];
 Object.assign(SAT, {
+  sa_inactive_t: ['غیر فعال صارف', 'Inactive users'], sa_idle_days: ['{n} دن سے ایپ میں نہیں آئے', 'Not opened the app for {n} days'], sa_nudge: ['یاد دہانی', 'Remind'],
+  sa_nudge_all: ['سب کو میٹھی یاد دہانی بھیجیں', 'Send a sweet reminder to all'], sa_nudge_sent: ['یاد دہانی بھیج دی گئی: {n}', 'Reminder sent: {n}'],
+  sa_nudge_nopush: ['ان صارفین کے نوٹیفکیشن بند ہیں؛ واٹس ایپ سے بھیجیں', 'These users have notifications off; send by WhatsApp'], sa_nudge_fail: ['یاد دہانی نہیں جا سکی', 'Could not send the reminder'],
+  sa_wa: ['واٹس ایپ', 'WhatsApp'], sa_activity: ['حالیہ سرگرمی', 'Recent activity'], sa_act_none: ['ابھی کوئی سرگرمی ریکارڈ نہیں ہوئی', 'No activity recorded yet'], sa_user_act: ['اس صارف کی سرگرمی', 'This user\'s activity'],
+  sa_inactive_none: ['سب صارف فعال ہیں', 'All users are active'], sa_sec_remind: ['غیر فعال صارفین کی یاد دہانی', 'Inactive-user reminders'],
+  sa_set_idle: ['کتنے دن ایپ نہ کھولنے پر یاد دہانی (0 = بند)', 'Remind after this many days without opening the app (0 = off)'],
+  sa_set_idle_msg: ['اپنا پیغام (خالی = ڈیفالٹ میٹھا پیغام). {name} اور {shop} استعمال کر سکتے ہیں', 'Your own message (blank = default sweet message). You can use {name} and {shop}'],
+  sa_idle_hint: ['خودکار روزانہ بھیجنے کے لیے supabase/tools/cron_examples.sql چلائیں؛ ورنہ ڈیش بورڈ کے بٹن سے ہاتھ سے بھیجیں۔', 'For automatic daily sending run supabase/tools/cron_examples.sql; otherwise use the dashboard button.'],
+
   sa_st_pending: ['منظوری کا انتظار', 'Pending approval'], sa_st_rejected: ['مسترد', 'Rejected'],
   sa_a_signup_new: ['Sign up: نئی درخواست', 'Sign-up request'], sa_a_signup_approve: ['Sign up منظور', 'Sign-up approved'], sa_a_signup_reject: ['Sign up مسترد', 'Sign-up rejected'],
   sa_approve: ['منظور کریں اور ڈیمو شروع کریں', 'Approve and start demo'], sa_reject: ['مسترد کریں', 'Reject'],
@@ -66,9 +74,9 @@ Object.assign(SAT, {
   sa_set_daily: ['روزانہ زیادہ سے زیادہ نئی درخواستیں (0 = لامحدود)', 'Max new requests per day (0 = unlimited)'],
   sa_max_bills: ['زیادہ سے زیادہ بل (0 = لامحدود)', 'Max bills (0 = unlimited)'], sa_plan_feats: ['اس پلان میں یہ سہولیات', 'Features in this plan'],
   sa_f_customers: ['کسٹمرز اور ادھار', 'Customers and udhaar'], sa_f_purchases: ['خریداری اور سپلائرز', 'Purchases and suppliers'],
-  sa_f_expenses: ['اخراجات', 'Expenses'], sa_f_reports: ['رپورٹس', 'Reports'], sa_signup_off_hint: ['Sign up آن کرنے سے پہلے Supabase میں 18_signup.sql چلائیں اور signup فنکشن deploy کریں۔', 'Before turning sign-up on, run 18_signup.sql in Supabase and deploy the signup function.']
+  sa_f_expenses: ['اخراجات', 'Expenses'], sa_f_reports: ['رپورٹس', 'Reports'], sa_signup_off_hint: ['Sign up آن کرنے سے پہلے Supabase میں supabase/schema.sql چلائیں اور signup فنکشن deploy کریں۔', 'Before turning sign-up on, run supabase/schema.sql in Supabase and deploy the signup function.']
 });
-for (const k in SAT) { I18N.ur[k] = SAT[k][0]; I18N.en[k] = SAT[k][1]; }
+addI18N(SAT);
 Object.assign(ICONS, {
   shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
   bell: '<path d="M6 17V11a6 6 0 0112 0v6l2 2H4z"/><path d="M10 21h4"/>',
@@ -135,12 +143,12 @@ function saSeed() {
       { id: uuid(), at: saIso(-5), actor: 'Super Admin', action: 'shop_new', target: shops[3].name, detail: '' }
     ],
     announcements: [{ id: uuid(), text: 'اتوار رات 2 بجے سسٹم کی دیکھ بھال ہوگی، ایپ چند منٹ سست رہ سکتی ہے۔', active: true, at: saIso(-2) }],
-    settings: { trial_days: 14, default_plan: 'standard', support_phone: '03001234567', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20 }
+    settings: { trial_days: 14, default_plan: 'standard', support_phone: '03001234567', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20, inactive_days: 5, inactive_message: '' }
   };
 }
 function saLoad() {
   if (SAD) return SAD;
-  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20 } });
+  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20, inactive_days: 5, inactive_message: '' } });
   try { const r = localStorage.getItem(SAK); if (r) SAD = JSON.parse(r); } catch (e) {}
   if (!SAD) { SAD = saSeed(); saSave(); }
   return SAD;
@@ -150,11 +158,6 @@ function saLog(action, target, detail) {
   SAD.audit = [{ id: uuid(), at: saIso(0), actor: 'Super Admin', action, target: target || '', detail: detail || '' }, ...SAD.audit].slice(0, 300);
   if (!SA_LIVE()) saSave();
 }
-function saAnnouncement() {
-  if (!window.POS_DEMO) return window.SA_ANN || '';
-  try { const L = saLoad().announcements.filter(x => x.active), me = S.session && S.session.shop_id, a = L.find(x => x.shop_id && x.shop_id === me) || L.find(x => !x.shop_id); return a ? a.text : ''; } catch (e) { return ''; }
-}
-
 // ───────── Live adapter (Supabase) ─────────
 // SAD stays the in-memory working copy the UI already uses. saFetch() fills it from the server; saPush() diffs it against the
 // last-synced snapshot and writes only what changed. RLS (is_platform_admin) is the real gatekeeper; the client check is UX only.
@@ -185,7 +188,7 @@ async function saFetch() {
   const st = res[6].data || {};
   SAD = { plans, shops, users, payments, audit, announcements,
     settings: { trial_days: st.trial_days ?? 14, default_plan: st.default_plan || 'standard', support_phone: st.support_phone || '',
-      signup_enabled: st.signup_enabled === true, signup_approval: st.signup_approval !== false, signup_plan: st.signup_plan || 'demo', demo_days: st.demo_days ?? 7, signup_daily_limit: st.signup_daily_limit ?? 20 } };
+      signup_enabled: st.signup_enabled === true, signup_approval: st.signup_approval !== false, signup_plan: st.signup_plan || 'demo', demo_days: st.demo_days ?? 7, signup_daily_limit: st.signup_daily_limit ?? 20, inactive_days: st.inactive_days ?? 5, inactive_message: st.inactive_message || '' } };
   saSnap();
 }
 async function saFn(body) {
@@ -232,21 +235,12 @@ async function saFail(e) {
   let msg = (e && e.message) || t('err_generic');
   if (/row-level security|jwt|not authenticated/i.test(msg)) msg += '\n\nسپر ایڈمن اجازت نہیں ملی: موجودہ لاگ اِن پلیٹ فارم ایڈمن نہیں ہے یا سیشن ختم ہو گیا۔ لاگ آؤٹ کر کے ایڈمن اکاؤنٹ سے دوبارہ لاگ اِن کریں۔';
   toast(msg.split('\n')[0], 6000);
-  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" style="white-space:pre-wrap;word-break:break-word;user-select:text;padding:10px;background:#f3f4f6;border-radius:10px">${esc(msg)}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
+  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" class="u-white-space-pre-wrap u-word-break-break-word u-user-select-text u-p-10 u-bg-f3f4f6 u-br-10">${esc(msg)}</div><div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
  try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
 function saCommit() {            // save + wait; true on success (callers show credentials only then)
   if (!SA_LIVE()) { saSave(); return Promise.resolve(true); }
   return saPush().then(() => true, async e => { await saFail(e); return false; });
 }
-async function saLoadAnnouncement() {   // shop users see the active announcement in the sync bar
-  if (window.POS_DEMO) return;
-  let { data, error } = await getSb().from('announcements').select('text, shop_id').eq('active', true).order('at', { ascending: false }).limit(10);
-  if (error) ({ data } = await getSb().from('announcements').select('text').eq('active', true).order('at', { ascending: false }).limit(1));   // before 17_*.sql
-  const me = S.session && S.session.shop_id, a = (data || []).find(x => x.shop_id && x.shop_id === me) || (data || []).find(x => !x.shop_id);
-  window.SA_ANN = a ? a.text : '';
-  $('syncnote').textContent = window.SA_ANN || t('sync_note');
-}
-
 // ───────── Shell ─────────
 async function showSuperAdmin() {
   if (SA_LIVE()) {
@@ -281,11 +275,12 @@ function saRender() {
     <nav class="bottom">${tabs.map(([k, l, i]) => `<button data-sa="tab|${k}" class="${SAS.tab === k ? 'active' : ''}"><span class="ico">${ic(i, 22)}</span><span>${t(l)}</span></button>`).join('')}</nav>`;
   if (SAS.tab === 'shops') saShopsList();
   if (SAS.tab === 'users') saUsersList();
+  if (SAS.tab === 'dash') saActFeed();
   if (SAS.tab === 'inbox' && typeof ctAdminList === 'function') ctAdminList();
   if (typeof ctPaint === 'function') ctPaint();
 }
 function saView() { return ({ dash: saDash, shops: saShopsView, users: saUsersView, bill: saBillView, inbox: () => ctAdminView(), more: saMoreView })[SAS.tab](); }
-const saActRow = a => `<div class="lrow"><span class="lic">${ic('list', 16)}</span><div class="grow"><b>${t('sa_a_' + a.action)}</b><div class="muted">${esc(a.target)}${a.detail ? ' · ' + esc(a.detail) : ''}</div></div><div class="muted" style="font-size:12px">${esc(fmtDate(a.at))}</div></div>`;
+const saActRow = a => `<div class="lrow"><span class="lic">${ic('list', 16)}</span><div class="grow"><b>${t('sa_a_' + a.action)}</b><div class="muted">${esc(a.target)}${a.detail ? ' · ' + esc(a.detail) : ''}</div></div><div class="muted u-fs-12">${esc(fmtDate(a.at))}</div></div>`;
 
 // ───────── Dashboard ─────────
 function saMonths() {
@@ -306,19 +301,65 @@ function saDash() {
   return `
     <div class="today"><div class="cal">${ic('chart', 24)}</div><div class="grow"><div class="muted">${t('sa_mrr')}</div>
       <div class="big">Rs ${money(mrr)}</div><div class="muted">${live.length} ${t('sa_t_shops')} · ${d.users.length} ${t('sa_t_users')}</div></div></div>
-    ${st.pending ? `<button class="btn block" data-sa="stat|pending" style="margin-bottom:12px">${ic('shield', 18)} ${st.pending} ${t('sa_pending_n')}</button>` : ''}
-    ${ann ? `<div class="warn" style="margin:0 0 12px;padding:6px 12px">${ic('bell', 16)} ${esc(ann)}</div>` : ''}
-    <div class="sa-stats">${['active', 'trial', 'expired', 'suspended'].map(k => `<button class="mod" data-sa="stat|${k}"><span class="mi" style="font-size:24px;font-weight:800">${st[k]}</span>${t('sa_st_' + k)}</button>`).join('')}</div>
+    ${st.pending ? `<button class="btn block u-mb-12" data-sa="stat|pending">${ic('shield', 18)} ${st.pending} ${t('sa_pending_n')}</button>` : ''}
+    ${ann ? `<div class="warn u-m-0n0n12 u-p-6n12">${ic('bell', 16)} ${esc(ann)}</div>` : ''}
+    <div class="sa-stats">${['active', 'trial', 'expired', 'suspended'].map(k => `<button class="mod" data-sa="stat|${k}"><span class="mi u-fs-24 u-fw-800">${st[k]}</span>${t('sa_st_' + k)}</button>`).join('')}</div>
+    ${saInactiveCard()}
     <div class="card"><div class="sa-sec">${t('sa_expiring')}</div>
-      ${soon.map(s => `<div class="lrow" style="cursor:pointer" data-sa="shop|${s.id}"><span class="lic">${ic('clock', 16)}</span><div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(saPlanName(saPlan(s.plan_id)))}</div></div>${stChip(s)}<span class="muted">${saExpTxt(s)}</span></div>`).join('') || `<div class="muted">${t('sa_none')}</div>`}</div>
+      ${soon.map(s => `<div class="lrow u-cur-pointer"  data-sa="shop|${s.id}"><span class="lic">${ic('clock', 16)}</span><div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(saPlanName(saPlan(s.plan_id)))}</div></div>${stChip(s)}<span class="muted">${saExpTxt(s)}</span></div>`).join('') || `<div class="muted">${t('sa_none')}</div>`}</div>
     <div class="card"><div class="sa-sec">${t('sa_rev6')}</div>
       <div class="sa-bars">${mo.map(m => `<div><span>${m.total ? Math.round(m.total / 1000) + 'k' : ''}</span><i style="height:${Math.max(3, Math.round(m.total / mx * 78))}%"></i><span>${m.label}</span></div>`).join('')}</div></div>
+    <div class="card"><div class="sa-sec">${t('sa_activity')}</div><div id="sa-actfeed"><div class="muted">…</div></div></div>
     <div class="card"><div class="sa-sec">${t('sa_recent')}</div>${d.audit.slice(0, 5).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>`;
+}
+
+// ───────── Inactive users + activity ─────────
+function saInactiveCard() {
+  const list = actInactive(), N = SAD.settings.inactive_days > 0 ? SAD.settings.inactive_days : 5;
+  return `<div class="card"><div class="sa-sec">${t('sa_inactive_t')} (${N}+)</div>
+    ${list.slice(0, 30).map(u => { const wa = waNumber(u.phone);
+      return `<div class="lrow"><span class="lic">${ic('clock', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted">${t('sa_idle_days').replace('{n}', actDaysIdle(u))}</div></div>
+        <button class="btn secondary sm" type="button" data-sa="nudge|${u.id}">${ic('bell', 16)} ${t('sa_nudge')}</button>${wa ? `<a class="btn secondary sm lnk u-mis-6" target="_blank" rel="noopener"  href="https://wa.me/${wa}?text=${encodeURIComponent(actSweetText(u))}" aria-label="${t('sa_wa')}">${ic('chat', 16)}</a>` : ''}</div>`; }).join('') || `<div class="muted">${t('sa_inactive_none')}</div>`}
+    ${list.length ? `<button class="btn block u-mt-10" type="button" data-sa="nudgeall">${ic('bell', 18)} ${t('sa_nudge_all')} (${list.length})</button>` : ''}</div>`;
+}
+async function saActEvents(userId, limit) {      // live: activity_log table; demo: a believable sample
+  if (SA_LIVE()) {
+    let q = getSb().from('activity_log').select('user_id,user_name,shop_id,kind,name,at').order('at', { ascending: false }).limit(limit);
+    if (userId) q = q.eq('user_id', userId);
+    const { data, error } = await q; if (error) throw error; return data || [];
+  }
+  const names = ['open', 'tab:bill', 'tap:add', 'tap:add', '#btn-checkout', '#btn-complete', '#btn-print', 'tab:sales', 'tap:sale', 'tab:products', 'tab:settings', '#btn-contact'];
+  const us = userId ? SAD.users.filter(u => u.id === userId) : SAD.users.slice(0, 6), out = [];
+  us.forEach((u, i) => names.forEach((n, k) => out.push({ user_id: u.id, user_name: u.name, shop_id: u.shop_id, kind: n.startsWith('tab:') || n === 'open' ? 's' : 'c', name: n, at: new Date(Date.now() - (i * 47 + k * 6) * 6e4).toISOString() })));
+  return out.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
+}
+const saActRowHtml = (e, withUser) => `<div class="lrow"><span class="lic">${ic(e.kind === 's' ? 'home' : 'list', 16)}</span><div class="grow"><b>${esc(actName(e))}</b>${withUser ? `<div class="muted">${esc(e.user_name)} · ${esc(saShopName(e.shop_id))}</div>` : ''}</div><div class="muted u-fs-12">${esc(fmtDate(e.at))}</div></div>`;
+async function saActFeed() {
+  const box = $('sa-actfeed'); if (!box) return;
+  try { const ev = await saActEvents(null, 30); if (!$('sa-actfeed')) return; $('sa-actfeed').innerHTML = ev.map(e => saActRowHtml(e, true)).join('') || `<div class="muted">${t('sa_act_none')}</div>`; }
+  catch (e) { box.innerHTML = `<div class="muted">${t('sa_act_none')}</div>`; }
+}
+async function saUserActivity(id) {
+  const u = SAD.users.find(x => x.id === id); if (!u) return;
+  openModal(`<h2>${t('sa_user_act')}</h2><div class="muted u-mb-8">${esc(u.name)} · ${esc(saShopName(u.shop_id))}</div><div id="sa-uact"><div class="muted">…</div></div><button class="btn secondary block u-mt-12" data-close>${t('close')}</button>`);
+  try { const ev = await saActEvents(SA_LIVE() ? u.user_id : u.id, 80); const b = $('sa-uact'); if (b) b.innerHTML = ev.map(e => saActRowHtml(e, false)).join('') || `<div class="muted">${t('sa_act_none')}</div>`; }
+  catch (e) { const b = $('sa-uact'); if (b) b.innerHTML = `<div class="muted">${t('sa_act_none')}</div>`; }
+}
+async function saNudge(list) {
+  if (!list.length) return;
+  if (!SA_LIVE()) { list.forEach(u => { u.last_nudge_at = new Date().toISOString(); }); saSave(); toast(t('sa_nudge_sent').replace('{n}', list.length), 3500); return; }
+  try {
+    const { data, error } = await getSb().functions.invoke('push-notify', { body: { action: 'user_nudge', user_ids: list.map(u => u.user_id).filter(Boolean) } });
+    if (error || !data || data.error) throw new Error((error && error.message) || (data && data.error) || 'failed');
+    toast(t('sa_nudge_sent').replace('{n}', data.sent || 0), 3500);
+    const np = list.filter(u => (data.no_push || []).includes(u.user_id));
+    if (np.length) openModal(`<h2>${t('sa_nudge_nopush')}</h2>${np.map(u => { const wa = waNumber(u.phone); return `<div class="lrow"><div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div></div>${wa ? `<a class="btn sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(actSweetText(u))}">${ic('chat', 16)} ${t('sa_wa')}</a>` : ''}</div>`; }).join('')}<button class="btn secondary block u-mt-12" data-close>${t('close')}</button>`);
+  } catch (e) { toast(t('sa_nudge_fail') + ': ' + (e.message || e), 5000); }
 }
 
 // ───────── Shops ─────────
 function saShopsView() {
-  return `<div class="row" style="margin-bottom:10px"><input id="sa-q" class="grow" type="search" placeholder="${t('sa_search_shop')}" autocomplete="off" value="${esc(SAS.q)}">
+  return `<div class="row u-mb-10"><input id="sa-q" class="grow" type="search" placeholder="${t('sa_search_shop')}" autocomplete="off" value="${esc(SAS.q)}">
       <button class="btn" data-sa="shopnew" type="button">${ic('plus', 18)} ${t('sa_add_shop')}</button></div>
     <div class="sa-chips">${['all', 'pending', 'active', 'trial', 'expired', 'suspended', 'archived'].map(k => `<button class="sa-chip ${SAS.filter === k ? 'on' : ''}" data-sa="filter|${k}">${t('sa_st_' + k)}</button>`).join('')}</div>
     <div id="sa-list"></div>`;
@@ -332,7 +373,7 @@ function saShopsList() {
   }).sort((a, b) => (a.name < b.name ? -1 : 1));
   box.innerHTML = list.map(s => `<div class="card custcard" data-sa="shop|${s.id}"><div class="avatar sm">${ic('store', 20)}</div>
     <div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(s.city)} · ${esc(s.owner_name)}</div><div class="muted">${esc(saPlanName(saPlan(s.plan_id)))} · ${saExpTxt(s)}</div></div>${stChip(s)}</div>`).join('')
-    || `<div class="muted" style="text-align:center;padding:24px">${t('sa_no_shops')}</div>`;
+    || `<div class="muted u-ta-center u-p-24">${t('sa_no_shops')}</div>`;
 }
 function saShopDetail(id) {
   const d = SAD, s = d.shops.find(x => x.id === id); if (!s) return;
@@ -341,20 +382,20 @@ function saShopDetail(id) {
   openModal(`<div class="row"><h2 class="grow">${esc(s.name)}</h2>${stChip(s)}</div>
     <div class="muted">${esc(s.city)} · ${esc(s.owner_name)}${s.phone ? ` · <a href="tel:${esc(s.phone)}" dir="ltr">${esc(s.phone)}</a>` : ''}</div>
     ${s.suspended && s.suspend_reason ? `<div class="warn">${esc(s.suspend_reason)}</div>` : ''}
-    <div class="balbox"><span>${esc(saPlanName(p))} · ${money(p.price)} ${t('sa_per_month')}</span><b style="font-size:16px">${s.expires_at.slice(0, 10)}<br><small class="muted">${saExpTxt(s)}</small></b></div>
+    <div class="balbox"><span>${esc(saPlanName(p))} · ${money(p.price)} ${t('sa_per_month')}</span><b class="u-fs-16">${s.expires_at.slice(0, 10)}<br><small class="muted">${saExpTxt(s)}</small></b></div>
     <div class="sa-kpis"><div><b>${us.length}</b><span>${t('sa_users_n')}</span></div><div><b>${s.bills_30d}</b><span>${t('sa_bills30')}</span></div><div><b>${money(s.sales_30d)}</b><span>${t('sa_sales30')}</span></div></div>
-    ${s.approval !== 'approved' ? `<div class="warn" style="margin-bottom:8px">${t('sa_st_' + s.approval)}<div class="row" style="margin-top:6px"><button class="btn grow" data-sa="approve|${id}">${ic('shield', 16)} ${t('sa_approve')}</button>${s.approval === 'pending' ? `<button class="btn danger" data-sa="reject|${id}">${t('sa_reject')}</button>` : ''}</div></div>` : ''}
-    ${owner ? '' : `<div class="warn" style="margin-bottom:8px">${t('sa_no_owner')}<br><button class="btn sm" type="button" data-sa="mkowner|${id}" style="margin-top:6px">${ic('key', 16)} ${t('sa_make_owner')}</button></div>`}
-    <div class="row" style="margin-bottom:8px"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button>${owner ? `<button class="btn secondary" data-sa="resetpw|${owner.id}" aria-label="${t('sa_owner_pw')}" title="${t('sa_owner_pw')}">${ic('key', 18)}</button>` : ''}<button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
-    <div class="row" style="margin-bottom:8px">
+    ${s.approval !== 'approved' ? `<div class="warn u-mb-8">${t('sa_st_' + s.approval)}<div class="row u-mt-6"><button class="btn grow" data-sa="approve|${id}">${ic('shield', 16)} ${t('sa_approve')}</button>${s.approval === 'pending' ? `<button class="btn danger" data-sa="reject|${id}">${t('sa_reject')}</button>` : ''}</div></div>` : ''}
+    ${owner ? '' : `<div class="warn u-mb-8">${t('sa_no_owner')}<br><button class="btn sm u-mt-6" type="button" data-sa="mkowner|${id}">${ic('key', 16)} ${t('sa_make_owner')}</button></div>`}
+    <div class="row u-mb-8"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button>${owner ? `<button class="btn secondary" data-sa="resetpw|${owner.id}" aria-label="${t('sa_owner_pw')}" title="${t('sa_owner_pw')}">${ic('key', 18)}</button>` : ''}<button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
+    <div class="row u-mb-8">
       <button class="btn ${s.suspended ? 'secondary' : 'danger'} grow" data-sa="toggle|${id}">${s.suspended ? t('sa_activate') : t('sa_suspend')}</button>
       <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
       ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}<button class="btn secondary" data-sa="shoppush|${id}" aria-label="${t('sa_push_btn')}" title="${t('sa_push_btn')}">${ic('bell', 18)}</button></div>
-    <div class="row" style="margin-top:10px"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
-    ${us.map(u => `<div class="lrow" style="cursor:pointer" data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('')}
-    <div class="sa-sec" style="margin-top:10px">${t('sa_pay_tab')}</div>
+    <div class="row u-mt-10"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
+    ${us.map(u => `<div class="lrow u-cur-pointer"  data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted u-ta-start" dir="ltr">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}">${ic('key', 16)}</button></div>`).join('')}
+    <div class="sa-sec u-mt-10">${t('sa_pay_tab')}</div>
     ${pay.map(saPayRow).join('') || `<div class="muted">${t('sa_no_payments')}</div>`}
-    <div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+    <div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
 }
 function saShopForm(id) {
   const d = SAD, s = id ? d.shops.find(x => x.id === id) : { plan_id: d.settings.default_plan };
@@ -364,9 +405,9 @@ function saShopForm(id) {
     <div class="row"><div class="grow"><label>${t('phone')}</label><input name="phone" inputmode="tel" dir="ltr" required value="${esc(s.phone)}"></div>
       <div class="grow"><label>${t('sa_city')}</label><input name="city" value="${esc(s.city)}"></div></div>
     <label>${t('sa_plan')}</label><select name="plan_id">${d.plans.map(p => `<option value="${p.id}" ${p.id === s.plan_id ? 'selected' : ''}>${esc(saPlanName(p))} — ${money(p.price)}</option>`).join('')}</select>
-    ${id ? '' : `<label><input type="checkbox" name="trial" checked style="width:auto;min-height:0"> ${saFill(t('sa_start_trial'), { n: d.settings.trial_days })}</label>`}
+    ${id ? '' : `<label><input type="checkbox" name="trial" checked class="u-w-auto u-minh-0"> ${saFill(t('sa_start_trial'), { n: d.settings.trial_days })}</label>`}
     <label>${t('note')}</label><input name="notes" value="${esc(s.notes)}">
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
@@ -386,11 +427,11 @@ function saShopForm(id) {
 function saShowCreds(name, phone, pw) {
   const wa = waNumber(phone), msg = saFill(t('sa_wa_creds_msg'), { name, phone, pw });
   openModal(`<h2>${t('sa_creds_title')}</h2><div class="muted">${esc(name)}</div>
-    <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b style="font-size:18px">${esc(phone)}</b></div>
-    <div class="balbox" dir="ltr"><span>${t('sa_temp_pw')}</span><b style="font-size:20px;letter-spacing:1px">${esc(pw)}</b></div>
+    <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b class="u-fs-18">${esc(phone)}</b></div>
+    <div class="balbox" dir="ltr"><span>${t('sa_temp_pw')}</span><b class="u-fs-20 u-ls-1">${esc(pw)}</b></div>
     <div class="row"><button class="btn secondary grow" data-sa="copy|${esc(pw)}">${t('sa_copy')}</button>
       ${wa ? `<a class="btn grow lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)} ${t('sa_send_wa')}</a>` : ''}</div>
-    <div style="margin-top:10px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+    <div class="u-mt-10"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
 }
 
 // ───────── Renew / payment ─────────
@@ -406,8 +447,8 @@ function saRenewForm(id) {
     <label>${t('amount')} (Rs)</label><input name="amount" type="number" inputmode="decimal" step="any" min="1" required>
     <label>${t('sa_method')}</label><select name="method">${opt('cash', t('cash'))}${opt('bank', t('sa_bank'))}${opt('jazz', t('sa_jazz'))}${opt('easy', t('sa_easy'))}</select>
     <label>${t('note')}</label><input name="note">
-    <div class="muted" id="sa-newexp" style="margin-top:8px"></div>
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+    <div class="muted u-mt-8" id="sa-newexp"></div>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   const f = $('sa-form'), calc = (priceChanged) => {
     const shop = d.shops.find(x => x.id === f.shop_id.value), m = +f.months.value, pl = saPlan(f.plan_id.value);
     if (priceChanged !== false) f.amount.value = pl.price * m;
@@ -429,15 +470,15 @@ function saRenewForm(id) {
 
 // ───────── Users ─────────
 function saUsersView() {
-  return `<div class="row" style="margin-bottom:10px"><input id="sa-uq" class="grow" type="search" placeholder="${t('sa_user_search')}" autocomplete="off" value="${esc(SAS.uq)}">
+  return `<div class="row u-mb-10"><input id="sa-uq" class="grow" type="search" placeholder="${t('sa_user_search')}" autocomplete="off" value="${esc(SAS.uq)}">
     <button class="btn" data-sa="useradd|" type="button">${ic('plus', 18)} ${t('sa_add_user')}</button></div><div id="sa-ulist"></div>`;
 }
 function saUsersList() {
   const q = SAS.uq.trim().toLowerCase(), box = $('sa-ulist'); if (!box) return;
   const list = SAD.users.filter(u => !q || [u.name, u.phone, saShopName(u.shop_id)].join(' ').toLowerCase().includes(q)).sort((a, b) => (a.name < b.name ? -1 : 1)).slice(0, 80);
   box.innerHTML = list.map(u => `<div class="card custcard" data-sa="useredit|${u.id}"><div class="avatar sm">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : ic('user', 20)}</div>
-    <div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted" dir="ltr" style="text-align:start">${esc(u.phone)}</div></div>
-    <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}" style="margin-inline-start:6px">${ic('key', 16)}</button></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_no_users')}</div>`;
+    <div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted u-ta-start" dir="ltr">${esc(u.phone)}</div></div>
+    <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}">${ic('key', 16)}</button></div>`).join('') || `<div class="muted u-ta-center u-p-24">${t('sa_no_users')}</div>`;
 }
 const saOnlyOwner = u => u.role === 'owner' && !SAD.users.some(x => x.id !== u.id && x.shop_id === u.shop_id && x.role === 'owner');
 async function saLoadDevices(u) {
@@ -446,11 +487,11 @@ async function saLoadDevices(u) {
     const { data, error } = await getSb().from('user_devices').select('id,device_name,first_seen,last_seen,revoked').eq('user_id', u.user_id).eq('shop_id', u.shop_id).order('last_seen', { ascending: false });
     if (error) throw error;
     const sh = SAD.shops.find(s => s.id === u.shop_id), max = sh ? (saPlan(sh.plan_id).max_devices ?? 1) : 1, used = data.filter(d => !d.revoked).length;
-    box.innerHTML = `<label style="margin-top:14px">${t('sa_devices')} (${used}/${max === 0 ? '∞' : max})</label>`
-      + (data.map(d => `<div class="lrow"><span class="lic">${ic('phone', 16)}</span><div class="grow"><b dir="ltr" style="unicode-bidi:plaintext">${esc(d.device_name || '—')}</b><div class="muted">${esc(fmtDate(d.last_seen))}</div></div>`
-        + (d.revoked ? `<span class="bal zero">${t('sa_dev_blocked')}</span><button class="btn secondary sm" type="button" data-sa="devallow|${u.id}|${d.id}" style="margin-inline-start:6px">${t('sa_dev_allow')}</button>` : `<button class="btn secondary sm" type="button" data-sa="devreset|${u.id}|${d.id}" aria-label="${t('sa_dev_block')}" title="${t('sa_dev_block')}">${ic('trash', 16)}</button>`) + '</div>').join('') || `<div class="muted">${t('sa_dev_none')}</div>`)
-      + `<button class="btn danger block" type="button" data-sa="devreset|${u.id}" style="margin-top:8px">${t('sa_dev_reset')}</button>`;
-  } catch (e) { box.innerHTML = ''; }       // device table not created yet (11_device_limit.sql): show nothing
+    box.innerHTML = `<label class="u-mt-14">${t('sa_devices')} (${used}/${max === 0 ? '∞' : max})</label>`
+      + (data.map(d => `<div class="lrow"><span class="lic">${ic('phone', 16)}</span><div class="grow"><b dir="ltr" class="u-unicode-bidi-plaintext">${esc(d.device_name || '—')}</b><div class="muted">${esc(fmtDate(d.last_seen))}</div></div>`
+        + (d.revoked ? `<span class="bal zero">${t('sa_dev_blocked')}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="devallow|${u.id}|${d.id}">${t('sa_dev_allow')}</button>` : `<button class="btn secondary sm" type="button" data-sa="devreset|${u.id}|${d.id}" aria-label="${t('sa_dev_block')}" title="${t('sa_dev_block')}">${ic('trash', 16)}</button>`) + '</div>').join('') || `<div class="muted">${t('sa_dev_none')}</div>`)
+      + `<button class="btn danger block u-mt-8" type="button" data-sa="devreset|${u.id}">${t('sa_dev_reset')}</button>`;
+  } catch (e) { box.innerHTML = ''; }       // device table not created yet (schema.sql): show nothing
 }
 function saUserForm(id, shopId) {
   const d = SAD, live = d.shops.filter(s => !s.archived);
@@ -460,9 +501,10 @@ function saUserForm(id, shopId) {
     <label>${t('phone')}</label><input name="phone" inputmode="tel" dir="ltr" required value="${esc(u.phone)}">
     <label>${t('sa_pick_shop')}</label><select name="shop_id">${live.map(s => `<option value="${s.id}" ${s.id === u.shop_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     <label>${t('role')}</label><select name="role">${['owner', 'manager', 'cashier'].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${t(r)}</option>`).join('')}</select>
-    <label><input type="checkbox" name="active" ${u.active ? 'checked' : ''} style="width:auto;min-height:0"> ${t('sa_active_acc')}</label>
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div>
-    ${id ? `<div class="row" style="margin-top:8px"><button class="btn secondary grow" type="button" data-sa="resetpw|${id}">${ic('key', 18)} ${t('sa_reset_pw')}</button><button class="btn danger" type="button" data-sa="userdel|${id}">${ic('trash', 18)}</button></div>` : ''}
+    <label><input type="checkbox" name="active" ${u.active ? 'checked' : ''} class="u-w-auto u-minh-0"> ${t('sa_active_acc')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div>
+    ${id ? `<button class="btn secondary block u-mt-8" type="button" data-sa="useract|${id}">${ic('list', 18)} ${t('sa_user_act')}</button>` : ''}
+    ${id ? `<div class="row u-mt-8"><button class="btn secondary grow" type="button" data-sa="resetpw|${id}">${ic('key', 18)} ${t('sa_reset_pw')}</button><button class="btn danger" type="button" data-sa="userdel|${id}">${ic('trash', 18)}</button></div>` : ''}
     ${id && SA_LIVE() && u.user_id ? '<div id="sa-dev"></div>' : ''}</form>`);
   if (id && SA_LIVE() && u.user_id) saLoadDevices(u);
   $('sa-form').onsubmit = ev => {
@@ -487,8 +529,8 @@ function saBillView() {
     return `<div class="card custcard" data-sa="planedit|${p.id}"><div class="avatar sm">${ic('wallet', 20)}</div><div class="grow"><b>${esc(saPlanName(p))}</b>
       <div class="muted">${p.max_users} ${t('sa_t_users')} · ${p.max_products ? p.max_products + ' ' + t('sa_products') : t('sa_unlimited')}</div><div class="muted">${n} ${t('sa_shops_on_plan')}${' · ' + (p.max_devices === 0 ? '∞' : (p.max_devices ?? 1)) + ' ' + t('sa_devices')}${p.barcodes ? ' · ▮▯ ✓' : ''}${p.bill_qr ? ' · QR ✓' : ''}</div></div>
       <span class="bal adv">Rs ${money(p.price)}</span></div>`; }).join('');
-  return seg + `<div class="sa-kpis" style="grid-template-columns:repeat(2,1fr)"><div><b>Rs ${money(mon)}</b><span>${t('sa_col_month')}</span></div><div><b>Rs ${money(tot)}</b><span>${t('sa_col_total')}</span></div></div>
-    <button class="btn block" data-sa="payadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_add_payment')}</button>
+  return seg + `<div class="sa-kpis u-grid-template-columns-repeat-2-1fr"><div><b>Rs ${money(mon)}</b><span>${t('sa_col_month')}</span></div><div><b>Rs ${money(tot)}</b><span>${t('sa_col_total')}</span></div></div>
+    <button class="btn block u-mb-12" data-sa="payadd">${ic('plus', 18)} ${t('sa_add_payment')}</button>
     <div class="card">${d.payments.slice(0, 40).map(saPayRow).join('') || `<div class="muted">${t('sa_no_payments')}</div>`}</div>`;
 }
 function saPlanForm(id) {
@@ -500,11 +542,11 @@ function saPlanForm(id) {
       <div class="grow"><label>${t('sa_max_products')}</label><input name="max_products" type="number" min="0" required value="${p.max_products}"></div></div>
     <div class="row"><div class="grow"><label>${t('sa_max_devices')}</label><input name="max_devices" type="number" min="0" required value="${p.max_devices ?? 1}"></div>
       <div class="grow"><label>${t('sa_max_bills')}</label><input name="max_bills" type="number" min="0" required value="${p.max_bills || 0}"></div></div>
-    <div class="sa-sec" style="margin-top:10px">${t('sa_plan_feats')}</div>
-    ${['customers', 'purchases', 'expenses', 'reports'].map(k => `<label style="margin-top:4px"><input type="checkbox" name="f_${k}" style="width:auto;min-height:0" ${p['f_' + k] !== false ? 'checked' : ''}> ${t('sa_f_' + k)}</label>`).join('')}
-    <label style="margin-top:10px"><input type="checkbox" name="bill_qr" style="width:auto;min-height:0" ${p.bill_qr ? 'checked' : ''}> ${t('sa_bill_qr')}</label>
-    <label style="margin-top:6px"><input type="checkbox" name="barcodes" style="width:auto;min-height:0" ${p.barcodes ? 'checked' : ''}> ${t('sa_barcodes')}</label>
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+    <div class="sa-sec u-mt-10">${t('sa_plan_feats')}</div>
+    ${['customers', 'purchases', 'expenses', 'reports'].map(k => `<label class="u-mt-4"><input type="checkbox" name="f_${k}" class="u-w-auto u-minh-0" ${p['f_' + k] !== false ? 'checked' : ''}> ${t('sa_f_' + k)}</label>`).join('')}
+    <label class="u-mt-10"><input type="checkbox" name="bill_qr" class="u-w-auto u-minh-0" ${p.bill_qr ? 'checked' : ''}> ${t('sa_bill_qr')}</label>
+    <label class="u-mt-6"><input type="checkbox" name="barcodes" class="u-w-auto u-minh-0" ${p.barcodes ? 'checked' : ''}> ${t('sa_barcodes')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target).entries());
@@ -517,10 +559,10 @@ function saPlanForm(id) {
 function saMoreView() {
   const d = SAD, seg = `<div class="seg">${[['ann', 'sa_ann'], ['log', 'sa_log'], ['set', 'sa_settings'], ['help', 'sa_help']].map(([k, l]) => `<button class="${SAS.mseg === k ? 'on' : ''}" data-sa="mseg|${k}">${t(l)}</button>`).join('')}</div>`;
   if (SAS.mseg === 'help') return seg + helpHtml('superadmin') +
-    `<h3 style="margin:16px 4px 8px">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted" style="margin:10px 4px 6px"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
-  if (SAS.mseg === 'ann') return seg + `<button class="btn block" data-sa="annadd" style="margin-bottom:12px">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
-    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="muted">${a.shop_id ? esc(saShopName(a.shop_id)) : t('sa_ann_all')}</div><div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDate(a.at))}</span>
-      <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted" style="text-align:center;padding:24px">${t('sa_ann_none')}</div>`);
+    `<h3 class="u-m-16n4n8">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted u-m-10n4n6"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
+  if (SAS.mseg === 'ann') return seg + `<button class="btn block u-mb-12" data-sa="annadd">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
+    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="muted">${a.shop_id ? esc(saShopName(a.shop_id)) : t('sa_ann_all')}</div><div class="row u-mt-8"><span class="muted grow">${esc(fmtDate(a.at))}</span>
+      <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted u-ta-center u-p-24">${t('sa_ann_none')}</div>`);
   if (SAS.mseg === 'log') return seg + `<div class="card">${d.audit.slice(0, SAS.logN).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>` +
     (d.audit.length > SAS.logN ? `<button class="btn secondary block" data-sa="morelog">${t('more')}</button>` : '');
   return seg + `<div class="card"><label>${t('language')}</label><select id="sa-set-lang"><option value="ur" ${LANG === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${LANG === 'en' ? 'selected' : ''}>English</option></select>
@@ -528,20 +570,24 @@ function saMoreView() {
       <label>${t('sa_set_plan')}</label><select id="sa-set-plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.default_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
       <label>${t('sa_set_phone')}</label><input id="sa-set-phone" inputmode="tel" dir="ltr" value="${esc(d.settings.support_phone)}"></div>
     <div class="card"><div class="sa-sec">${t('sa_sec_signup')}</div>
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sa-set-signup_enabled" style="width:auto;min-height:0" ${d.settings.signup_enabled ? 'checked' : ''}> ${t('sa_set_signup')}</label>
+      <label class="u-d-flex u-gap-8 u-ai-center"><input type="checkbox" id="sa-set-signup_enabled" class="u-w-auto u-minh-0" ${d.settings.signup_enabled ? 'checked' : ''}> ${t('sa_set_signup')}</label>
       ${d.settings.signup_enabled ? '' : `<div class="muted">${t('sa_signup_off_hint')}</div>`}
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sa-set-signup_approval" style="width:auto;min-height:0" ${d.settings.signup_approval ? 'checked' : ''}> ${t('sa_set_signup_appr')}</label>
+      <label class="u-d-flex u-gap-8 u-ai-center"><input type="checkbox" id="sa-set-signup_approval" class="u-w-auto u-minh-0" ${d.settings.signup_approval ? 'checked' : ''}> ${t('sa_set_signup_appr')}</label>
       <label>${t('sa_set_signup_plan')}</label><select id="sa-set-signup_plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.signup_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
       <label>${t('sa_set_demo_days')}</label><input id="sa-set-demo_days" type="number" min="0" inputmode="numeric" value="${d.settings.demo_days}">
       <label>${t('sa_set_daily')}</label><input id="sa-set-signup_daily_limit" type="number" min="0" inputmode="numeric" value="${d.settings.signup_daily_limit}"></div>
-    <button class="btn secondary block" data-sa="export" style="margin-bottom:10px">${ic('download', 18)} ${t('sa_export')}</button>
+    <div class="card"><div class="sa-sec">${t('sa_sec_remind')}</div>
+      <label>${t('sa_set_idle')}</label><input id="sa-set-inactive_days" type="number" min="0" inputmode="numeric" value="${d.settings.inactive_days}">
+      <label>${t('sa_set_idle_msg')}</label><textarea id="sa-set-inactive_message" rows="4" maxlength="300">${esc(d.settings.inactive_message)}</textarea>
+      <div class="muted u-mt-6">${t('sa_idle_hint')}</div></div>
+    <button class="btn secondary block u-mb-10" data-sa="export">${ic('download', 18)} ${t('sa_export')}</button>
     ${SA_LIVE() ? '' : '<button class="btn danger block" data-sa="resetsa">' + t('sa_reset_demo') + '</button>'}`;
 }
 function saAnnForm() {
   openModal(`<h2>${t('sa_ann_add')}</h2><form id="sa-form"><label>${t('sa_ann_text')}</label><input name="text" required maxlength="160">
     <label>${t('sa_ann_to')}</label><select name="shop_id"><option value="">${t('sa_ann_all')}</option>${SAD.shops.filter(s => !s.archived).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>
-    <label><input type="checkbox" name="push" checked style="width:auto;min-height:0"> ${t('sa_ann_push')}</label>
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+    <label><input type="checkbox" name="push" checked class="u-w-auto u-minh-0"> ${t('sa_ann_push')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
   $('sa-form').onsubmit = ev => {
     ev.preventDefault();
     const fd = new FormData(ev.target), txt = fd.get('text').trim(), sid = fd.get('shop_id') || null; if (!txt) return;
@@ -554,6 +600,9 @@ function saAnnForm() {
 
 // ───────── Actions (data-sa="name|arg") ─────────
 const SA_ACT = {
+  nudge: id => { const u = SAD.users.find(x => x.id === id); if (u) saNudge([u]); },
+  nudgeall: () => saNudge(actInactive()),
+  useract: id => saUserActivity(id),
   tab: k => { SAS.tab = k; saRender(); },
   lang: async () => { await saveCfg('lang', LANG === 'ur' ? 'en' : 'ur'); setLang(S.cfg.lang); applyStaticText(); saRender(); },
   exit: () => exitSuperAdmin(),
@@ -632,7 +681,6 @@ const SA_ACT = {
   resetsa: () => { if (!confirm(t('sa_reset_demo_confirm'))) return; SAD = saSeed(); saSave(); toast(t('saved')); saRender(); }
 };
 document.addEventListener('click', ev => {
-  if (ev.target.closest('#btn-sa-open')) return showSuperAdmin();
   const el = ev.target.closest('[data-sa]'); if (!el) return;
   const [a, x, y] = el.dataset.sa.split('|');
   if (SA_ACT[a]) { saLoad(); SA_ACT[a](x, y, el); }
@@ -653,8 +701,31 @@ document.addEventListener('change', async ev => {
   if (id === 'sa-set-signup_enabled') { SAD.settings.signup_enabled = ev.target.checked; saLog('settings', 'signup ' + (ev.target.checked ? 'on' : 'off')); saSave(); toast(t('saved')); return saRender(); }
   if (id === 'sa-set-signup_approval') SAD.settings.signup_approval = ev.target.checked;
   if (id === 'sa-set-signup_plan') SAD.settings.signup_plan = v;
+  if (id === 'sa-set-inactive_days') SAD.settings.inactive_days = Math.max(0, Math.round(num(v)));
+  if (id === 'sa-set-inactive_message') SAD.settings.inactive_message = v.trim().slice(0, 300);
   if (id === 'sa-set-demo_days') SAD.settings.demo_days = Math.max(0, Math.round(num(v)));
   if (id === 'sa-set-signup_daily_limit') SAD.settings.signup_daily_limit = Math.max(0, Math.round(num(v)));
   saLog('settings', id.replace('sa-set-', '')); saSave(); toast(t('saved'));
 });
+// ───────── Super Admin helpers: readable names, "inactive" list, sweet message ─────────
+const ACT_NAMES = {
+  ur: { open: 'ایپ کھولی', 'tab:home': 'ہوم', 'tab:bill': 'بل بنایا', 'tab:products': 'انوینٹری', 'tab:sales': 'فروخت', 'tab:settings': 'مزید / سیٹنگز', 'tab:customers': 'کسٹمرز', 'tab:purchases': 'خریداری', 'tab:expenses': 'اخراجات', 'tab:reports': 'رپورٹس',
+    '#btn-complete': 'بل مکمل کیا', '#btn-checkout': 'چیک آؤٹ', '#btn-print': 'پرنٹ', '#btn-scan': 'بارکوڈ اسکین', '#btn-addprod': 'نئی پروڈکٹ', '#btn-addprod2': 'نئی پروڈکٹ', '#btn-hold': 'بل روکا', '#btn-quote': 'کوٹیشن', '#btn-export': 'ایکسپورٹ',
+    '#btn-sync-now': 'سنک', '#btn-contact': 'رابطہ کھولا', '#btn-help': 'ہدایات', '#btn-about': 'ایپ کے بارے میں', '#btn-logout': 'لاگ آؤٹ', 'tap:sale': 'بل کھولا', 'tap:edit': 'پروڈکٹ ایڈٹ', 'tap:add': 'آئٹم بل میں ڈالا' },
+  en: { open: 'Opened app', 'tab:home': 'Home', 'tab:bill': 'Billing', 'tab:products': 'Inventory', 'tab:sales': 'Sales', 'tab:settings': 'More / Settings', 'tab:customers': 'Customers', 'tab:purchases': 'Purchases', 'tab:expenses': 'Expenses', 'tab:reports': 'Reports',
+    '#btn-complete': 'Completed a bill', '#btn-checkout': 'Checkout', '#btn-print': 'Print', '#btn-scan': 'Barcode scan', '#btn-addprod': 'New product', '#btn-addprod2': 'New product', '#btn-hold': 'Held a bill', '#btn-quote': 'Quotation', '#btn-export': 'Export',
+    '#btn-sync-now': 'Sync', '#btn-contact': 'Opened contact', '#btn-help': 'Help', '#btn-about': 'About', '#btn-logout': 'Log out', 'tap:sale': 'Opened a bill', 'tap:edit': 'Edited a product', 'tap:add': 'Added item to bill' }
+};
+const actName = e => (ACT_NAMES[LANG === 'ur' ? 'ur' : 'en'][e.name] || e.name);
+const actDaysIdle = u => { const t0 = u.last_login || u.created_at; return t0 ? Math.floor((Date.now() - new Date(t0).getTime()) / 864e5) : 0; };
+function actInactive() {                          // active users of live shops who have not opened the app for N days
+  const N = Number(SAD.settings.inactive_days); const days = N > 0 ? N : 5;
+  return SAD.users.filter(u => u.active !== false && u.role !== 'admin' && actDaysIdle(u) >= days
+      && SAD.shops.some(s => s.id === u.shop_id && ['active', 'trial'].includes(shopState(s))))
+    .sort((a, b) => actDaysIdle(b) - actDaysIdle(a));
+}
+const ACT_SWEET = ['السلام علیکم {name}! کچھ دنوں سے آپ کی دکان "{shop}" ایپ میں نظر نہیں آئی، ہمیں آپ کی کمی محسوس ہوئی۔ آج کا ایک بل بنا کر دیکھیں، آپ کا سارا حساب محفوظ اور تیار ہے۔ ہم ہمیشہ آپ کے ساتھ ہیں۔',
+  'Hello {name}! We have missed your shop "{shop}" in the app for a few days. Try making one bill today — all your records are safe and ready. We are always with you.'];
+const actSweetText = u => (SAD.settings.inactive_message || ACT_SWEET[LANG === 'ur' ? 0 : 1]).replaceAll('{name}', u.name || '').replaceAll('{shop}', saShopName(u.shop_id));
+
 if (window.POS_DEMO_RESET) { const r0 = window.POS_DEMO_RESET; window.POS_DEMO_RESET = () => { try { localStorage.removeItem(SAK); } catch (e) {} r0(); }; }

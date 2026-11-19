@@ -4,8 +4,8 @@
 // Placeholders inside the text: {company} {app} {contact} {city} {retain} {trial}.
 
 const LEGAL_CFG = {
-  version: '1.0',                         // change this number when the text changes: every user is asked to accept again
-  date: '2026-11-15',                     // date of this version
+  version: '1.1',                         // change this number when the text changes: every user is asked to accept again
+  date: '2026-11-16',                     // date of this version
   app: 'Universal POS',
   company_ur: '[سروس فراہم کنندہ کا نام]',   // ← your company / your name
   company_en: '[Service Provider Name]',
@@ -109,6 +109,9 @@ const LEGAL_DOCS = [
     ['ہم کون ہیں', 'Who we are',
       '{company} ({app} کا فراہم کنندہ) آپ کی معلومات کا نگران ہے۔ رابطہ: {contact}۔',
       '{company} (the provider of {app}) looks after your information. Contact: {contact}.'],
+    ['ایپ میں سرگرمی کا ریکارڈ', 'App activity record',
+      'سروس بہتر بنانے، سپورٹ دینے اور اگر آپ کچھ دن ایپ نہ کھولیں تو آپ کو یاد دہانی بھیجنے کے لیے ایپ یہ ریکارڈ کرتی ہے کہ آپ نے کون سی اسکرین کھولی اور کون سا بٹن دبایا۔ اس میں بل کی رقم، کسٹمر، پروڈکٹ یا آپ کا لکھا ہوا کوئی متن شامل نہیں ہوتا۔ یہ ریکارڈ 30 دن بعد خود مٹ جاتا ہے۔',
+      'To improve the service, give support and send you a reminder if you have not opened the app for some days, the app records which screens you opened and which buttons you pressed. It does not include bill amounts, customers, products or any text you type. This record is deleted automatically after 30 days.'],
     ['ہم کون سی معلومات لیتے ہیں', 'What we collect',
       'اکاؤنٹ: نام، موبائل نمبر، کردار، اور اگر آپ لگائیں تو پروفائل تصویر۔\nدکان: نام، پتہ، فون، NTN، رسید کا متن اور سیٹنگز۔\nکاروباری ڈیٹا: پروڈکٹس، اسٹاک، فروخت، خریداری، اخراجات، کسٹمرز اور سپلائرز کے نام / نمبر / کھاتہ۔\nتکنیکی: ڈیوائس کی بے ترتیب شناخت، ڈیوائس کا نام (جیسے Android · Chrome)، آخری استعمال کا وقت، سنک کی حالت۔\nہم آپ کی لوکیشن، کانٹیکٹس، مائیکروفون یا ایس ایم ایس نہیں لیتے۔',
       'Account: name, mobile number, role and, if you add one, a profile picture.\nShop: name, address, phone, NTN, receipt text and settings.\nBusiness data: products, stock, sales, purchases, expenses, and customers’ and suppliers’ names / numbers / ledgers.\nTechnical: a random device ID, the device name (e.g. Android · Chrome), last-used time and sync status.\nWe do not collect your location, contacts, microphone or SMS.'],
@@ -192,24 +195,22 @@ function legalDocHtml(doc, L) {
 }
 
 if (typeof I18N !== 'undefined') {
-  Object.assign(I18N.ur, { lg_sec: 'قانونی دستاویزات', lg_accept_title: 'شرائط کی قبولیت', lg_accept_intro: 'ایپ استعمال جاری رکھنے کے لیے براہِ کرم نیچے دی گئی دستاویزات پڑھ کر قبول کریں۔', lg_agree: 'میں نے سروس معاہدہ، شرائط و ضوابط، رازداری اور ادائیگی/واپسی کی پالیسی پڑھ لی ہیں اور قبول کرتا/کرتی ہوں۔', lg_accept_btn: 'قبول کرتا/کرتی ہوں', lg_accepted_on: 'قبول کیا گیا', lg_ver: 'ورژن', lg_logout: 'لاگ آؤٹ' });
-  Object.assign(I18N.en, { lg_sec: 'Legal documents', lg_accept_title: 'Accept the terms', lg_accept_intro: 'To keep using the app, please read and accept the documents below.', lg_agree: 'I have read and accept the Service Agreement, Terms and Conditions, Privacy Policy and Payment / Refund Policy.', lg_accept_btn: 'I accept', lg_accepted_on: 'Accepted', lg_ver: 'Version', lg_logout: 'Log out' });
 }
 
 // ───────── in-app parts: viewer, Settings list, first-login acceptance (the app only; legal.html ignores these) ─────────
 const termsKey = () => 'terms_' + ((S.session && S.session.user_id) || 'demo');
 function legalListHtml(acc) {
   const L = LANG === 'ur' ? 0 : 1;
-  return LEGAL_DOCS.map(d => `<button class="btn secondary block" type="button" data-legal="${d.id}" style="margin-bottom:8px;justify-content:flex-start">${ic(d.icon, 18)} ${lgEsc(d[L === 0 ? 'ur' : 'en'])}</button>`).join('')
+  return LEGAL_DOCS.map(d => `<button class="btn secondary block u-mb-8 u-jc-start" type="button" data-legal="${d.id}">${ic(d.icon, 18)} ${lgEsc(d[L === 0 ? 'ur' : 'en'])}</button>`).join('')
     + `<div class="muted">${t('lg_ver')} ${LEGAL_CFG.version}${acc ? ` · ${t('lg_accepted_on')}: ${lgEsc(fmtDate(acc.at))}` : ''}</div>`;
 }
 function openLegal(id, L) {
   const d = LEGAL_DOCS.find(x => x.id === id); if (!d) return;
   L = L == null ? (LANG === 'ur' ? 0 : 1) : L;
   openModal(`<h2>${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2>
-    <div class="row" style="margin-bottom:8px"><button class="btn secondary sm" type="button" id="lg-lang">${L === 0 ? 'English' : 'اردو'}</button>
-      <button class="btn secondary sm" type="button" id="lg-print" style="margin-inline-start:6px">${L === 0 ? 'پرنٹ / PDF' : 'Print / PDF'}</button></div>
-    ${legalDocHtml(d, L)}<div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+    <div class="row u-mb-8"><button class="btn secondary sm" type="button" id="lg-lang">${L === 0 ? 'English' : 'اردو'}</button>
+      <button class="btn secondary sm u-mis-6" type="button" id="lg-print">${L === 0 ? 'پرنٹ / PDF' : 'Print / PDF'}</button></div>
+    ${legalDocHtml(d, L)}<div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
   $('lg-lang').onclick = () => openLegal(id, 1 - L);
   $('lg-print').onclick = () => doPrint(`<div class="legalprint"><h2>${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2>${legalDocHtml(d, L)}</div>`, 'a4');   // printed from inside the app: no separate page or address
 }
@@ -230,10 +231,10 @@ async function termsGate() {
   let g = $('terms-gate'); if (g) g.remove();
   g = document.createElement('div'); g.id = 'terms-gate';
   g.innerHTML = `<div class="tg-card"><h2>${t('lg_accept_title')}</h2><p>${t('lg_accept_intro')}</p>
-    ${LEGAL_DOCS.map(d => `<button class="btn secondary block" type="button" data-legal="${d.id}" style="margin-bottom:8px;justify-content:flex-start">${ic(d.icon, 18)} ${lgEsc(d[LANG === 'ur' ? 'ur' : 'en'])}</button>`).join('')}
-    <label style="display:flex;gap:10px;align-items:flex-start;margin:14px 0"><input type="checkbox" id="tg-chk" style="width:auto;min-height:0;margin-top:5px"><span>${t('lg_agree')}</span></label>
+    ${LEGAL_DOCS.map(d => `<button class="btn secondary block u-mb-8 u-jc-start" type="button" data-legal="${d.id}">${ic(d.icon, 18)} ${lgEsc(d[LANG === 'ur' ? 'ur' : 'en'])}</button>`).join('')}
+    <label class="u-d-flex u-gap-10 u-ai-start u-m-14n0"><input type="checkbox" id="tg-chk" class="u-w-auto u-minh-0 u-mt-5"><span>${t('lg_agree')}</span></label>
     <button class="btn block" id="tg-ok" disabled>${t('lg_accept_btn')}</button>
-    <button class="btn secondary block" id="tg-out" style="margin-top:8px">${t('lg_logout')}</button></div>`;
+    <button class="btn secondary block u-mt-8" id="tg-out">${t('lg_logout')}</button></div>`;
   document.body.appendChild(g);
   $('tg-chk').onchange = e => { $('tg-ok').disabled = !e.target.checked; };
   $('tg-ok').onclick = async () => {
@@ -250,7 +251,7 @@ document.addEventListener('click', ev => {
 function legalOverlay(id) {
   const d = LEGAL_DOCS.find(x => x.id === id), L = LANG === 'ur' ? 0 : 1; if (!d) return;
   const v = document.createElement('div'); v.className = 'lg-ov';
-  v.innerHTML = `<div class="lg-ov-in"><div class="row"><h2 class="grow" style="margin:0">${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2><button class="btn secondary sm" type="button" data-lgclose>${t('close')}</button></div>${legalDocHtml(d, L)}</div>`;
+  v.innerHTML = `<div class="lg-ov-in"><div class="row"><h2 class="grow u-m-0">${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h2><button class="btn secondary sm" type="button" data-lgclose>${t('close')}</button></div>${legalDocHtml(d, L)}</div>`;
   v.onclick = e => { if (e.target === v || e.target.closest('[data-lgclose]')) v.remove(); };
   document.body.appendChild(v);
 }

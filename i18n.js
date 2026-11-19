@@ -32,7 +32,7 @@ const I18N = {
     saved: 'محفوظ ہو گیا', more: 'مزید', no_products: 'ابھی کوئی پروڈکٹ نہیں', read_only: 'پروڈکٹ صرف مالک یا مینیجر بدل سکتا ہے',
     sales_hist: 'فروخت کی تاریخ', invoice: 'بل نمبر', no_sales: 'ابھی کوئی فروخت نہیں',
     receipt: 'رسید', thanks: 'شکریہ', items: 'آئٹمز',
-    language: 'زبان', theme: 'رنگ', theme_green: 'سبز', theme_orange: 'نارنجی', tax_rate: 'ٹیکس فیصد', cashier_discount: 'کیشیئر رعایت دے سکتا ہے',
+    language: 'زبان', theme: 'رنگ', theme_green: 'سبز', theme_orange: 'نارنجی', theme_royal: 'رائل بلیو', theme_gold: 'چارکول گولڈ', tax_rate: 'ٹیکس فیصد', cashier_discount: 'کیشیئر رعایت دے سکتا ہے',
     cashier_price: 'کیشیئر قیمت بدل سکتا ہے', receipt_header: 'رسید کا اوپر کا متن',
     receipt_footer: 'رسید کا نیچے کا متن', paper_width: 'کاغذ کی چوڑائی',
     export_data: 'ڈیٹا ایکسپورٹ (JSON)', device_id: 'ڈیوائس ID', shop: 'دکان', role: 'کردار',
@@ -88,7 +88,7 @@ const I18N = {
     saved: 'Saved', more: 'More', no_products: 'No products yet', read_only: 'Only the owner or a manager can change products',
     sales_hist: 'Sales history', invoice: 'Invoice', no_sales: 'No sales yet',
     receipt: 'Receipt', thanks: 'Thank you', items: 'Items',
-    language: 'Language', theme: 'Colour', theme_green: 'Green', theme_orange: 'Orange', tax_rate: 'Tax %', cashier_discount: 'Cashier can give discounts',
+    language: 'Language', theme: 'Colour', theme_green: 'Green', theme_orange: 'Orange', theme_royal: 'Royal Blue', theme_gold: 'Charcoal Gold', tax_rate: 'Tax %', cashier_discount: 'Cashier can give discounts',
     cashier_price: 'Cashier can change prices', receipt_header: 'Receipt header text',
     receipt_footer: 'Receipt footer text', paper_width: 'Paper width',
     export_data: 'Export data (JSON)', device_id: 'Device ID', shop: 'Shop', role: 'Role',
@@ -123,9 +123,508 @@ function setLang(l) {
 }
 
 // Removing a cancelled bill from the sales history
-Object.assign(I18N.ur, { del_void_sale: 'منسوخ شدہ بل ہمیشہ کے لیے حذف کریں', del_void_confirm: 'یہ منسوخ شدہ بل فروخت کی تاریخ سے ہٹا دیا جائے گا۔ اسٹاک پہلے ہی واپس آ چکا ہے۔ جاری رکھیں؟' });
-Object.assign(I18N.en, { del_void_sale: 'Delete this cancelled bill', del_void_confirm: 'This cancelled bill will be removed from the sales history. Stock was already put back. Continue?' });
 
 // Login page trust line
-Object.assign(I18N.ur, { login_t1: 'محفوظ ڈیٹا', login_t2: 'آف لائن بھی چلے', login_t3: 'اردو اور English' });
-Object.assign(I18N.en, { login_t1: 'Secure data', login_t2: 'Works offline', login_t3: 'Urdu & English' });
+
+// Settings page (grouped rows)
+
+// Bill style + print colour
+
+// ═════════ All other screen text, one table per area. Format: key: ['اردو', 'English'] ═════════
+// Add new text HERE (or, for Super Admin only, inside superadmin.js) — never with Object.assign in a screen file.
+function addI18N(table) { for (const k in table) { I18N.ur[k] = table[k][0]; I18N.en[k] = table[k][1]; } }
+
+// ── Core additions  (was in i18n.js)
+addI18N({
+  del_void_sale: ['منسوخ شدہ بل ہمیشہ کے لیے حذف کریں', 'Delete this cancelled bill'],
+  del_void_confirm: ['یہ منسوخ شدہ بل فروخت کی تاریخ سے ہٹا دیا جائے گا۔ اسٹاک پہلے ہی واپس آ چکا ہے۔ جاری رکھیں؟', 'This cancelled bill will be removed from the sales history. Stock was already put back. Continue?'],
+  login_t1: ['محفوظ ڈیٹا', 'Secure data'],
+  login_t2: ['آف لائن بھی چلے', 'Works offline'],
+  login_t3: ['اردو اور English', 'Urdu & English'],
+  sg_shop: ['دکان', 'Shop'],
+  set_sec_biz: ['کاروبار کی قسم', 'Business type'],
+  biz_not_set: ['منتخب نہیں', 'Not set'],
+  biz_hint: ['اسی کے مطابق کیٹلاگ کھلتا ہے (پروڈکٹس > کیٹلاگ سے شامل کریں)، اور گارمنٹس میں سائز/رنگ کے ویریئنٹس۔ یہ دکان کے سب فونز پر یکساں رہتی ہے۔', 'The catalog (Products > Add from catalog) follows this, and garments get size/colour variants. It is the same on every phone of the shop.'],
+  biz_saved: ['کاروبار کی قسم محفوظ ہو گئی', 'Business type saved'],
+  sg_app: ['ایپ', 'App'],
+  sg_data: ['ڈیٹا اور سکیورٹی', 'Data and security'],
+  sg_sub: ['سبسکرپشن', 'Subscription'],
+  sg_help: ['مدد', 'Help'],
+  sg_plan: ['پلان', 'Plan'],
+  sg_days_left: ['{n} دن باقی', '{n} days left'],
+  sg_install_sub: ['پوری اسکرین، تیز، اور بغیر ایڈریس بار', 'Full screen, faster, no address bar'],
+  sg_upgrade_note: ['مزید سہولیات اور زیادہ حدوں کے لیے پلان اپ گریڈ کروائیں۔', 'Upgrade your plan for more features and higher limits.'],
+  rc_sign_cust: ['وصول کنندہ کے دستخط', 'Received by'],
+  rc_sign_auth: ['مجاز دستخط', 'Authorised signature'],
+  rs_title: ['بل کا انداز', 'Bill style'],
+  rs_premium: ['پریمیم', 'Premium'],
+  rs_classic: ['کلاسک', 'Classic'],
+  rs_modern: ['ماڈرن', 'Modern'],
+  pc_label: ['رنگین پرنٹ', 'Colour print'],
+  pc_hint: ['ٹِک نہ ہو تو سادہ کالا/سفید پرنٹ نکلے گا (سیاہی کی بچت)۔', 'Unticked = plain black-and-white print (saves ink).']
+});
+
+// ── Catalog, units, variants  (was in catalog.js)
+addI18N({
+  cat_pick_title: ['اپنے کاروبار کی قسم منتخب کریں', 'Choose your business type'],
+  cat_pick_hint: ['اسی کے مطابق مشترکہ کیٹلاگ کھلے گا۔ آپ صرف اپنی مرضی کی چیزیں چن کر شامل کریں گے۔', 'The matching shared catalog will open. You only add the items you actually sell.'],
+  cat_skip: ['ابھی نہیں، خالی شروع کریں', 'Not now, start empty'],
+  cat_from: ['کیٹلاگ سے شامل کریں', 'Add from catalog'],
+  cat_search: ['کیٹلاگ میں تلاش کریں', 'Search the catalog'],
+  cat_all_cats: ['تمام کیٹگریز', 'All categories'],
+  cat_select_shown: ['نظر آنے والے سب چنیں', 'Select all shown'],
+  cat_add_n: ['میری دکان میں شامل کریں', 'Add to my shop'],
+  cat_added_tag: ['شامل ہے', 'Added'],
+  cat_change: ['کاروبار کی قسم بدلیں', 'Change business type'],
+  cat_added_n: ['پروڈکٹس شامل ہو گئیں', 'products added'],
+  cat_nothing_new: ['یہ سب پہلے سے شامل ہیں', 'All of these are already added'],
+  cat_no_price: ['قیمت درج نہیں', 'No price set'],
+  cat_load_fail: ['کیٹلاگ لوڈ نہیں ہوا۔ ایک بار انٹرنیٹ کے ساتھ کوشش کریں', 'Could not load the catalog. Try once with internet.'],
+  cat_showing: ['دکھائے گئے', 'Showing'],
+  cat_empty: ['کوئی آئٹم نہیں ملا', 'No items found'],
+  cat_price_note: ['قیمت اور اسٹاک شامل کرنے کے بعد پروڈکٹس میں بھر لیں۔', 'Set prices and stock in Products after adding.']
+});
+
+// ── Device limit  (was in device.js)
+addI18N({
+  dev_limit: ['یہ آئی ڈی پہلے ہی کسی اور ڈیوائس پر لاگ اِن ہے۔ نئی ڈیوائس پر چلانے کے لیے سپر ایڈمن سے رابطہ کریں۔', 'This ID is already logged in on another device. Contact the admin to move it to a new device.'],
+  dev_revoked: ['یہ ڈیوائس اس آئی ڈی کے لیے بند کر دی گئی ہے۔ سپر ایڈمن سے رابطہ کریں۔', 'This device has been blocked for this ID. Contact the admin.'],
+  dev_login_again: ['سیکیورٹی کے لیے دوبارہ لاگ اِن کریں۔', 'For security, please log in again.']
+});
+
+// ── Profile  (was in profile.js)
+addI18N({
+  pf_title: ['پروفائل تصویر', 'Profile picture'],
+  pf_change: ['تصویر بدلیں', 'Change photo'],
+  pf_remove: ['تصویر ہٹائیں', 'Remove photo'],
+  pf_bad: ['تصویر نہیں کھل سکی', 'Could not read the image'],
+  pf_offline: ['تصویر فون میں محفوظ ہو گئی، انٹرنیٹ آنے پر سرور پر جائے گی', 'Saved on this phone; it will upload when online'],
+  pp_title: ['میرا پروفائل', 'My profile'],
+  pp_personal: ['ذاتی معلومات', 'Personal information'],
+  pp_name: ['پورا نام', 'Full name'],
+  pp_mobile: ['موبائل نمبر (لاگ اِن آئی ڈی)', 'Mobile number (login ID)'],
+  pp_role: ['کردار', 'Role'],
+  pp_lang: ['زبان', 'Language'],
+  pp_business: ['کاروبار', 'Business'],
+  pp_shop: ['دکان کا نام', 'Business name'],
+  pp_addr: ['پتہ', 'Address'],
+  pp_bphone: ['دکان کا فون', 'Business phone'],
+  pp_tax: ['ٹیکس / NTN نمبر', 'Tax / NTN number'],
+  pp_btype: ['کاروبار کی قسم', 'Business type'],
+  pp_none: ['درج نہیں', 'Not set'],
+  pp_edit_shop: ['دکان کی معلومات بدلیں', 'Edit business details'],
+  pp_account: ['اکاؤنٹ اور رکنیت', 'Account & membership'],
+  pp_plan: ['پلان', 'Plan'],
+  pp_status: ['حیثیت', 'Status'],
+  pp_active: ['فعال', 'Active'],
+  pp_trial: ['آزمائشی', 'Trial'],
+  pp_expires: ['میعاد ختم', 'Expires'],
+  pp_since: ['رکن بننے کی تاریخ', 'Member since'],
+  pp_last: ['آخری لاگ اِن', 'Last sign-in'],
+  pp_uid: ['صارف آئی ڈی', 'User ID'],
+  pp_copied: ['کاپی ہو گیا', 'Copied'],
+  pp_ver: ['ایپ ورژن', 'App version'],
+  pp_security: ['سیکیورٹی', 'Security'],
+  pp_pw: ['پاس ورڈ بدلیں', 'Change password'],
+  pp_devices: ['میرے ڈیوائسز', 'My devices'],
+  pp_this: ['یہ فون', 'This device'],
+  pp_blocked: ['بلاک', 'Blocked'],
+  pp_seen: ['آخری بار', 'Last seen'],
+  pp_nodev: ['ڈیوائس کی فہرست آن لائن ہونے پر دکھے گی', 'Device list appears when online'],
+  pp_privacy: ['پرائیویسی اور ڈیٹا', 'Privacy & data'],
+  pp_export: ['میرا ڈیٹا ڈاؤن لوڈ کریں (بیک اپ)', 'Download my data (backup)'],
+  pp_terms: ['شرائط اور پرائیویسی پالیسی', 'Terms & privacy policy'],
+  pp_delete: ['اکاؤنٹ بند کرنے کی درخواست', 'Request account deletion'],
+  pp_delete_note: ['درخواست سپورٹ کو جاتی ہے؛ تصدیق کے بعد آپ کا اکاؤنٹ اور ڈیٹا ہٹا دیا جاتا ہے۔', 'The request goes to support; after verification your account and data are removed.'],
+  pp_save: ['نام محفوظ کریں', 'Save name'],
+  pp_need_online: ['نام بدلنے کے لیے انٹرنیٹ چاہیے', 'Internet is needed to change your name'],
+  pp_name_bad: ['نام کم از کم 2 حروف کا ہو', 'Name must be at least 2 characters'],
+  pp_signout: ['لاگ آؤٹ', 'Sign out'],
+  pp_view: ['پروفائل دیکھیں', 'View profile'],
+  pp_delmsg: ['میں اپنا اکاؤنٹ بند کروانا چاہتا ہوں۔', 'I would like to close my account.'],
+  pp_x: ['', '']
+});
+
+// ── Legal  (was in legal.js)
+addI18N({
+  lg_sec: ['قانونی دستاویزات', 'Legal documents'],
+  lg_accept_title: ['شرائط کی قبولیت', 'Accept the terms'],
+  lg_accept_intro: ['ایپ استعمال جاری رکھنے کے لیے براہِ کرم نیچے دی گئی دستاویزات پڑھ کر قبول کریں۔', 'To keep using the app, please read and accept the documents below.'],
+  lg_agree: ['میں نے سروس معاہدہ، شرائط و ضوابط، رازداری اور ادائیگی/واپسی کی پالیسی پڑھ لی ہیں اور قبول کرتا/کرتی ہوں۔', 'I have read and accept the Service Agreement, Terms and Conditions, Privacy Policy and Payment / Refund Policy.'],
+  lg_accept_btn: ['قبول کرتا/کرتی ہوں', 'I accept'],
+  lg_accepted_on: ['قبول کیا گیا', 'Accepted'],
+  lg_ver: ['ورژن', 'Version'],
+  lg_logout: ['لاگ آؤٹ', 'Log out']
+});
+
+// ── Printing and receipts  (was in print.js)
+addI18N({
+  rc_sale_invoice: ['سیل انوائس', 'SALES INVOICE'],
+  rc_report: ['کاروباری رپورٹ', 'BUSINESS REPORT'],
+  rc_item: ['آئٹم', 'Item'],
+  rc_qty: ['مقدار', 'Qty'],
+  rc_price: ['قیمت', 'Price'],
+  rc_amount: ['رقم', 'Amount'],
+  rc_paid: ['ادا شدہ', 'PAID'],
+  rc_due: ['ادھار باقی', 'BALANCE DUE'],
+  rc_items: ['آئٹمز', 'Items'],
+  rc_saved: ['آپ کی بچت', 'You saved'],
+  rc_wa: ['واٹس ایپ', 'WhatsApp'],
+  rc_powered: ['یونیورسل پی او ایس سے تیار', 'Powered by Universal POS'],
+  rc_period: ['مدت', 'Period'],
+  rc_printed: ['پرنٹ کی تاریخ', 'Printed on'],
+  set_phone: ['دکان کا فون', 'Shop phone'],
+  set_addr: ['دکان کا پتہ', 'Shop address'],
+  set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'],
+  rc_print_report: ['رپورٹ پرنٹ', 'Print report'],
+  rc_verify: ['بل کی تصدیق کے لیے سکین کریں', 'Scan to verify this bill'],
+  rc_verify_note: ['صرف تصدیق کے لیے — ادائیگی کے لیے نہیں', 'For verification only — not for payment'],
+  rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'],
+  rc_code: ['کوڈ', 'Code'],
+  rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کے لیے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
+});
+
+// ── verify.js  (was in verify.js)
+addI18N({
+  vf_btn: ['بل چیک کریں', 'Check a bill'],
+  vf_title: ['بل کی تصدیق', 'Verify a bill'],
+  vf_scan: ['QR سکین کریں', 'Scan QR'],
+  vf_or: ['یا ہاتھ سے لکھیں', 'or type it'],
+  vf_inv: ['بل نمبر', 'Bill number'],
+  vf_code: ['تصدیقی کوڈ (QR کے نیچے)', 'Verification code (under the QR)'],
+  vf_go: ['چیک کریں', 'Check'],
+  vf_paste: ['QR کا پورا متن یہاں چپکائیں (اختیاری)', 'Paste the full QR text here (optional)'],
+  vf_ok: ['✓ یہ بل ہماری دکان کا اصلی بل ہے', '✓ This is a genuine bill of our shop'],
+  vf_ok_sub: ['بل نمبر، تاریخ، رقم اور کوڈ ہمارے ریکارڈ سے مل گئے۔', 'Bill number, date, amount and code match our records.'],
+  vf_nocode: ['بل ہمارے ریکارڈ میں ملا، مگر کوڈ نہیں ملایا گیا', 'Bill found in our records, but the code was not checked'],
+  vf_nocode_sub: ['مکمل تصدیق کے لیے بل پر چھپا کوڈ بھی لکھیں یا QR سکین کریں۔', 'For full verification also enter the printed code or scan the QR.'],
+  vf_bad: ['✗ کوڈ یا رقم ہمارے ریکارڈ سے نہیں ملتی', '✗ Code or amount does not match our records'],
+  vf_bad_sub: ['بل نمبر موجود ہے مگر تفصیل مختلف ہے۔ بل تبدیل شدہ یا جعلی ہو سکتا ہے۔', 'The bill number exists but the details differ. The bill may be altered or fake.'],
+  vf_none: ['✗ یہ بل ہمارے ریکارڈ میں نہیں ملا', '✗ This bill is not in our records'],
+  vf_none_sub: ['ہو سکتا ہے یہ کسی اور دکان کا ہو، یا اس فون پر ابھی سنک نہ ہوا ہو (سنک کر کے دوبارہ دیکھیں)۔', 'It may belong to another shop, or this phone has not synced it yet (sync and try again).'],
+  vf_other: ['✗ یہ بل ہماری دکان کا نہیں', '✗ This bill is not from our shop'],
+  vf_other_sub: ['QR پر کسی اور دکان کا نام ہے۔', 'The QR names a different shop.'],
+  vf_unread: ['QR کا متن سمجھ نہیں آیا', 'Could not read this QR'],
+  vf_unread_sub: ['یہ ہماری ایپ کا تصدیقی QR نہیں لگتا۔', 'This does not look like a verification QR from this app.'],
+  vf_void: ['⚠ یہ بل منسوخ (void) ہو چکا ہے', '⚠ This bill has been voided'],
+  vf_open: ['بل کھولیں', 'Open bill'],
+  vf_again: ['دوبارہ چیک کریں', 'Check another'],
+  vf_note: ['صرف تصدیق کے لیے — اس سے کوئی ادائیگی یا وصولی نہیں ہوتی۔', 'For verification only — no payment or receipt happens here.'],
+  vf_need: ['بل نمبر لکھیں یا QR سکین کریں', 'Enter a bill number or scan the QR'],
+  vf_date: ['تاریخ', 'Date'],
+  vf_total: ['کل رقم', 'Total']
+});
+
+// ── Expenses  (was in expenses.js)
+addI18N({
+  ex_rent: ['کرایہ', 'Rent'],
+  ex_electricity: ['بجلی/گیس/پانی', 'Utilities'],
+  ex_salary: ['تنخواہ', 'Salary'],
+  ex_transport: ['کرایہ بار/ٹرانسپورٹ', 'Transport'],
+  ex_food: ['چائے/کھانا', 'Tea & food'],
+  ex_repair: ['مرمت', 'Repairs'],
+  ex_other: ['متفرق', 'Other'],
+  ex_add: ['نیا خرچہ', 'New expense'],
+  ex_edit: ['خرچے میں ترمیم', 'Edit expense'],
+  ex_cat: ['قسم', 'Category'],
+  ex_date: ['تاریخ', 'Date'],
+  ex_none: ['اس مدت میں کوئی خرچہ نہیں', 'No expenses in this period'],
+  ex_total: ['کل اخراجات', 'Total expenses'],
+  ex_confirm_del: ['یہ خرچہ حذف کریں؟', 'Delete this expense?'],
+  p_today: ['آج', 'Today'],
+  p_week: ['7 دن', '7 days'],
+  p_month: ['اس ماہ', 'This month']
+});
+
+// ── Reports  (was in reports.js)
+addI18N({
+  rp_sales: ['کل فروخت', 'Total sales'],
+  rp_cogs: ['مال کی لاگت', 'Cost of goods sold'],
+  rp_gross: ['مجموعی منافع', 'Gross profit'],
+  rp_net: ['خالص منافع', 'Net profit'],
+  rp_credit_given: ['ادھار دیا گیا', 'Credit given'],
+  rp_received: ['ادھار کی وصولی', 'Credit received'],
+  rp_purchases: ['خریداری', 'Purchases'],
+  rp_daily: ['روزانہ فروخت', 'Daily sales'],
+  rp_top: ['زیادہ بکنے والی پروڈکٹس', 'Top products'],
+  rp_low: ['کم اسٹاک', 'Low stock'],
+  rp_none: ['اس مدت میں کوئی فروخت نہیں', 'No sales in this period'],
+  rp_loss: ['نقصان', 'Loss'],
+  rp_refunds: ['واپسی میں لوٹائی گئی رقم', 'Cash refunded to customers'],
+  rp_sold: ['بکا', 'sold'],
+  rp_cash_note: ['منافع = فروخت − مال کی لاگت − اخراجات', 'Profit = sales − cost of goods − expenses']
+});
+
+// ── Help  (was in help.js)
+addI18N({
+  help_title: ['ہدایات', 'How to use'],
+  help_btn: ['ہدایات / مدد', 'Help / Guide'],
+  sa_help: ['ہدایات', 'Help']
+});
+
+// ── Sign-up  (was in signup.js)
+addI18N({
+  su_link: ['نیا اکاؤنٹ بنائیں (مفت ڈیمو)', 'Create account (free demo)'],
+  su_title: ['مفت ڈیمو اکاؤنٹ', 'Free demo account'],
+  su_intro: ['{days} دن کا ڈیمو، محدود سہولیات کے ساتھ: {limits}', '{days}-day demo with limited features: {limits}'],
+  su_lim_products: ['{n} پروڈکٹس', '{n} products'],
+  su_lim_bills: ['{n} بل', '{n} bills'],
+  su_lim_users: ['{n} صارف', '{n} user(s)'],
+  su_approval_note: ['آپ کی درخواست سپر ایڈمن کی منظوری کے بعد فعال ہوگی۔', 'Your request becomes active after the Super Admin approves it.'],
+  su_shop: ['دکان کا نام', 'Shop name'],
+  su_owner: ['آپ کا نام', 'Your name'],
+  su_city: ['شہر (اختیاری)', 'City (optional)'],
+  su_pass: ['پاس ورڈ (کم از کم 6 حروف)', 'Password (at least 6 characters)'],
+  su_terms: ['میں <a role="button" tabindex="0" class="lnkbtn" data-lgov="terms">شرائط اور پرائیویسی پالیسی</a> سے متفق ہوں', 'I agree to the <a role="button" tabindex="0" class="lnkbtn" data-lgov="terms">terms and privacy policy</a>'],
+  su_submit: ['اکاؤنٹ بنائیں', 'Create account'],
+  su_need_terms: ['آگے بڑھنے کے لیے شرائط سے اتفاق ضروری ہے', 'You must agree to the terms to continue'],
+  su_need_online: ['نیا اکاؤنٹ بنانے کے لیے انٹرنیٹ ضروری ہے', 'Internet is required to create an account'],
+  su_pw_short: ['پاس ورڈ کم از کم 6 حروف کا ہو', 'Password must be at least 6 characters'],
+  su_done_title: ['اکاؤنٹ بن گیا', 'Account created'],
+  su_done_pending: ['شکریہ! آپ کی درخواست مل گئی۔ سپر ایڈمن کی منظوری کے بعد اسی نمبر اور پاس ورڈ سے لاگ اِن کر سکیں گے۔', 'Thank you! Your request was received. After the Super Admin approves it you can log in with the same number and password.'],
+  su_done_ok: ['آپ کا ڈیمو اکاؤنٹ تیار ہے، لاگ اِن ہو رہا ہے…', 'Your demo account is ready, logging in…'],
+  su_err_signup_closed: ['نئے اکاؤنٹ بنانا فی الحال بند ہے', 'New sign-ups are closed right now'],
+  su_err_phone_exists: ['یہ نمبر پہلے سے رجسٹر ہے، لاگ اِن کریں', 'This number is already registered, please log in'],
+  su_err_too_many: ['بہت زیادہ کوششیں۔ کچھ دیر بعد دوبارہ کوشش کریں', 'Too many attempts. Please try again later'],
+  su_err_signup_busy: ['آج کی نئی درخواستوں کی حد پوری ہو گئی، کل کوشش کریں', 'Today\'s sign-up limit is reached, please try tomorrow'],
+  su_err_bad_input: ['دکان اور اپنا نام لکھیں', 'Please enter the shop and your name'],
+  su_err_bad_phone: ['درست موبائل نمبر لکھیں (مثلاً 03001234567)', 'Enter a valid mobile number (e.g. 03001234567)'],
+  su_pending_login: ['آپ کی درخواست ابھی منظوری کے انتظار میں ہے', 'Your request is still waiting for approval'],
+  su_rejected_login: ['آپ کی درخواست منظور نہیں ہوئی۔ سپورٹ سے رابطہ کریں', 'Your request was not approved. Please contact support'],
+  su_demo: ['ڈیمو', 'Demo'],
+  su_days_left: ['{n} دن باقی', '{n} days left'],
+  su_usage: ['پروڈکٹس {p} · بل {b}', 'Products {p} · Bills {b}'],
+  su_upgrade: ['مکمل ورژن کے لیے سپورٹ سے رابطہ کریں', 'Contact support for the full version'],
+  lim_products: ['ڈیمو پلان میں پروڈکٹس کی حد ({n}) پوری ہو گئی۔ مزید کے لیے پلان اپ گریڈ کروائیں', 'Product limit ({n}) of your plan is reached. Upgrade the plan for more'],
+  lim_bills: ['ڈیمو پلان میں بلوں کی حد ({n}) پوری ہو گئی۔ مزید کے لیے پلان اپ گریڈ کروائیں', 'Bill limit ({n}) of your plan is reached. Upgrade the plan for more'],
+  feat_off: ['یہ سہولت آپ کے پلان میں شامل نہیں۔ اپ گریڈ کے لیے سپورٹ سے رابطہ کریں', 'This feature is not in your plan. Contact support to upgrade']
+});
+
+// ── Support / contact  (was in contact.js)
+addI18N({
+  ct_btn: ['ہم سے رابطہ کریں', 'Contact us'],
+  ct_title: ['ہم سے رابطہ', 'Contact us'],
+  ct_sub: ['اپنا مسئلہ، تجویز یا سوال لکھیں۔ سپورٹ ٹیم کا جواب یہیں نظر آئے گا۔', 'Write your problem, suggestion or question. The support reply appears right here.'],
+  ct_new: ['نیا پیغام', 'New message'],
+  ct_mine: ['میرے پیغامات', 'My messages'],
+  ct_none: ['ابھی کوئی پیغام نہیں', 'No messages yet'],
+  ct_kind: ['پیغام کی قسم', 'Type'],
+  ct_topic: ['موضوع', 'Topic'],
+  ct_subject: ['عنوان (مختصر)', 'Subject (short)'],
+  ct_body: ['پیغام', 'Message'],
+  ct_k_problem: ['مسئلہ', 'Problem'],
+  ct_k_suggestion: ['تجویز', 'Suggestion'],
+  ct_k_question: ['سوال', 'Question'],
+  ct_t_billing: ['بلنگ / رسید', 'Billing / receipt'],
+  ct_t_stock: ['پروڈکٹس / اسٹاک', 'Products / stock'],
+  ct_t_sync: ['سنک / ڈیٹا', 'Sync / data'],
+  ct_t_login: ['لاگ اِن / پاس ورڈ', 'Login / password'],
+  ct_t_subscription: ['سبسکرپشن / پلان', 'Subscription / plan'],
+  ct_t_other: ['دیگر', 'Other'],
+  ct_ph_problem: ['کیا مسئلہ ہوا؟ کون سی اسکرین پر؟ کب سے؟ (جتنی تفصیل ہو اتنا جلد حل ہوگا)', 'What went wrong? On which screen? Since when? (More detail = faster fix)'],
+  ct_ph_suggestion: ['آپ ایپ میں کیا نیا چاہتے ہیں اور اس سے آپ کو کیا فائدہ ہوگا؟', 'What would you like added, and how would it help you?'],
+  ct_ph_question: ['اپنا سوال لکھیں', 'Write your question'],
+  ct_send: ['بھیجیں', 'Send'],
+  ct_sent: ['پیغام بھیج دیا گیا', 'Message sent'],
+  ct_back: ['واپس', 'Back'],
+  ct_reply_ph: ['جواب لکھیں…', 'Write a reply…'],
+  ct_reply: ['جواب بھیجیں', 'Send reply'],
+  ct_s_open: ['زیرِ غور', 'Open'],
+  ct_s_answered: ['جواب آ گیا', 'Answered'],
+  ct_s_closed: ['بند', 'Closed'],
+  ct_f_open: ['نئے / کھلے', 'New / open'],
+  ct_f_answered: ['جواب دیے گئے', 'Answered'],
+  ct_f_closed: ['بند', 'Closed'],
+  ct_new_reply_b: ['نیا جواب', 'New reply'],
+  ct_new_b: ['نیا', 'New'],
+  ct_support: ['سپورٹ ٹیم', 'Support team'],
+  ct_you: ['آپ', 'You'],
+  ct_need_online: ['پیغام بھیجنے اور دیکھنے کے لیے انٹرنیٹ ضروری ہے', 'Internet is needed to send and read messages'],
+  ct_not_ready: ['یہ سہولت ابھی سرور پر آن نہیں۔ ایڈمن supabase/schema.sql چلائے۔', 'This feature is not set up on the server yet. The admin must run supabase/schema.sql.'],
+  ct_rate: ['بہت زیادہ پیغام بھیجے گئے، ایک گھنٹے بعد دوبارہ کوشش کریں', 'Too many messages, please try again in an hour'],
+  ct_short: ['عنوان اور پیغام مکمل لکھیں', 'Please fill in the subject and the message'],
+  ct_new_reply: ['سپورٹ کی طرف سے نیا جواب آیا ہے', 'You have a new reply from support'],
+  ct_direct: ['براہِ راست رابطہ', 'Direct contact'],
+  ct_call: ['کال', 'Call'],
+  ct_wa: ['واٹس ایپ', 'WhatsApp'],
+  ct_closed_note: ['یہ پیغام بند ہے۔ جواب لکھیں گے تو دوبارہ کھل جائے گا۔', 'This message is closed. Replying reopens it.'],
+  ct_sent_to: ['آپ کا پیغام سپورٹ ٹیم کو مل گیا ہے', 'Your message reached the support team'],
+  sa_t_inbox: ['پیغامات', 'Inbox'],
+  ct_a_none: ['کوئی پیغام نہیں', 'No messages'],
+  ct_a_from: ['بھیجنے والا', 'From'],
+  ct_a_send_close: ['جواب دے کر بند کریں', 'Reply and close'],
+  ct_a_close: ['بند کریں', 'Close'],
+  ct_a_reopen: ['دوبارہ کھولیں', 'Reopen'],
+  ct_a_info: ['ڈیوائس / ایپ کی معلومات', 'Device / app info'],
+  ct_a_quick: ['فوری جوابات', 'Quick replies'],
+  ct_q1: ['آپ کا پیغام مل گیا ہے، ہم جلد دیکھ کر جواب دیتے ہیں۔', 'We received your message and will get back to you shortly.'],
+  ct_q2: ['براہِ کرم ایپ بند کر کے دوبارہ کھولیں، انٹرنیٹ آن کر کے "ابھی سنک کریں" دبائیں اور بتائیں مسئلہ ختم ہوا یا نہیں۔', 'Please close and reopen the app, go online, tap "Sync now" and tell us whether the problem is gone.'],
+  ct_q3: ['تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', 'Thanks for the suggestion! We are adding it to our list.'],
+  ct_q4: ['مسئلے کی اسکرین کی تصویر پیغام کے ساتھ لگا دیں ("اسکرین شاٹ لگائیں" بٹن) یا واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
+  fp_tab: ['پاس ورڈ درخواستیں', 'Password requests'],
+  fp_done: ['مکمل', 'Done'],
+  fp_mark: ['مکمل کریں', 'Mark done'],
+  fp_none: ['کوئی درخواست نہیں', 'No requests'],
+  fp_nouser: ['یہ نمبر کسی صارف کا نہیں ملا', 'No user has this number'],
+  ct_notif_on: ['نوٹیفکیشن آن کریں', 'Enable notifications'],
+  ct_notif_note: ['نوٹیفکیشن تب آتا ہے جب ایپ کھلی ہو (یا فون کے پس منظر میں چل رہی ہو)۔ ایپ مکمل بند ہو تو اگلی بار کھولنے پر بیج نظر آئے گا۔', 'Notifications arrive while the app is open (or running in the background). If the app is fully closed, the badge shows next time you open it.'],
+  ct_notif_title: ['نیا صارف پیغام', 'New user message'],
+  ct_notif_n: ['{n} نئے پیغام', '{n} new message(s)'],
+  ct_a_note_help: ['صارف کا فون / واٹس ایپ', 'User phone / WhatsApp'],
+  ct_attach: ['اسکرین شاٹ لگائیں', 'Attach screenshot'],
+  ct_shot: ['اسکرین شاٹ', 'Screenshot'],
+  ct_img_remove: ['تصویر ہٹائیں', 'Remove picture'],
+  ct_img_bad: ['یہ تصویر نہیں کھل سکی، کوئی اور تصویر چنیں', 'That picture could not be opened, choose another'],
+  ct_img_big: ['تصویر بہت بڑی ہے، کوئی اور چنیں', 'The picture is too large, choose another'],
+  ct_attach_hint: ['مسئلے کی اسکرین کی تصویر ساتھ لگا دیں تاکہ جلد حل ہو', 'Attach a screenshot of the problem so we can fix it sooner']
+});
+
+// ── Push notifications  (was in push.js)
+addI18N({
+  pu_title: ['فوری نوٹیفکیشن', 'Instant notifications'],
+  pu_on: ['نوٹیفکیشن آن کریں', 'Turn notifications on'],
+  pu_off: ['نوٹیفکیشن بند کریں', 'Turn notifications off'],
+  pu_state_on: ['آن ہیں: ایپ بند ہو تب بھی اطلاع آئے گی', 'On: you get alerts even when the app is closed'],
+  pu_state_off: ['بند ہیں', 'Off'],
+  pu_state_blocked: ['براؤزر میں بلاک ہیں: براؤزر کی سائٹ سیٹنگ سے اجازت دیں', 'Blocked in the browser: allow them in the site settings'],
+  pu_unsupported: ['اس براؤزر/فون پر پش نوٹیفکیشن دستیاب نہیں۔ iPhone پر پہلے "Add to Home Screen" کریں۔', 'Push is not available on this browser/phone. On iPhone first use "Add to Home Screen".'],
+  pu_nokey: ['پش کی سیٹنگ مکمل نہیں (VAPID key)', 'Push is not configured (VAPID key)'],
+  pu_done: ['نوٹیفکیشن آن ہو گئے', 'Notifications are on'],
+  pu_done_off: ['نوٹیفکیشن بند ہو گئے', 'Notifications are off'],
+  pu_denied: ['اجازت نہیں ملی', 'Permission was not granted'],
+  pu_demo: ['ڈیمو میں پش دستیاب نہیں (سرور درکار)', 'Push is not available in the demo (needs the server)']
+});
+
+// ── Held bills / billing extras  (was in billing-plus.js)
+addI18N({
+  hold_btn: ['روک لیں', 'Hold'],
+  quote_btn: ['کوٹیشن', 'Quotation'],
+  hold_list: ['روکے ہوئے بل / کوٹیشنز', 'Held bills / quotations'],
+  hold_tab: ['روکے ہوئے بل', 'Held bills'],
+  quote_tab: ['کوٹیشنز', 'Quotations'],
+  hold_done: ['بل روک لیا گیا', 'Bill put on hold'],
+  hold_del: ['یہ حذف کریں؟', 'Delete this?'],
+  hold_none: ['کوئی روکا ہوا بل نہیں', 'No held bills'],
+  quote_none: ['کوئی کوٹیشن نہیں', 'No quotations'],
+  hold_resume: ['بل جاری کریں', 'Resume'],
+  hold_swapped: ['موجودہ بل بھی روک لیا گیا ہے', 'The current bill was put on hold too'],
+  qt_title: ['کوٹیشن', 'QUOTATION'],
+  qt_no: ['کوٹیشن نمبر', 'Quotation no.'],
+  qt_valid: ['قابلِ قبول تاریخ', 'Valid until'],
+  qt_note: ['یہ کوٹیشن ہے، بل نہیں۔ قیمتیں تبدیل ہو سکتی ہیں اور اسٹاک محفوظ نہیں کیا گیا۔', 'This is a quotation, not a bill. Prices may change and stock is not reserved.'],
+  qt_to_bill: ['بل میں لوڈ کریں', 'Load into bill'],
+  qt_saved: ['کوٹیشن محفوظ ہو گئی', 'Quotation saved'],
+  qt_days: ['درست رہنے کے دن', 'Valid for (days)'],
+  oos_none: ['اسٹاک ختم ہے، بل میں شامل نہیں ہو سکتا', 'Out of stock: cannot be added to the bill'],
+  oos_short: ['اسٹاک صرف {n} ہے', 'Only {n} in stock'],
+  oos_block: ['اسٹاک کافی نہیں: {names}', 'Not enough stock: {names}'],
+  price_missing: ['قیمت درج نہیں: {names}۔ پروڈکٹ میں قیمت لکھیں', 'Price missing: {names}. Set the product price'],
+  set_oversell: ['اسٹاک سے زیادہ بیچنے کی اجازت', 'Allow selling more than the stock'],
+  amt_label: ['رقم سے (Rs)', 'By amount (Rs)'],
+  gram_label: ['گرام', 'Grams'],
+  edit_btn: ['بل میں ترمیم', 'Edit this bill'],
+  edit_banner: ['ترمیم: بل {no}۔ محفوظ کرنے پر پرانا بل منسوخ ہو کر نیا بل بنے گا (اسٹاک خود ٹھیک ہو جائے گا)', 'Editing bill {no}. Saving cancels the old bill and creates the corrected one (stock is fixed automatically)'],
+  edit_cancel: ['ترمیم منسوخ', 'Cancel editing'],
+  edit_has_return: ['جس بل میں واپسی ہو چکی اس میں ترمیم نہیں ہو سکتی', 'A bill that already has a return cannot be edited'],
+  edit_replace_cart: ['موجودہ بل ہٹ جائے گا۔ جاری رکھیں؟', 'The current bill will be discarded. Continue?'],
+  edit_void_reason: ['ترمیم شدہ بل: {no}', 'Replaced by corrected bill {no}'],
+  edit_of: ['پرانا بل', 'Corrects bill'],
+  edit_done: ['بل درست ہو گیا', 'Bill corrected'],
+  disc_pct: ['رعایت %', 'Discount %'],
+  pm_label: ['ادائیگی کا طریقہ', 'Payment method'],
+  pm_split: ['تقسیم', 'Split'],
+  pm_single: ['ایک طریقہ', 'Single method'],
+  pm_cash: ['نقد', 'Cash'],
+  pm_jazz: ['جاز کیش', 'JazzCash'],
+  pm_easy: ['ایزی پیسہ', 'Easypaisa'],
+  pm_card: ['کارڈ', 'Card'],
+  pm_bank: ['بینک ٹرانسفر', 'Bank transfer'],
+  pm_mixed: ['ملی جلی', 'Mixed'],
+  rp_by_method: ['ادائیگی کے طریقے', 'By payment method'],
+  rc_pay_by: ['ادائیگی', 'Payment']
+});
+
+// ── Home extras (install, about, reminders)  (was in extras.js)
+addI18N({
+  ab_btn: ['ایپ کے بارے میں', 'About the app'],
+  ab_title: ['ایپ کے بارے میں', 'About'],
+  ab_version: ['ورژن', 'Version'],
+  ab_plan: ['پلان', 'Plan'],
+  ab_expiry: ['سبسکرپشن کی میعاد', 'Subscription expires'],
+  ab_device: ['ڈیوائس', 'Device'],
+  ab_support: ['سپورٹ', 'Support'],
+  ab_status: ['حالت', 'Status'],
+  ab_pending: ['زیرِ انتظار ریکارڈ', 'Pending records'],
+  ab_mode: ['انسٹال شدہ ایپ', 'Installed app'],
+  ab_browser: ['براؤزر', 'Browser'],
+  ab_demo: ['ڈیمو', 'Demo'],
+  in_btn: ['ایپ انسٹال کریں', 'Install the app'],
+  in_ios: ['iPhone/iPad: Safari میں نیچے "Share" دبائیں، پھر "Add to Home Screen" چنیں۔', 'iPhone/iPad: in Safari tap "Share", then "Add to Home Screen".'],
+  in_other: ['براؤزر کے مینو (⋮) میں "Install app" یا "Add to Home screen" چنیں۔', 'In the browser menu (⋮) choose "Install app" or "Add to Home screen".'],
+  in_done: ['ایپ انسٹال ہو گئی', 'App installed'],
+  ex_notif_sec: ['نوٹیفکیشن', 'Notifications'],
+  ex_alerts: ['کم اسٹاک اور سبسکرپشن کی یاد دہانی', 'Low-stock and subscription reminders'],
+  ex_alerts_note: ['اطلاعات ایپ کھولنے یا بل بنانے پر چیک ہوتی ہیں؛ دن میں ایک بار فون پر نوٹیفکیشن آتا ہے (اگر اوپر نوٹیفکیشن آن ہوں)۔', 'Checked when you open the app or make a bill; one phone notification per day (if notifications are on above).'],
+  ex_low_title: ['کم اسٹاک', 'Low stock'],
+  ex_low_body: ['{n} پروڈکٹس کا اسٹاک کم ہے: {names}', '{n} product(s) are low on stock: {names}'],
+  ex_exp_title: ['سبسکرپشن', 'Subscription'],
+  ex_exp_body: ['آپ کی سبسکرپشن {n} دن میں ختم ہو رہی ہے۔ تجدید کے لیے رابطہ کریں۔', 'Your subscription ends in {n} day(s). Contact us to renew.'],
+  ex_exp_today: ['آپ کی سبسکرپشن آج ختم ہو رہی ہے۔ تجدید کے لیے رابطہ کریں۔', 'Your subscription ends today. Contact us to renew.'],
+  ex_see: ['دیکھیں', 'View'],
+  ex_contact: ['رابطہ کریں', 'Contact'],
+  fp_link: ['پاس ورڈ بھول گئے؟', 'Forgot password?'],
+  fp_title: ['پاس ورڈ بھول گئے', 'Forgot password'],
+  fp_info: ['اپنا موبائل نمبر لکھیں۔ سپورٹ ٹیم آپ کو اسی نمبر پر کال/واٹس ایپ کر کے شناخت کرے گی اور نیا عارضی پاس ورڈ دے گی۔', 'Enter your mobile number. The support team will call/WhatsApp that number to confirm it is you and give you a new temporary password.'],
+  fp_name: ['آپ کا نام (اختیاری)', 'Your name (optional)'],
+  fp_send: ['درخواست بھیجیں', 'Send request'],
+  fp_ok: ['درخواست مل گئی ہے۔ سپورٹ جلد آپ سے رابطہ کرے گی۔ تب تک اسی نمبر پر فون کھلا رکھیں۔', 'Request received. Support will contact you soon. Keep your phone reachable on that number.'],
+  fp_busy: ['ابھی بہت درخواستیں ہیں، کچھ دیر بعد کوشش کریں', 'Too many requests right now, try again later'],
+  br_btn: ['سب کو یاد دہانی', 'Remind all'],
+  br_title: ['ادھار کی یاد دہانی', 'Udhaar reminders'],
+  br_min: ['کم از کم رقم (Rs)', 'Minimum amount (Rs)'],
+  br_hint: ['واٹس ایپ پر ہر کسٹمر کے لیے الگ بٹن دبائیں؛ پیغام تیار ہو کر کھلے گا، آپ "بھیجیں" دبائیں۔ (واٹس ایپ خود بخود سب کو نہیں بھیجنے دیتا۔)', 'Tap the WhatsApp button for each customer; the message opens ready and you press Send. (WhatsApp does not allow sending to everyone automatically.)'],
+  br_last: ['آخری یاد دہانی', 'Last reminded'],
+  br_none: ['کوئی کسٹمر نہیں', 'No customers'],
+  br_nophone: ['{n} کسٹمرز کا نمبر نہیں لکھا', '{n} customer(s) have no phone number'],
+  br_sent: ['بھیج دیا', 'Sent']
+});
+
+// ── Barcode scanner  (was in scanner.js)
+addI18N({
+  scan_perm: ['کیمرے کی اجازت نہیں ملی۔ براؤزر کی سیٹنگ میں اس سائٹ کے لیے کیمرا Allow کریں۔', 'Camera permission was denied. Allow the camera for this site in the browser settings.'],
+  scan_lib: ['سکینر لوڈ نہیں ہو سکا۔ پہلی بار انٹرنیٹ چاہیے۔ فی الحال نام یا بارکوڈ ہاتھ سے لکھ کر سرچ کریں۔', 'The scanner could not load. It needs internet the first time. For now type the name or barcode in the search box.']
+});
+
+// ── Quick bill  (was in quickbill.js)
+addI18N({
+  qb_title: ['فوری بل', 'Quick Bill'],
+  qb_tab_items: ['پروڈکٹ بل', 'Product bill'],
+  qb_amount: ['رقم (Rs)', 'Amount (Rs)'],
+  qb_name: ['تفصیل (اختیاری)', 'Description (optional)'],
+  qb_item: ['فوری آئٹم', 'Quick item'],
+  qb_add: ['لائن شامل کریں', 'Add line'],
+  qb_hint: ['اسٹاک پر کوئی اثر نہیں پڑتا۔ بل مکمل ادائیگی کے ساتھ بنتا ہے۔', 'Stock is not affected. The bill is saved as fully paid.'],
+  qb_need_amount: ['پہلے رقم لکھیں', 'Enter an amount first'],
+  qb_big: ['رقم بہت زیادہ ہے', 'Amount is too large'],
+  qb_busy: ['پہلے موجودہ بل کی درستی مکمل یا منسوخ کریں', 'Finish or cancel the bill you are correcting first']
+});
+
+// ── Products  (was in products.js)
+addI18N({
+  units_extra: ['دیگر اکائیاں (اختیاری)', 'Other units (optional)'],
+  units_hint: ['نام، بنیادی اکائی کی تعداد، قیمت (خالی ہو تو خود حساب ہوگا)', 'Name, how many base units it holds, price (blank = calculated)'],
+  unit_name_ph: ['مثلاً کارٹن', 'e.g. carton'],
+  unit_factor_ph: ['تعداد', 'Qty'],
+  variants_title: ['سائز / رنگ کے ویریئنٹس (اختیاری)', 'Size / colour variants (optional)'],
+  variants_hint: ['کاما سے الگ کر کے لکھیں۔ ہر سائز/رنگ کی الگ پروڈکٹ بنے گی، اسٹاک الگ ہوگا۔ بارکوڈ بعد میں ہر ایک میں ڈالیں۔', 'Separate with commas. Each size/colour becomes its own product with its own stock. Add barcodes later.'],
+  variants_sizes_ph: ['سائز: S, M, L', 'Sizes: S, M, L'],
+  variants_colors_ph: ['رنگ: سفید, کالا', 'Colours: White, Black'],
+  variants_too_many: ['ایک ساتھ 40 سے زیادہ ویریئنٹس نہیں بن سکتے', 'Cannot create more than 40 variants at once']
+});
+
+// ── Super Admin entry points — used by screens that load for EVERYONE (settings row, login message), so they must NOT live in superadmin.js
+// (superadmin.js is fetched only for platform admins; its own screen text stays inside that file)
+addI18N({
+  sa_open: ['سپر ایڈمن پینل کھولیں', 'Open Super Admin panel'],
+  sa_shop_blocked: ['آپ کی دکان معطل، آرکائیو یا میعاد ختم ہے۔ رابطہ کریں۔', 'Your shop is suspended, archived or expired. Please contact support.']
+});

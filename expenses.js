@@ -1,14 +1,5 @@
 // Universal POS — Expenses. Loaded before reports.js and app.js. Uses the existing `expenses` table (no schema change).
 const EXP_CATS = ['rent', 'electricity', 'salary', 'transport', 'food', 'repair', 'other'];
-const EXT = {
-  ex_rent: ['کرایہ', 'Rent'], ex_electricity: ['بجلی/گیس/پانی', 'Utilities'], ex_salary: ['تنخواہ', 'Salary'], ex_transport: ['کرایہ بار/ٹرانسپورٹ', 'Transport'],
-  ex_food: ['چائے/کھانا', 'Tea & food'], ex_repair: ['مرمت', 'Repairs'], ex_other: ['متفرق', 'Other'],
-  ex_add: ['نیا خرچہ', 'New expense'], ex_edit: ['خرچے میں ترمیم', 'Edit expense'], ex_cat: ['قسم', 'Category'], ex_date: ['تاریخ', 'Date'], ex_none: ['اس مدت میں کوئی خرچہ نہیں', 'No expenses in this period'],
-  ex_total: ['کل اخراجات', 'Total expenses'], ex_confirm_del: ['یہ خرچہ حذف کریں؟', 'Delete this expense?'],
-  p_today: ['آج', 'Today'], p_week: ['7 دن', '7 days'], p_month: ['اس ماہ', 'This month']
-};
-for (const k in EXT) { I18N.ur[k] = EXT[k][0]; I18N.en[k] = EXT[k][1]; }
-
 const canReports = () => S.session && ['owner', 'manager'].includes(S.session.role);
 
 // today | week (last 7 days) | month (since the 1st) -> ISO range [from, to)
@@ -58,10 +49,10 @@ async function renderExpenses() {
     <div class="seg">${['today', 'week', 'month'].map(p => `<button class="${S.exPeriod === p ? 'on' : ''}" data-ex="per|${p}">${t('p_' + p)}</button>`).join('')}</div>
     <div class="udcard pay"><div class="udic">${ic('wallet', 26)}</div><div class="grow"><div class="muted">${t('ex_total')}</div><div class="big">Rs ${money(total)}</div>
       <div class="muted">${Object.keys(by).sort((a, b) => by[b] - by[a]).slice(0, 3).map(k => `${t('ex_' + k)} ${money(by[k])}`).join(' · ')}</div></div></div>
-    <button class="btn block" data-ex="add" style="margin-bottom:12px">${ic('plus', 18)} ${t('ex_add')}</button>
+    <button class="btn block u-mb-12" data-ex="add">${ic('plus', 18)} ${t('ex_add')}</button>
     ${list.map(e => `<div class="card custcard" data-ex="edit|${e.id}"><div class="avatar sm">${ic('wallet', 20)}</div>
       <div class="grow"><b>${t('ex_' + e.category)}</b><div class="muted">${esc(e.note || '')}${e.note ? ' · ' : ''}${esc(fmtDate(e.created_at))}</div></div><span class="bal owe">Rs ${money(e.amount)}</span></div>`).join('')
-      || `<div class="muted" style="text-align:center;padding:24px">${t('ex_none')}</div>`}`;
+      || `<div class="muted u-ta-center u-p-24">${t('ex_none')}</div>`}`;
 }
 async function openExpenseForm(id) {
   const e = id ? await db.expenses.get(id) : { category: 'other' };
@@ -71,7 +62,7 @@ async function openExpenseForm(id) {
     <label>${t('amount')}</label><input name="amount" type="number" inputmode="decimal" step="any" min="0" required value="${e.amount ?? ''}">
     <label>${t('note')}</label><input name="note" value="${esc(e.note)}">
     ${id ? '' : `<label>${t('ex_date')}</label><input name="date" type="date" max="${today}" value="${today}">`}
-    <div class="row" style="margin-top:14px"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button>
       ${id ? `<button class="btn danger" type="button" data-ex="del|${id}">${ic('trash', 18)}</button>` : ''}</div></form>`);
   $('ex-form').onsubmit = async ev => {
     ev.preventDefault();

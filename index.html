@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="boot" style="padding:40px;text-align:center;color:#0f7b3f">…</div>
+  <div id="boot" class="u-p-40 u-ta-center u-c-0f7b3f">…</div>
 
   <section id="login" hidden>
     <div class="lgbrand">
@@ -66,7 +66,7 @@
       <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
       <label id="lbl-pass" for="in-pass"></label>
       <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="" aria-pressed="false"></button></div>
-      <div style="margin-top:16px"><button class="btn block" id="btn-login" type="submit"></button></div>
+      <div class="u-mt-16"><button class="btn block" id="btn-login" type="submit"></button></div>
       <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
     </form>
     <div class="lglinks"><a role="button" tabindex="0" id="lnk-forgot"></a><a role="button" tabindex="0" id="lnk-signup" hidden></a><button type="button" id="login-lang" class="lglang"></button></div>
@@ -117,6 +117,7 @@
   <script src="config.js"></script>
   <script src="icons.js"></script>
   <script src="i18n.js"></script>
+  <script src="events.js"></script>
   <script src="db.js"></script>
   <script src="catalog.js"></script>
   <script src="sync.js"></script>
@@ -131,14 +132,20 @@
   <script src="expenses.js"></script>
   <script src="reports.js"></script>
   <script src="help.js"></script>
-  <script src="superadmin.js"></script>
+  <script src="activity.js"></script>
+  <script src="lazy.js"></script>
+  <script src="announce.js"></script>
   <script src="signup.js"></script>
   <script src="contact.js"></script>
   <script src="push.js"></script>
-  <script src="billing-plus.js"></script>
-  <script src="extras.js"></script>
   <script src="scanner.js"></script>
-  <script src="quickbill.js"></script>
+  <script src="products.js"></script>
+  <script src="sales.js"></script>
+  <script src="billing/hold-quotes.js"></script>
+  <script src="billing/quick.js"></script>
+  <script src="billing/cart.js"></script>
+  <script src="home.js"></script>
+  <script src="settings.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

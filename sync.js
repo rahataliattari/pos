@@ -200,7 +200,7 @@ async function syncPull(sb, shop) {
 // ───────── Receipt settings (shop-wide: header, footer, phone, address, NTN) ─────────
 // These live on the server (shops.settings) so every phone of the shop shows the same receipt text.
 // Paper size, language and theme stay per-device on purpose (they depend on the phone/printer).
-const SHOP_CFG_KEYS = ['receipt_header', 'receipt_footer', 'shop_phone', 'shop_address', 'shop_tax_no', 'business_type'];
+const SHOP_CFG_KEYS = ['receipt_style', 'receipt_header', 'receipt_footer', 'shop_phone', 'shop_address', 'shop_tax_no', 'business_type'];
 const shopCfgCanWrite = () => S.session && ['owner', 'manager'].includes(S.session.role);
 
 async function shopCfgChanged() {                  // call after the user edits one of SHOP_CFG_KEYS
@@ -306,19 +306,8 @@ function syncExpiryText() {
   return d === null ? '' : d < 0 ? t('sub_expired') : t('sub_days').replace('{n}', d);
 }
 
-// ───────── Conflict review ─────────
-const conflictLabel = r => r ? (r.name || r.invoice_no || r.product_name || (r.id || '').slice(0, 8)) : '—';
-async function syncShowConflicts() {
-  const list = await db.conflicts.filter(c => !c.resolved_at).toArray();
-  openModal(`<h3>${t('sync_conflicts')}</h3>` + (list.length ? list.map(c => `
-    <div class="card" style="margin-bottom:8px"><b>${esc(c.table_name)}</b> · ${esc(conflictLabel(c.server || c.local))}
-      <div class="muted">${t('cf_local')}: ${esc(fmtDate(c.local && c.local.updated_at))} · ${t('cf_server')}: ${esc(fmtDate(c.server && c.server.updated_at))}</div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn secondary grow" data-cf-ok="${c.id}">${t('cf_keep_server')}</button>
-        <button class="btn grow" data-cf-local="${c.id}">${t('cf_keep_local')}</button>
-      </div></div>`).join('') : `<div class="muted">${t('cf_none')}</div>`) +
-    `<button class="btn secondary block" id="btn-close-modal">${t('cancel')}</button>`);
-}
+// ───────── Conflict resolution (data part) ─────────
+// The review screen itself (conflictLabel, syncShowConflicts) is UI and lives in settings.js, next to the "Review conflicts" button.
 async function syncResolveChoice(id, keepLocal) {
   const c = await db.conflicts.get(id); if (!c) return;
   await db.transaction('rw', db.table(c.table_name), db.conflicts, db.sync_queue, async () => {

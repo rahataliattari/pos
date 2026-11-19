@@ -152,7 +152,7 @@ const HELP = {
       ['قانونی دستاویزات: legal.js کے اوپر LEGAL_CFG میں اپنا نام، رابطہ اور شہر لکھیں اور کسی وکیل سے دستاویزات جانچ لیں۔ متن بدلیں تو version بڑھائیں، سب صارفین سے دوبارہ قبولیت مانگی جائے گی۔ قبولیت کا ریکارڈ Supabase کے terms_acceptance ٹیبل میں ملتا ہے۔ دستخط والی کاپی کے لیے legal.html کھولیں اور "Print / PDF" دبائیں۔', 'Legal documents: put your name, contact and city in LEGAL_CFG at the top of legal.js and have a lawyer review the texts. Raise the version when the text changes and everyone is asked to accept again. Acceptances are stored in the Supabase terms_acceptance table. For a signable copy open legal.html and press "Print / PDF".'],
       ['بل چیک کریں: فروخت ٹیب میں "بل چیک کریں" سے آپ دیکھ سکتے ہیں کہ کوئی بل دکان کے ریکارڈ میں ہے یا نہیں۔', 'Check a bill: the "Check a bill" button in the Sales tab shows whether a bill is in the shop’s records.'],
       ['نیا Super Admin بنانے کے لیے Supabase میں اس کا لاگ اِن یوزر بنا کر platform_admins ٹیبل میں اس کی user_id ڈالیں۔', 'To add another Super Admin, create their login in Supabase and insert their user_id into the platform_admins table.'],
-      ['"column ... does not exist" جیسی غلطی آئے تو 01_superadmin.sql دوبارہ چلائیں۔ نیا صارف نہ بنے تو Supabase میں Edge Function "admin-users" چیک کریں۔', 'On a "column ... does not exist" error rerun 01_superadmin.sql. If new users cannot be created, check the "admin-users" Edge Function in Supabase.']
+      ['"column ... does not exist" جیسی غلطی آئے تو supabase/schema.sql دوبارہ چلائیں (محفوظ ہے)۔ نیا صارف نہ بنے تو Supabase میں Edge Function "admin-users" چیک کریں۔', 'On a "column ... does not exist" error rerun supabase/schema.sql (it is safe to re-run). If new users cannot be created, check the "admin-users" Edge Function in Supabase.']
     ]]
   ],
   owner: [
@@ -190,8 +190,6 @@ const HELP = {
   ]
 };
 
-Object.assign(I18N.ur, { help_title: 'ہدایات', help_btn: 'ہدایات / مدد', sa_help: 'ہدایات' });
-Object.assign(I18N.en, { help_title: 'How to use', help_btn: 'Help / Guide', sa_help: 'Help' });
 Object.assign(ICONS, { help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 015 .3c0 1.7-2.5 2-2.5 3.7"/><path d="M12 17h.01"/>' });
 
 function helpHtml(role, openFirst = true) {
@@ -200,8 +198,8 @@ function helpHtml(role, openFirst = true) {
 }
 function openHelp(role) {
   role = HELP[role] ? role : 'cashier';
-  openModal(`<h2>${t('help_title')}</h2><div class="muted" style="margin-bottom:8px">${HELP_ROLE_LABEL[role][LANG === 'ur' ? 0 : 1]}</div>${helpHtml(role)}
-    <div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+  openModal(`<h2>${t('help_title')}</h2><div class="muted u-mb-8">${HELP_ROLE_LABEL[role][LANG === 'ur' ? 0 : 1]}</div>${helpHtml(role)}
+    <div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
 }
 document.addEventListener('click', ev => {
   // `S` is a top-level const in app.js (not a window property), so check it with typeof, not window.S.

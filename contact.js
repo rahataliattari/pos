@@ -1,48 +1,8 @@
 // Universal POS — "Contact us" (Stage 8): shop users send structured messages (problem / suggestion / question) from inside the app;
 // Super Admin gets a badge + notification in the new Inbox tab and replies there; the user sees the reply in the same thread.
-// Loaded AFTER superadmin.js and BEFORE app.js. Live build -> Supabase (supabase/15_support_tickets.sql). Demo build -> localStorage.
+// Loaded AFTER superadmin.js and BEFORE app.js. Live build -> Supabase (supabase/schema.sql (support_tickets)). Demo build -> localStorage.
 // Messages need internet (no offline queue on purpose: a half-sent support message is worse than a clear "try again").
 
-const CTT = {
-  ct_btn: ['ہم سے رابطہ کریں', 'Contact us'], ct_title: ['ہم سے رابطہ', 'Contact us'],
-  ct_sub: ['اپنا مسئلہ، تجویز یا سوال لکھیں۔ سپورٹ ٹیم کا جواب یہیں نظر آئے گا۔', 'Write your problem, suggestion or question. The support reply appears right here.'],
-  ct_new: ['نیا پیغام', 'New message'], ct_mine: ['میرے پیغامات', 'My messages'], ct_none: ['ابھی کوئی پیغام نہیں', 'No messages yet'],
-  ct_kind: ['پیغام کی قسم', 'Type'], ct_topic: ['موضوع', 'Topic'], ct_subject: ['عنوان (مختصر)', 'Subject (short)'], ct_body: ['پیغام', 'Message'],
-  ct_k_problem: ['مسئلہ', 'Problem'], ct_k_suggestion: ['تجویز', 'Suggestion'], ct_k_question: ['سوال', 'Question'],
-  ct_t_billing: ['بلنگ / رسید', 'Billing / receipt'], ct_t_stock: ['پروڈکٹس / اسٹاک', 'Products / stock'], ct_t_sync: ['سنک / ڈیٹا', 'Sync / data'],
-  ct_t_login: ['لاگ اِن / پاس ورڈ', 'Login / password'], ct_t_subscription: ['سبسکرپشن / پلان', 'Subscription / plan'], ct_t_other: ['دیگر', 'Other'],
-  ct_ph_problem: ['کیا مسئلہ ہوا؟ کون سی اسکرین پر؟ کب سے؟ (جتنی تفصیل ہو اتنا جلد حل ہوگا)', 'What went wrong? On which screen? Since when? (More detail = faster fix)'],
-  ct_ph_suggestion: ['آپ ایپ میں کیا نیا چاہتے ہیں اور اس سے آپ کو کیا فائدہ ہوگا؟', 'What would you like added, and how would it help you?'],
-  ct_ph_question: ['اپنا سوال لکھیں', 'Write your question'],
-  ct_send: ['بھیجیں', 'Send'], ct_sent: ['پیغام بھیج دیا گیا', 'Message sent'], ct_back: ['واپس', 'Back'],
-  ct_reply_ph: ['جواب لکھیں…', 'Write a reply…'], ct_reply: ['جواب بھیجیں', 'Send reply'],
-  ct_s_open: ['زیرِ غور', 'Open'], ct_s_answered: ['جواب آ گیا', 'Answered'], ct_s_closed: ['بند', 'Closed'],
-  ct_f_open: ['نئے / کھلے', 'New / open'], ct_f_answered: ['جواب دیے گئے', 'Answered'], ct_f_closed: ['بند', 'Closed'],
-  ct_new_reply_b: ['نیا جواب', 'New reply'], ct_new_b: ['نیا', 'New'], ct_support: ['سپورٹ ٹیم', 'Support team'], ct_you: ['آپ', 'You'],
-  ct_need_online: ['پیغام بھیجنے اور دیکھنے کے لیے انٹرنیٹ ضروری ہے', 'Internet is needed to send and read messages'],
-  ct_not_ready: ['یہ سہولت ابھی سرور پر آن نہیں۔ ایڈمن 15_support_tickets.sql چلائے۔', 'This feature is not set up on the server yet. The admin must run 15_support_tickets.sql.'],
-  ct_rate: ['بہت زیادہ پیغام بھیجے گئے، ایک گھنٹے بعد دوبارہ کوشش کریں', 'Too many messages, please try again in an hour'],
-  ct_short: ['عنوان اور پیغام مکمل لکھیں', 'Please fill in the subject and the message'],
-  ct_new_reply: ['سپورٹ کی طرف سے نیا جواب آیا ہے', 'You have a new reply from support'],
-  ct_direct: ['براہِ راست رابطہ', 'Direct contact'], ct_call: ['کال', 'Call'], ct_wa: ['واٹس ایپ', 'WhatsApp'],
-  ct_closed_note: ['یہ پیغام بند ہے۔ جواب لکھیں گے تو دوبارہ کھل جائے گا۔', 'This message is closed. Replying reopens it.'],
-  ct_sent_to: ['آپ کا پیغام سپورٹ ٹیم کو مل گیا ہے', 'Your message reached the support team'],
-  // Super Admin
-  sa_t_inbox: ['پیغامات', 'Inbox'], ct_a_none: ['کوئی پیغام نہیں', 'No messages'], ct_a_from: ['بھیجنے والا', 'From'],
-  ct_a_send_close: ['جواب دے کر بند کریں', 'Reply and close'], ct_a_close: ['بند کریں', 'Close'], ct_a_reopen: ['دوبارہ کھولیں', 'Reopen'],
-  ct_a_info: ['ڈیوائس / ایپ کی معلومات', 'Device / app info'], ct_a_quick: ['فوری جوابات', 'Quick replies'],
-  ct_q1: ['آپ کا پیغام مل گیا ہے، ہم جلد دیکھ کر جواب دیتے ہیں۔', 'We received your message and will get back to you shortly.'],
-  ct_q2: ['براہِ کرم ایپ بند کر کے دوبارہ کھولیں، انٹرنیٹ آن کر کے "ابھی سنک کریں" دبائیں اور بتائیں مسئلہ ختم ہوا یا نہیں۔', 'Please close and reopen the app, go online, tap "Sync now" and tell us whether the problem is gone.'],
-  ct_q3: ['تجویز کا شکریہ! ہم اسے اپنی فہرست میں شامل کر رہے ہیں۔', 'Thanks for the suggestion! We are adding it to our list.'],
-  ct_q4: ['مسئلے کی اسکرین کی تصویر پیغام کے ساتھ لگا دیں ("اسکرین شاٹ لگائیں" بٹن) یا واٹس ایپ پر بھیج دیں تاکہ ہم جلد حل کر سکیں۔', 'Please send a screenshot of the problem on WhatsApp so we can fix it quickly.'],
-  fp_tab: ['پاس ورڈ درخواستیں', 'Password requests'], fp_done: ['مکمل', 'Done'], fp_mark: ['مکمل کریں', 'Mark done'], fp_none: ['کوئی درخواست نہیں', 'No requests'],
-  fp_nouser: ['یہ نمبر کسی صارف کا نہیں ملا', 'No user has this number'],
-  ct_notif_on: ['نوٹیفکیشن آن کریں', 'Enable notifications'],
-  ct_notif_note: ['نوٹیفکیشن تب آتا ہے جب ایپ کھلی ہو (یا فون کے پس منظر میں چل رہی ہو)۔ ایپ مکمل بند ہو تو اگلی بار کھولنے پر بیج نظر آئے گا۔', 'Notifications arrive while the app is open (or running in the background). If the app is fully closed, the badge shows next time you open it.'],
-  ct_notif_title: ['نیا صارف پیغام', 'New user message'], ct_notif_n: ['{n} نئے پیغام', '{n} new message(s)'],
-  ct_a_note_help: ['صارف کا فون / واٹس ایپ', 'User phone / WhatsApp']
-};
-for (const k in CTT) { I18N.ur[k] = CTT[k][0]; I18N.en[k] = CTT[k][1]; }
 Object.assign(ICONS, {
   send: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>'
 });
@@ -198,7 +158,7 @@ async function ctPoll() {
     CT.userN = c.user; CT.resetN = c.reset || 0; CT.adminN = c.admin + CT.resetN; ctPaint();
     if (ctIsAdmin() && pa !== null && c.admin > pa) ctNotifyAdmin(c.admin - pa);
     if (pu !== undefined && c.user > pu && CT.view !== 'thread') toast(t('ct_new_reply'), 5000);
-    if (SAS.tab === 'inbox' && !$('sa').hidden && $('ct-alist') && $('modal').hidden) ctAdminList();
+    if (typeof SAS !== 'undefined' && typeof ctAdminList === 'function' && SAS.tab === 'inbox' && !$('sa').hidden && $('ct-alist') && $('modal').hidden) ctAdminList();
     if ($('ct-body') && CT.view === 'list') ctRenderList(true);
   } catch (e) {}
 }
@@ -219,8 +179,6 @@ const ctStatusChip = s => `<span class="st ${s === 'open' ? 'trial' : s === 'clo
 const ctMsgHtml = (m, me) => `<div class="ct-msg ${m.sender === me ? 'me' : 'them'}"><small>${esc(m.sender === 'admin' ? (me === 'admin' ? t('ct_you') : t('ct_support')) : (m.sender_name || ''))} · ${esc(fmtDate(m.at))}</small>${esc(m.body)}${/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.image || '') ? `<img class="ct-img" src="${m.image}" alt="${esc(t('ct_shot'))}">` : ''}</div>`;
 
 // ───────── Screenshot attach (shrunk to a small JPEG in the browser; the server re-checks type and size) ─────────
-Object.assign(I18N.ur, { ct_attach: 'اسکرین شاٹ لگائیں', ct_shot: 'اسکرین شاٹ', ct_img_remove: 'تصویر ہٹائیں', ct_img_bad: 'یہ تصویر نہیں کھل سکی، کوئی اور تصویر چنیں', ct_img_big: 'تصویر بہت بڑی ہے، کوئی اور چنیں', ct_attach_hint: 'مسئلے کی اسکرین کی تصویر ساتھ لگا دیں تاکہ جلد حل ہو' });
-Object.assign(I18N.en, { ct_attach: 'Attach screenshot', ct_shot: 'Screenshot', ct_img_remove: 'Remove picture', ct_img_bad: 'That picture could not be opened, choose another', ct_img_big: 'The picture is too large, choose another', ct_attach_hint: 'Attach a screenshot of the problem so we can fix it sooner' });
 if (typeof ICONS !== 'undefined') ICONS.image = '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M4 18l5-5 4 4 3-3 4 4"/>';
 const CT_IMG_MAX = 380000;               // characters of the data URL (about 280 KB of picture)
 CT.img = { new: null, reply: null };
@@ -267,19 +225,19 @@ async function ctOpen() {
 async function ctRenderList(quiet) {
   const box = $('ct-body'); if (!box) return;
   CT.view = 'list';
-  if (!quiet) box.innerHTML = `<h2>${t('ct_title')}</h2><div class="muted" style="padding:20px;text-align:center">…</div>`;
-  let list; try { list = await ctApi.mine(); } catch (e) { box.innerHTML = `<h2>${t('ct_title')}</h2><div class="warn">${esc(e.message)}</div><div style="margin-top:12px"><button class="btn secondary block" data-close>${t('close')}</button></div>`; return; }
+  if (!quiet) box.innerHTML = `<h2>${t('ct_title')}</h2><div class="muted u-p-20 u-ta-center">…</div>`;
+  let list; try { list = await ctApi.mine(); } catch (e) { box.innerHTML = `<h2>${t('ct_title')}</h2><div class="warn">${esc(e.message)}</div><div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`; return; }
   if (!$('ct-body') || CT.view !== 'list') return;
   CT.mine = list;
   const ph = await ctApi.phone(), wa = waNumber(ph);
   box.innerHTML = `<h2>${t('ct_title')}</h2><div class="muted">${t('ct_sub')}</div>
-    <button class="btn block" data-ct="new" style="margin:12px 0">${ic('send', 18)} ${t('ct_new')}</button>
-    ${ph ? `<div class="row" style="margin-bottom:12px"><a class="btn secondary grow lnk" href="tel:${esc(ph)}">${ic('phone', 18)} ${t('ct_call')}</a>${wa ? `<a class="btn secondary grow lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 18)} ${t('ct_wa')}</a>` : ''}</div>` : ''}
+    <button class="btn block u-m-12n0" data-ct="new">${ic('send', 18)} ${t('ct_new')}</button>
+    ${ph ? `<div class="row u-mb-12"><a class="btn secondary grow lnk" href="tel:${esc(ph)}">${ic('phone', 18)} ${t('ct_call')}</a>${wa ? `<a class="btn secondary grow lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 18)} ${t('ct_wa')}</a>` : ''}</div>` : ''}
     <div class="sa-sec">${t('ct_mine')}</div>
     ${list.map(x => `<div class="card custcard" data-ct="open|${x.id}"><div class="avatar sm">${ic('chat', 20)}</div>
-      <div class="grow"><b>${esc(x.subject)}</b><div class="muted">${esc(fmtDate(x.updated_at))}</div><div style="margin-top:2px">${ctKindChip(x.kind)} ${ctStatusChip(x.status)}</div></div>
-      ${x.user_unread ? `<span class="bal owe">${t('ct_new_reply_b')}</span>` : ''}</div>`).join('') || `<div class="muted" style="text-align:center;padding:18px">${t('ct_none')}</div>`}
-    <div style="margin-top:8px"><button class="btn secondary block" data-close>${t('close')}</button></div>`;
+      <div class="grow"><b>${esc(x.subject)}</b><div class="muted">${esc(fmtDate(x.updated_at))}</div><div class="u-mt-2">${ctKindChip(x.kind)} ${ctStatusChip(x.status)}</div></div>
+      ${x.user_unread ? `<span class="bal owe">${t('ct_new_reply_b')}</span>` : ''}</div>`).join('') || `<div class="muted u-ta-center u-p-18">${t('ct_none')}</div>`}
+    <div class="u-mt-8"><button class="btn secondary block" data-close>${t('close')}</button></div>`;
 }
 function ctNewForm() {
   const box = $('ct-body'); if (!box) return; CT.view = 'new'; CT.img.new = null;
@@ -288,23 +246,23 @@ function ctNewForm() {
       <div class="grow"><label>${t('ct_topic')}</label><select name="topic">${CT_TOPICS.map(k => `<option value="${k}" ${k === 'other' ? 'selected' : ''}>${t('ct_t_' + k)}</option>`).join('')}</select></div></div>
     <label>${t('ct_subject')}</label><input name="subject" maxlength="80" required>
     <label>${t('ct_body')}</label><textarea name="body" id="ct-text" rows="5" maxlength="1000" required placeholder="${esc(t('ct_ph_problem'))}"></textarea>
-    <div class="muted" id="ct-cnt" dir="ltr" style="text-align:end">0 / 1000</div>
-    <div class="muted" style="font-size:12px">${t('ct_attach_hint')}</div>${ctPickerHtml('new')}
-    <div class="row" style="margin-top:12px"><button class="btn grow" type="submit" id="ct-submit">${ic('send', 18)} ${t('ct_send')}</button><button class="btn secondary" type="button" data-ct="list">${t('cancel')}</button></div></form>`;
+    <div class="muted u-ta-end" id="ct-cnt" dir="ltr">0 / 1000</div>
+    <div class="muted u-fs-12">${t('ct_attach_hint')}</div>${ctPickerHtml('new')}
+    <div class="row u-mt-12"><button class="btn grow" type="submit" id="ct-submit">${ic('send', 18)} ${t('ct_send')}</button><button class="btn secondary" type="button" data-ct="list">${t('cancel')}</button></div></form>`;
 }
 async function ctThread(id) {
   const box = $('ct-body'); if (!box) return; CT.view = 'thread'; CT.cur = id; CT.img.reply = null;
   const tk = CT.mine.find(x => x.id === id) || (await ctApi.mine()).find(x => x.id === id); if (!tk) return ctRenderList();
-  box.innerHTML = `<div class="muted" style="padding:20px;text-align:center">…</div>`;
+  box.innerHTML = `<div class="muted u-p-20 u-ta-center">…</div>`;
   let msgs; try { msgs = await ctApi.thread(id); } catch (e) { return toast(e.message, 4000); }
   if (tk.user_unread) { await ctApi.read(id); tk.user_unread = false; ctPoll(); }
   if (!$('ct-body') || CT.view !== 'thread') return;
-  box.innerHTML = `<div class="row"><h2 class="grow" style="margin:0">${esc(tk.subject)}</h2></div>
-    <div style="margin:6px 0">${ctKindChip(tk.kind)} ${ctStatusChip(tk.status)} <span class="muted">${t('ct_t_' + (tk.topic || 'other'))}</span></div>
+  box.innerHTML = `<div class="row"><h2 class="grow u-m-0">${esc(tk.subject)}</h2></div>
+    <div class="u-m-6n0">${ctKindChip(tk.kind)} ${ctStatusChip(tk.status)} <span class="muted">${t('ct_t_' + (tk.topic || 'other'))}</span></div>
     <div class="ct-thread" id="ct-thread">${msgs.map(m => ctMsgHtml(m, 'user')).join('')}</div>
-    ${tk.status === 'closed' ? `<div class="muted" style="margin-bottom:6px">${t('ct_closed_note')}</div>` : ''}
+    ${tk.status === 'closed' ? `<div class="muted u-mb-6">${t('ct_closed_note')}</div>` : ''}
     <textarea id="ct-reply" rows="3" maxlength="1000" placeholder="${esc(t('ct_reply_ph'))}"></textarea>${ctPickerHtml('reply')}
-    <div class="row" style="margin-top:10px"><button class="btn grow" data-ct="usend|${id}">${ic('send', 18)} ${t('ct_reply')}</button><button class="btn secondary" data-ct="list">${t('ct_back')}</button></div>`;
+    <div class="row u-mt-10"><button class="btn grow" data-ct="usend|${id}">${ic('send', 18)} ${t('ct_reply')}</button><button class="btn secondary" data-ct="list">${t('ct_back')}</button></div>`;
   const th = $('ct-thread'); if (th) th.scrollTop = th.scrollHeight;
 }
 async function ctUserReply(id) {
@@ -321,84 +279,10 @@ async function ctSubmitNew(form) {
   catch (e) { toast(e.message, 5000); btn.disabled = false; }
 }
 
-// ───────── Super Admin: Inbox tab ─────────
-function ctAdminView() {
-  setTimeout(async () => { const b = $('ct-pushbox'); if (b) b.innerHTML = await pushCardHtml(); }, 0);
-  const chips = [['open', 'ct_f_open'], ['answered', 'ct_f_answered'], ['closed', 'ct_f_closed'], ['all', 'sa_st_all']]
-    .map(([k, l]) => `<button class="sa-chip ${CT.f === k ? 'on' : ''}" data-ct="afilter|${k}">${t(l)}</button>`).join('');
-  const seg = `<div class="seg"><button class="${CT.seg === 'msgs' ? 'on' : ''}" data-ct="aseg|msgs">${t('sa_t_inbox')}</button><button class="${CT.seg === 'reset' ? 'on' : ''}" data-ct="aseg|reset">${t('fp_tab')}${CT.resetN ? ` <b class="tbadge">${CT.resetN}</b>` : ''}</button></div>`;
-  return `${seg}${CT.seg === 'msgs' ? `<div class="sa-chips">${chips}</div>` : ''}
-    <div class="card" id="ct-pushbox"></div>
-    <div id="ct-alist"><div class="muted" style="text-align:center;padding:24px">…</div></div>`;
-}
-async function ctAdminList() {
-  const box = $('ct-alist'); if (!box) return;
-  if (CT.seg === 'reset') return ctResetList(box);
-  let all; try { all = await ctApi.all(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
-  if (!$('ct-alist')) return;
-  CT.all = all;
-  const list = all.filter(x => CT.f === 'all' || (CT.f === 'open' ? x.status === 'open' : x.status === CT.f))
-    .sort((a, b) => (b.admin_unread - a.admin_unread) || (a.updated_at < b.updated_at ? 1 : -1));
-  box.innerHTML = list.map(x => `<div class="card custcard" data-ct="aopen|${x.id}"><div class="avatar sm">${ic('chat', 20)}</div>
-    <div class="grow"><b>${esc(x.subject)}</b><div class="muted">${esc(x.shop_name)} · ${esc(x.user_name)}</div><div class="muted">${esc(fmtDate(x.updated_at))}</div>
-      <div style="margin-top:2px">${ctKindChip(x.kind)} ${ctStatusChip(x.status)}</div></div>${x.admin_unread ? `<span class="bal owe">${t('ct_new_b')}</span>` : ''}</div>`).join('')
-    || `<div class="muted" style="text-align:center;padding:24px">${t('ct_a_none')}</div>`;
-}
-async function ctAdminOpen(id) {
-  const tk = CT.all.find(x => x.id === id); if (!tk) return;
-  openModal('<div class="muted" style="padding:20px;text-align:center">…</div>');
-  let msgs; try { msgs = await ctApi.thread(id); } catch (e) { closeModal(); return toast(e.message, 4000); }
-  if (tk.admin_unread) { await ctApi.adminRead(id); tk.admin_unread = false; ctPoll(); if ($('ct-alist')) ctAdminList(); }
-  const ph = String(tk.phone || ''), wa = waNumber(ph);
-  CT.cur = id; CT.view = 'admin';
-  $('sheet').innerHTML = `<div class="row"><h2 class="grow" style="margin:0">${esc(tk.subject)}</h2>${ctStatusChip(tk.status)}</div>
-    <div class="muted" style="margin:4px 0">${esc(tk.shop_name)} · ${esc(tk.user_name)}</div>
-    <div style="margin-bottom:6px">${ctKindChip(tk.kind)} <span class="muted">${t('ct_t_' + (tk.topic || 'other'))}</span></div>
-    ${ph ? `<div class="row" style="margin-bottom:8px"><a class="btn secondary sm lnk" href="tel:${esc(ph)}" dir="ltr">${ic('phone', 16)} ${esc(ph)}</a>${wa ? `<a class="btn secondary sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 16)} ${t('ct_wa')}</a>` : ''}</div>` : ''}
-    <div class="ct-thread" id="ct-thread">${msgs.map(m => ctMsgHtml(m, 'admin')).join('')}</div>
-    <div class="muted" style="font-size:12px;margin-bottom:4px">${t('ct_a_quick')}</div>
-    <div class="sa-chips">${[1, 2, 3, 4].map(n => `<button type="button" class="sa-chip" data-ct="canned|${n}">${esc(t('ct_q' + n).slice(0, 22))}…</button>`).join('')}</div>
-    <textarea id="ct-reply" rows="3" maxlength="1000" placeholder="${esc(t('ct_reply_ph'))}"></textarea>
-    <div class="row" style="margin-top:10px"><button class="btn grow" data-ct="areply|${id}|0">${ic('send', 18)} ${t('ct_reply')}</button>
-      <button class="btn secondary grow" data-ct="areply|${id}|1">${t('ct_a_send_close')}</button></div>
-    <div class="row" style="margin-top:8px"><button class="btn secondary grow" data-ct="astatus|${id}|${tk.status === 'closed' ? 'open' : 'closed'}">${tk.status === 'closed' ? t('ct_a_reopen') : t('ct_a_close')}</button>
-      <button class="btn secondary" data-close>${t('close')}</button></div>
-    ${tk.meta ? `<details style="margin-top:10px"><summary class="muted">${t('ct_a_info')}</summary><div class="muted" dir="ltr" style="font-size:12px;word-break:break-all;user-select:text">${esc(tk.meta)}</div></details>` : ''}`;
-  const th = $('ct-thread'); if (th) th.scrollTop = th.scrollHeight;
-}
-async function ctAdminReply(id, close) {
-  const ta = $('ct-reply'), body = ta ? ta.value.trim() : '';
-  if (body.length < 2) { if (!close) return toast(t('ct_short'), 2500); await ctApi.setStatus(id, 'closed'); toast(t('saved')); closeModal(); return ctAdminList(); }
-  try { await ctApi.reply(id, body, close); pushNotify('ticket_reply', { ticket_id: id }); toast(t('saved')); closeModal(); ctPoll(); ctAdminList(); } catch (e) { toast(e.message, 5000); }
-}
-
-// password-reset requests (from the login screen's "forgot password")
-const ctDigits = p => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; return d; };
-const ctResetUser = r => r && SAD && SAD.users.find(u => ctDigits(u.phone) === ctDigits(r.phone));
-async function ctResetList(box) {
-  if (!box) return;
-  let list; try { list = await ctApi.resets(); } catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
-  CT.resets = list;
-  const shown = list.filter(r => CT.f === 'closed' ? r.status === 'done' : r.status === 'open');
-  box.innerHTML = `<div class="sa-chips"><button class="sa-chip ${CT.f !== 'closed' ? 'on' : ''}" data-ct="afilter|open">${t('ct_f_open')}</button><button class="sa-chip ${CT.f === 'closed' ? 'on' : ''}" data-ct="afilter|closed">${t('fp_done')}</button></div>`
-    + (shown.map(r => { const u = ctResetUser(r), ph = '0' + ctDigits(r.phone).slice(2), wa = waNumber(r.phone);
-      return `<div class="card"><div class="row"><div class="grow"><b dir="ltr">${esc(ph)}</b>${r.name ? ` · ${esc(r.name)}` : ''}<div class="muted">${esc(fmtDate(r.created_at))}</div>
-        <div class="muted">${u ? `${esc(u.name)} — ${esc(saShopName(u.shop_id))}` : `<span class="owe-t">${t('fp_nouser')}</span>`}</div></div></div>
-        <div class="row" style="margin-top:8px">${r.status === 'open' ? `${u ? `<button class="btn grow sm" data-ct="rreset|${r.id}">${ic('key', 16)} ${t('sa_reset_pw')}</button>` : ''}<button class="btn secondary sm" data-ct="rdone|${r.id}|1">${t('fp_mark')}</button>` : `<button class="btn secondary sm" data-ct="rdone|${r.id}|0">${t('ct_a_reopen')}</button>`}
-        <a class="btn secondary sm lnk" href="tel:${esc(ph)}" dir="ltr">${ic('phone', 16)}</a>${wa ? `<a class="btn secondary sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}">${ic('chat', 16)}</a>` : ''}</div></div>`; }).join('')
-      || `<div class="muted" style="text-align:center;padding:24px">${t('fp_none')}</div>`);
-}
-
 // ───────── Wiring ─────────
 const CT_ACT = {
   list: () => ctRenderList(), new: () => ctNewForm(), open: id => ctThread(id), usend: id => ctUserReply(id),
-  afilter: k => { CT.f = k; saRender(); }, aseg: k => { CT.seg = k; saRender(); },
-  rdone: async (id, v) => { try { await ctApi.resetDone(id, v !== '0'); ctPoll(); ctResetList($('ct-alist')); } catch (e) { toast(e.message, 4000); } },
-  rreset: id => { const u = ctResetUser(CT.resets.find(x => x.id === id)); if (u) SA_ACT.resetpw(u.id); }, aopen: id => ctAdminOpen(id), areply: (id, c) => ctAdminReply(id, c === '1'),
-  astatus: async (id, s) => { try { await ctApi.setStatus(id, s); toast(t('saved')); closeModal(); ctAdminList(); } catch (e) { toast(e.message, 4000); } },
   pick: k => { const f = $('ct-file-' + k); if (f) f.click(); }, unpick: k => { CT.img[k] = null; ctPreview(k); },
-  canned: n => { const ta = $('ct-reply'); if (ta) { ta.value = (ta.value ? ta.value + '\n' : '') + t('ct_q' + n); ta.focus(); } },
-  notif: async () => { try { await Notification.requestPermission(); } catch (e) {} saRender(); }
 };
 document.addEventListener('click', ev => {
   if (ev.target.closest('#btn-contact')) return ctOpen();

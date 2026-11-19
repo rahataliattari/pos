@@ -3,12 +3,6 @@
 // 2) Otherwise the ZXing library is loaded: first from lib/zxing.min.js (if you upload it), else from the CDN.
 //    The service worker caches it, so after the first online use it also works offline.
 // Used by startScan() (app.js, product barcodes) and the "Check a bill" QR scan (verify.js). Loaded before app.js.
-const SCAN_I18N = {
-  scan_perm: ['کیمرے کی اجازت نہیں ملی۔ براؤزر کی سیٹنگ میں اس سائٹ کے لیے کیمرا Allow کریں۔', 'Camera permission was denied. Allow the camera for this site in the browser settings.'],
-  scan_lib: ['سکینر لوڈ نہیں ہو سکا۔ پہلی بار انٹرنیٹ چاہیے۔ فی الحال نام یا بارکوڈ ہاتھ سے لکھ کر سرچ کریں۔', 'The scanner could not load. It needs internet the first time. For now type the name or barcode in the search box.']
-};
-for (const k in SCAN_I18N) { I18N.ur[k] = SCAN_I18N[k][0]; I18N.en[k] = SCAN_I18N[k][1]; }
-
 let scanZx = null;
 const ZX_URLS = ['lib/zxing.min.js', 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js', 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'];
 function zxLoad() {
@@ -50,3 +44,18 @@ async function posScanStart(v, onCode, qrOnly) {
   await scanZx.decodeFromConstraints({ video: { facingMode: 'environment' } }, v, res => { if (res) fire(res.getText()); });
 }
 function posScanStop() { if (scanZx) { try { scanZx.reset(); } catch (e) { /* already stopped */ } scanZx = null; } }
+
+// ───────── Barcode camera scan (where BarcodeDetector exists) ─────────
+let scanStream = null, scanTimer = null;
+async function startScan() {
+  if (!navigator.mediaDevices) { toast(t('scan_unsupported'), 3500); return; }
+  openModal(`<h2>${t('scan')}</h2><div class="scanwrap"><video id="scanvideo" playsinline muted></video><div class="scanframe"><i class="scanline"></i></div></div>
+    <div class="u-mt-10"><button class="btn secondary block" data-close>${t('cancel')}</button></div>`);
+  try {
+    await posScanStart($('scanvideo'), async val => { closeModal(); await handleBarcode(val); }, false);
+  } catch (e) { closeModal(); toast(scanErrorMsg(e), 4500); }
+}
+function stopScan() {
+  clearInterval(scanTimer); scanTimer = null; posScanStop();
+  if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
+}

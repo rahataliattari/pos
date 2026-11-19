@@ -1,12 +1,4 @@
 // Universal POS — Reports (profit & loss, credit, top products, low stock). Read-only: everything is computed from local records.
-const RPT = {
-  rp_sales: ['کل فروخت', 'Total sales'], rp_cogs: ['مال کی لاگت', 'Cost of goods sold'], rp_gross: ['مجموعی منافع', 'Gross profit'], rp_net: ['خالص منافع', 'Net profit'],
-  rp_credit_given: ['ادھار دیا گیا', 'Credit given'], rp_received: ['ادھار کی وصولی', 'Credit received'], rp_purchases: ['خریداری', 'Purchases'],
-  rp_daily: ['روزانہ فروخت', 'Daily sales'], rp_top: ['زیادہ بکنے والی پروڈکٹس', 'Top products'], rp_low: ['کم اسٹاک', 'Low stock'], rp_none: ['اس مدت میں کوئی فروخت نہیں', 'No sales in this period'],
-  rp_loss: ['نقصان', 'Loss'], rp_refunds: ['واپسی میں لوٹائی گئی رقم', 'Cash refunded to customers'], rp_sold: ['بکا', 'sold'], rp_cash_note: ['منافع = فروخت − مال کی لاگت − اخراجات', 'Profit = sales − cost of goods − expenses']
-};
-for (const k in RPT) { I18N.ur[k] = RPT[k][0]; I18N.en[k] = RPT[k][1]; }
-
 async function computeReport(shopId, p) {
   const { from, to } = periodRange(p), rng = [[shopId, from], [shopId, to]];
   const allSales = await db.sales.where('[shop_id+created_at]').between(...rng).toArray();
@@ -40,19 +32,19 @@ async function lowStockList(shopId) {
 async function renderReports() {
   S.rpPeriod = S.rpPeriod || 'today';
   const v = $('view-reports');
-  if (!canReports()) { v.innerHTML = `<div class="muted" style="text-align:center;padding:24px">${t('owner_mgr_only')}</div>`; return; }
+  if (!canReports()) { v.innerHTML = `<div class="muted u-ta-center u-p-24">${t('owner_mgr_only')}</div>`; return; }
   const r = await computeReport(S.session.shop_id, S.rpPeriod), low = await lowStockList(S.session.shop_id);
   S.lastReport = { r, low };
   const row = (l, val, cls = '') => `<div class="${cls}"><span>${l}</span><span>Rs ${money(val)}</span></div>`, mx = Math.max(1, ...r.days.map(x => x.v));
   v.innerHTML = `
     <div class="seg">${['today', 'week', 'month'].map(p => `<button class="${S.rpPeriod === p ? 'on' : ''}" data-rp="per|${p}">${t('p_' + p)}</button>`).join('')}</div>
-    <button class="btn secondary block" data-rp="print" style="margin-bottom:12px">${ic('print', 18)} ${t('rc_print_report')}</button>
+    <button class="btn secondary block u-mb-12" data-rp="print">${ic('print', 18)} ${t('rc_print_report')}</button>
     <div class="today"><div class="cal">${ic('chart', 24)}</div><div class="grow"><div class="muted">${t('rp_net')} · ${r.bills} ${t('bills_n')}</div>
-      <div class="big" style="${r.net < 0 ? 'color:var(--err)' : ''}">${r.net < 0 ? t('rp_loss') + ' ' : ''}Rs ${money(Math.abs(r.net))}</div><div class="muted" style="font-size:12px">${t('rp_cash_note')}</div></div></div>
+      <div class="big ${r.net < 0 ? 'u-c-err' : ''}">${r.net < 0 ? t('rp_loss') + ' ' : ''}Rs ${money(Math.abs(r.net))}</div><div class="muted u-fs-12">${t('rp_cash_note')}</div></div></div>
     <div class="card totals">${row(t('rp_sales'), r.revenue)}${row('− ' + t('rp_cogs'), r.cogs)}${row(t('rp_gross'), r.gross)}${row('− ' + t('mod_expenses'), r.expenses)}${row(t('rp_net'), r.net, r.net < 0 ? 'grand neg' : 'grand')}</div>
     <div class="card totals">${row(t('rp_credit_given'), r.credit)}${row(t('rp_received'), r.received)}${row(t('rp_purchases'), r.purchases)}${r.refunds > 0 ? row(t('rp_refunds'), r.refunds) : ''}</div>
     ${Object.keys(r.byMethod || {}).length > 1 || (r.byMethod && !r.byMethod.cash && Object.keys(r.byMethod).length) ? `<div class="card totals"><div class="sa-sec">${t('rp_by_method')}</div>${Object.entries(r.byMethod).map(([k, v]) => row(t('pm_' + k), v)).join('')}</div>` : ''}
-    ${r.days.length > 1 ? `<div class="card"><div class="sa-sec">${t('rp_daily')}</div><div class="sa-bars">${r.days.map(d => `<div><i style="height:${Math.max(3, Math.round(d.v / mx * 80))}%"></i><span style="font-size:9px">${d.n}</span></div>`).join('')}</div></div>` : ''}
+    ${r.days.length > 1 ? `<div class="card"><div class="sa-sec">${t('rp_daily')}</div><div class="sa-bars">${r.days.map(d => `<div><i style="height:${Math.max(3, Math.round(d.v / mx * 80))}%"></i><span class="u-fs-9">${d.n}</span></div>`).join('')}</div></div>` : ''}
     <div class="card"><div class="sa-sec">${t('rp_top')}</div>${r.top.map(([n, x]) => `<div class="lrow"><div class="grow"><b>${esc(n)}</b><div class="muted">${x.qty} ${t('rp_sold')}</div></div><b>Rs ${money(x.rev)}</b></div>`).join('') || `<div class="muted">${t('rp_none')}</div>`}</div>
     ${low.length ? `<div class="card"><div class="sa-sec">${t('rp_low')}</div>${low.map(({ p, st }) => `<div class="lrow"><div class="grow"><b>${esc(LANG === 'ur' && p.name_ur ? p.name_ur : p.name)}</b></div><span class="bal owe">${st} / ${p.min_stock}</span></div>`).join('')}</div>` : ''}`;
 }
