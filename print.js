@@ -29,7 +29,7 @@ function billQrHtml(sale) {
   if (!planHasQr() || S.cfg.receipt_qr === false) return '';
   try {
     return `<div class="qrbox">${qrSvg(billQrText(sale), { size: 120 })}<div class="qrcap">${t('rc_verify')}</div>
-      <div class="qrcode num">${t('rc_code')}: ${billCode(sale)}</div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
+      <div class="qrcode"><bdi>${t('rc_code')}</bdi>: <bdi class="num cd" dir="ltr">${billCode(sale)}</bdi></div><div class="qrnote">${t('rc_verify_note')}</div></div>`;
   } catch (e) { return ''; }   // never block printing a bill because of the QR
 }
 
