@@ -671,3 +671,8 @@ a[role="button"] { cursor: pointer; text-decoration: underline; -webkit-tap-high
 .u-white-space-pre-wrap { white-space: pre-wrap !important; }
 .u-word-break-break-all { word-break: break-all !important; }
 .u-word-break-break-word { word-break: break-word !important; }
+
+/* Receipt print fixes: Urdu must never be letter-spaced (breaks letter joining); the last item has no dotted line above the dashed one */
+.rc .shopname, .rc .hd .sub { letter-spacing: 0 !important; }
+html[lang="ur"] .rc *:not(.cd) { letter-spacing: 0 !important; }
+.rc .li.last { border-bottom: 0 !important; }

@@ -40,7 +40,7 @@ function rcHead(title, qr = '') {
   return `<div class="hd">${top}<div class="hi"><div class="shopname">${esc(S.session.shop_name)}</div>
     ${c.receipt_header && !sameAsName ? `<div class="sub">${esc(c.receipt_header)}</div>` : ''}${c.shop_address ? `<div class="sub">${esc(c.shop_address)}</div>` : ''}
     ${c.shop_phone ? `<div class="sub num">${esc(c.shop_phone)}</div>` : ''}${c.shop_tax_no ? `<div class="sub">${t('set_ntn')}: <span class="num">${esc(c.shop_tax_no)}</span></div>` : ''}</div>
-    <div class="doc">${title}</div>${side}</div>`;
+    ${title ? `<div class="doc">${title}</div>` : ''}${side}</div>`;
 }
 
 const rcStyle = () => ['classic', 'modern'].includes(S.cfg.receipt_style) ? S.cfg.receipt_style : 'premium';
@@ -50,19 +50,19 @@ function receiptHtml(sale, items, cust) {
   const lines = a4
     ? `<table class="rt"><thead><tr><th>#</th><th>${t('rc_item')}</th><th>${t('rc_qty')}</th><th>${t('rc_price')}</th><th>${t('rc_amount')}</th></tr></thead><tbody>${items.map((i, k) =>
         `<tr><td class="num">${k + 1}</td><td>${esc(iname(i))}</td><td class="num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''}</td><td class="num">${money(i.unit_price)}</td><td class="num"><b>${money(i.line_total)}</b></td></tr>`).join('')}</tbody></table>`
-    : items.map((i, k) => `<div class="li"><div class="it"><div class="n"><i class="ix">${k + 1}</i>${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div>${i.quick ? '' : `<div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`}</div>`).join('');
+    : items.map((i, k) => `<div class="li${k === items.length - 1 ? ' last' : ''}"><div class="it"><div class="n"><i class="ix">${k + 1}</i>${esc(iname(i))}</div><b class="num">${money(i.line_total)}</b></div>${i.quick ? '' : `<div class="q num">${i.qty}${i.unit_name ? ' ' + esc(i.unit_name) : ''} × ${money(i.unit_price)}</div>`}</div>`).join('');
   const sums = kv(t('subtotal'), money(sale.subtotal)) + (sale.discount ? kv(t('discount'), '−' + money(sale.discount)) : '') + (sale.tax ? kv(t('tax'), money(sale.tax)) : '');
   const pmLines = sale.pay_split ? Object.entries(sale.pay_split).map(([k, v]) => kv(t('pm_' + k), money(v))).join('') : (sale.payment_method && sale.payment_method !== 'cash' ? kv(t('rc_pay_by'), t('pm_' + sale.payment_method), '', true) : '');
   const pay = kv(t('paid'), money(sale.paid)) + pmLines + (due > 0 ? kv(t('balance'), money(due), 'dueline') : sale.paid > sale.total ? kv(t('change'), money(sale.paid - sale.total)) : '')
     + (cust && cust.balance > 0 ? kv(t('cust_balance_now'), money(cust.balance), 'dueline') : '');
-  return `<div class="rc ${a4 ? 'a4' : ''} st-${rcStyle()}">${rcHead(t('rc_sale_invoice'), a4 ? billQrHtml(sale) : '')}
+  return `<div class="rc ${a4 ? 'a4' : ''} st-${rcStyle()}">${rcHead('', a4 ? billQrHtml(sale) : '')}
     <hr class="sep"><div class="meta">${meta}</div><hr class="sep">${lines}${a4 ? '' : '<hr class="sep">'}
     <div class="sumbox">${sums}<div class="grand"><span>${t('total')}</span><span class="num">Rs ${money(sale.total)}</span></div>${pay}
       ${due > 0 ? `<div class="stampwrap"><span class="stamp owe">${t('rc_due')}</span></div>` : ''}</div>
     ${a4 ? '' : billQrHtml(sale)}
-    <hr class="sep"><div class="sub c tally">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>
+    ${items.length === 1 && qtySum === 1 && !sale.discount ? '' : `<hr class="sep"><div class="sub c tally">${t('rc_items')}: <span class="num">${items.length}</span> · ${t('rc_qty')}: <span class="num">${qtySum}</span>${sale.discount ? ` · ${t('rc_saved')}: <span class="num">Rs ${money(sale.discount)}</span>` : ''}</div>`}
     ${a4 ? `<div class="sigrow"><div>${t('rc_sign_cust')}</div><div>${t('rc_sign_auth')}</div></div>` : ''}
-    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div><div class="sub c pw">${t('rc_powered')}</div></div>`;
+    <div class="thanks">${esc(S.cfg.receipt_footer || t('thanks'))}</div></div>`;
 }
 function receiptText(sale, items, cust) {
   return [`*${S.session.shop_name}*`, `${t('invoice')}: ${sale.invoice_no}`, fmtDate(sale.created_at), '',
@@ -84,13 +84,21 @@ function reportPrintHtml(r, low, period) {
 }
 
 function doPrint(html, paper) {
+  const a4 = paper === 'a4', pnum = +paper || 58;
   $('receipt-print').innerHTML = html;
-  $('receipt-print').classList.toggle('pcolor', !!S.cfg.print_color);        // default: plain black-and-white print (saves ink)
+  // thermal paper is always plain black-and-white (solid black bars and grey fills print slowly and smudge); colour applies to A4 only
+  $('receipt-print').classList.toggle('pcolor', !!S.cfg.print_color && a4);
   let st = $('print-page'); if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
+  // printable width (setting): most 58 mm printers only print ~48 mm, centred; side padding keeps the receipt inside that band. 8 mm at the bottom so the cutter never clips the last line.
+  const pw = +S.cfg.print_w || 0, side = pw > 0 && pw < pnum ? Math.round((pnum - pw) / 2 * 10) / 10 : 2;
   // margin 0 = the browser prints NO header/footer line (page address, title, date); the padding below gives the paper its own margin
-  st.textContent = (paper === 'a4' ? '@page{size:A4;margin:0}' : `@page{size:${paper || 58}mm auto;margin:0}`) + `@media print{#receipt-print{padding:${paper === 'a4' ? '12mm' : '2mm'};box-sizing:border-box}}`;
+  st.textContent = (a4 ? '@page{size:A4;margin:0}' : `@page{size:${pnum}mm auto;margin:0}`) + `@media print{#receipt-print{padding:${a4 ? '12mm' : `2mm ${side}mm 8mm`};box-sizing:border-box}}`;
   const oldTitle = document.title; document.title = ' ';
-  document.documentElement.style.setProperty('--paper', paper === 'a4' ? '100%' : (paper || 58) + 'mm');
+  document.documentElement.style.setProperty('--paper', a4 ? '100%' : pnum + 'mm');
+  // The print dialog can re-lay-out the page when the person changes paper size, so the receipt must stay in place until printing is really over (afterprint),
+  // not just 500 ms. Fallbacks: a tap on the page, or 30 s, so the app can never stay hidden.
+  const done = () => { document.body.classList.remove('printing'); document.title = oldTitle; window.removeEventListener('afterprint', done); document.removeEventListener('pointerdown', done, true); clearTimeout(tm); };
+  const tm = setTimeout(done, 30000);
+  window.addEventListener('afterprint', done); document.addEventListener('pointerdown', done, true);
   document.body.classList.add('printing'); window.print();
-  setTimeout(() => { document.body.classList.remove('printing'); document.title = oldTitle; }, 500);
 }

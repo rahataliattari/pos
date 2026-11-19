@@ -45,6 +45,8 @@ async function renderSettings() {
       <label>${t('set_ntn')}</label><input id="set-sn" dir="ltr" value="${esc(c.shop_tax_no)}" ${rdis}>
       <label>${t('paper_width')}</label>
       <select id="set-paper"><option value="58" ${c.paper == 58 ? 'selected' : ''}>58 mm</option><option value="80" ${c.paper == 80 ? 'selected' : ''}>80 mm</option><option value="a4" ${c.paper === 'a4' ? 'selected' : ''}>A4</option></select>
+      <label class="u-mt-10">${t('rc_pw')}</label>
+      <select id="set-pw">${[[0, t('rc_pw_auto')], [48, '48 mm'], [52, '52 mm'], [72, '72 mm']].map(([v, l]) => `<option value="${v}" ${(+c.print_w || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select><div class="muted">${t('rc_pw_hint')}</div>
       ${planHasQr()
         ? `<label class="u-mt-10"><input type="checkbox" id="set-rqr" class="u-w-auto u-minh-0" ${c.receipt_qr !== false ? 'checked' : ''}> ${t('rc_qr_show')}</label>`
         : `<div class="muted u-mt-10">${ic('shield', 16)} ${t('rc_qr_locked')}</div>`}`;
@@ -215,6 +217,7 @@ onUI('change', 70, async ev => {
     try { await avatarSet(await avatarResize(f)); } catch (e) { toast(t('pf_bad'), 3500); } return true; }
   if (id === 'set-pcolor' || id === 'rc-color') { await saveCfg('print_color', ev.target.checked); const o = $(id === 'rc-color' ? 'set-pcolor' : 'rc-color'); if (o) o.checked = ev.target.checked; return true; }
   if (id === 'set-rqr') { await saveCfg('receipt_qr', ev.target.checked); return true; }
+  if (id === 'set-pw') { await saveCfg('print_w', +ev.target.value || 0); return true; }
   if (id === 'set-paper') { await saveCfg('paper', ev.target.value === 'a4' ? 'a4' : +ev.target.value); return true; }
 });
 

@@ -161,7 +161,7 @@ addI18N({
   rs_classic: ['کلاسک', 'Classic'],
   rs_modern: ['ماڈرن', 'Modern'],
   pc_label: ['رنگین پرنٹ', 'Colour print'],
-  pc_hint: ['ٹِک نہ ہو تو سادہ کالا/سفید پرنٹ نکلے گا (سیاہی کی بچت)۔', 'Unticked = plain black-and-white print (saves ink).']
+  pc_hint: ['صرف A4 کے لیے۔ ٹِک نہ ہو تو سادہ کالا/سفید پرنٹ (سیاہی کی بچت)؛ تھرمل رسید ہمیشہ سادہ چھپتی ہے۔', 'A4 only. Unticked = plain black-and-white (saves ink); thermal receipts are always plain.']
 });
 
 // ── Catalog, units, variants  (was in catalog.js)
@@ -277,8 +277,8 @@ addI18N({
   set_addr: ['دکان کا پتہ', 'Shop address'],
   set_ntn: ['NTN / ٹیکس نمبر', 'NTN / tax number'],
   rc_print_report: ['رپورٹ پرنٹ', 'Print report'],
-  rc_verify: ['بل کی تصدیق کے لیے سکین کریں', 'Scan to verify this bill'],
-  rc_verify_note: ['صرف تصدیق کے لیے — ادائیگی کے لیے نہیں', 'For verification only — not for payment'],
+  rc_verify: ['تصدیق کے لیے سکین کریں', 'Scan to verify'],
+  rc_verify_note: ['ادائیگی کے لیے نہیں', 'Not for payment'],
   rc_qr_show: ['بل پر تصدیقی QR کوڈ', 'Verification QR code on bill'],
   rc_code: ['کوڈ', 'Code'],
   rc_qr_locked: ['بل پر تصدیقی QR کوڈ پریمیم پلان میں دستیاب ہے۔ تجدید / اپ گریڈ کے لیے رابطہ کریں۔', 'Verification QR on bills is available on the Premium plan. Contact us to upgrade.']
@@ -541,7 +541,10 @@ addI18N({
   pm_bank: ['بینک ٹرانسفر', 'Bank transfer'],
   pm_mixed: ['ملی جلی', 'Mixed'],
   rp_by_method: ['ادائیگی کے طریقے', 'By payment method'],
-  rc_pay_by: ['ادائیگی', 'Payment']
+  rc_pay_by: ['ادائیگی', 'Payment'],
+  rc_pw: ['پرنٹ ہونے والی چوڑائی (تھرمل)', 'Printable width (thermal)'],
+  rc_pw_auto: ['خودکار', 'Auto'],
+  rc_pw_hint: ['اگر رسید ایک طرف ہٹی ہو یا کنارے کٹیں تو 58 ملی میٹر کاغذ پر 48 آزمائیں۔', 'If the receipt is off-centre or its edges are cut, try 48 mm on 58 mm paper.']
 });
 
 // ── Home extras (install, about, reminders)  (was in extras.js)

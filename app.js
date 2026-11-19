@@ -4,7 +4,7 @@
 
 const S = {
   session: null,          // { user_id, email, shop_id, shop_name, role }
-  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, print_color: false, receipt_style: 'premium', receipt_qr: true, allow_oversell: false, lang: 'en', theme: 'green' },
+  cfg: { tax_rate: 0, cashier_discount: false, cashier_price: false, receipt_header: '', receipt_footer: '', shop_phone: '', shop_address: '', shop_tax_no: '', business_type: '', paper: 58, print_w: 0, print_color: false, receipt_style: 'premium', receipt_qr: true, allow_oversell: false, lang: 'en', theme: 'green' },
   cart: [],
   tab: 'home',
   billQuery: '', billPage: 0, tiles: [], tileStocks: {},
