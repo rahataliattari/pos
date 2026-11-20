@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Universal POS — Legal / قانونی دستاویزات</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Nastaliq Urdu", "Noto Naskh Arabic", sans-serif; margin: 0; background: #f4f7f5; color: #1c2a22; }
+  main { max-width: 820px; margin: 0 auto; padding: 16px; }
+  .bar { position: sticky; top: 0; background: #0f7b3f; color: #fff; padding: 10px 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; z-index: 2; }
+  .bar b { flex: 1; } .bar button, .bar select { font: inherit; padding: 6px 12px; border-radius: 10px; border: 0; }
+  .doc { background: #fff; border-radius: 14px; padding: 20px; margin: 16px 0; box-shadow: 0 1px 6px rgba(0,0,0,.08); page-break-after: always; }
+  .doc h1 { margin: 0 0 4px; font-size: 24px; color: #0a5a2e; } .muted { color: #667; font-size: 13px; }
+  .lgc h4 { margin: 16px 0 4px; } .lgc p { margin: 0 0 6px; white-space: pre-line; line-height: 1.9; }
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 36px; }
+  .sign div { border-top: 1px solid #333; padding-top: 6px; font-size: 14px; min-height: 90px; }
+  .sign small { display: block; color: #667; margin-top: 4px; }
+  @media print { .bar { display: none; } body { background: #fff; } .doc { box-shadow: none; margin: 0; padding: 0; } .doc:last-child { page-break-after: auto; } }
+</style>
+</head>
+<body>
+<div class="bar"><b>Universal POS — قانونی دستاویزات / Legal</b>
+  <select id="lang"><option value="0">اردو</option><option value="1">English</option></select>
+  <select id="which"><option value="all">All / سب</option></select>
+  <button id="print">Print / PDF</button></div>
+<main id="out"></main>
+<script src="legal.js"></script>
+<script>
+  const out = document.getElementById('out'), lang = document.getElementById('lang'), which = document.getElementById('which');
+  LEGAL_DOCS.forEach(d => which.insertAdjacentHTML('beforeend', `<option value="${d.id}">${lgEsc(d.ur)} / ${lgEsc(d.en)}</option>`));
+  const SIGN = [['صارف / دکان کا مالک', 'Customer / Shop owner'], ['فراہم کنندہ', 'Provider']];
+  function render() {
+    const L = +lang.value, only = which.value;
+    document.documentElement.dir = L === 0 ? 'rtl' : 'ltr'; document.documentElement.lang = L === 0 ? 'ur' : 'en';
+    out.innerHTML = LEGAL_DOCS.filter(d => only === 'all' || d.id === only).map(d => `<section class="doc" id="${d.id}"><h1>${lgEsc(d[L === 0 ? 'ur' : 'en'])}</h1>
+      <div class="muted">${LEGAL_CFG.app} · ${lgFill('{company}', L)}</div>${legalDocHtml(d, L)}
+      ${d.sign ? `<div class="sign">${SIGN.map(s => `<div>${s[L]}<small>${L === 0 ? 'نام' : 'Name'}: ........................</small><small>${L === 0 ? 'دکان' : 'Shop'}: ........................</small><small>${L === 0 ? 'تاریخ' : 'Date'}: ........................</small></div>`).join('')}</div>` : ''}</section>`).join('');
+  }
+  lang.onchange = which.onchange = render; document.getElementById('print').onclick = () => print();
+  const h = location.hash.slice(1); if (LEGAL_DOCS.some(d => d.id === h)) which.value = h;
+  if (new URLSearchParams(location.search).get('lang') === 'en') lang.value = '1';
+  render();
+</script>
+</body>
+</html>

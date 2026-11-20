@@ -1,0 +1,6 @@
+# Generated files — do not commit (rebuild with: node build-demo.js)
+Universal-POS-Demo.html
+
+# Misc
+node_modules/
+.DS_Store

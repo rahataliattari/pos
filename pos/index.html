@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f7b3f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Universal POS">
+  <meta name="referrer" content="no-referrer">
+  <meta name="format-detection" content="telephone=no">
+  <title>Universal POS</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="boot" class="u-p-40 u-ta-center u-c-0f7b3f">…</div>
+
+  <section id="login" hidden>
+    <div class="lgbrand">
+      <svg class="lglogo3d" viewBox="0 0 120 120" width="96" height="96" role="img" aria-label="Universal POS" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2fbf74"/><stop offset=".55" stop-color="#0f7b3f"/><stop offset="1" stop-color="#06401f"/></linearGradient>
+          <linearGradient id="lg-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d5e3db"/></linearGradient>
+          <linearGradient id="lg-side" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9db8a9"/><stop offset="1" stop-color="#5d7d6c"/></linearGradient>
+          <linearGradient id="lg-scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b3b21"/><stop offset="1" stop-color="#0f5a31"/></linearGradient>
+          <linearGradient id="lg-key" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe0d6"/></linearGradient>
+          <linearGradient id="lg-ok" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#f4510b"/></linearGradient>
+          <radialGradient id="lg-gloss" cx=".3" cy=".05" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></radialGradient>
+          <filter id="lg-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="#021a0c" flood-opacity=".55"/></filter>
+        </defs>
+        <rect width="120" height="120" rx="30" fill="url(#lg-bg)"/>
+        <rect width="120" height="120" rx="30" fill="url(#lg-gloss)"/>
+        <!-- receipt paper -->
+        <path d="M43 10h34v22H43z" fill="#fff" opacity=".96"/><path d="M43 10l3 3 3-3 3 3 3-3 3 3 3-3 3 3 3-3 3 3 3-3 3 3v0" fill="none" stroke="#c9d8cf" stroke-width="1"/>
+        <path d="M49 19h22M49 24h14" stroke="#9db8a9" stroke-width="2" stroke-linecap="round"/>
+        <!-- terminal: depth, face -->
+        <g filter="url(#lg-sh)">
+          <rect x="35" y="35" width="58" height="72" rx="11" fill="url(#lg-side)"/>
+          <rect x="28" y="28" width="58" height="72" rx="11" fill="url(#lg-body)"/>
+        </g>
+        <rect x="28" y="28" width="58" height="72" rx="11" fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="1.2"/>
+        <rect x="35" y="35" width="44" height="17" rx="5" fill="url(#lg-scr)"/>
+        <rect x="35" y="35" width="44" height="7" rx="3.5" fill="#fff" opacity=".12"/>
+        <path d="M41 46.5h5M49 46.5h3M56 46.5h4" stroke="#5cf0a0" stroke-width="2.4" stroke-linecap="round"/><path d="M68 41.5h6" stroke="#5cf0a0" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+        <!-- keys: each has a darker lower edge for thickness -->
+        <g>
+          <g id="k1"><rect x="35" y="58.8" width="12" height="10" rx="3" fill="#8fae9d"/><rect x="35" y="57" width="12" height="10" rx="3" fill="url(#lg-key)"/></g>
+          <rect x="51" y="58.8" width="12" height="10" rx="3" fill="#8fae9d"/><rect x="51" y="57" width="12" height="10" rx="3" fill="url(#lg-key)"/>
+          <rect x="67" y="58.8" width="12" height="10" rx="3" fill="#8fae9d"/><rect x="67" y="57" width="12" height="10" rx="3" fill="url(#lg-key)"/>
+          <rect x="35" y="72.8" width="12" height="10" rx="3" fill="#8fae9d"/><rect x="35" y="71" width="12" height="10" rx="3" fill="url(#lg-key)"/>
+          <rect x="51" y="72.8" width="12" height="10" rx="3" fill="#8fae9d"/><rect x="51" y="71" width="12" height="10" rx="3" fill="url(#lg-key)"/>
+          <rect x="67" y="72.8" width="12" height="24" rx="3" fill="#b8400a"/><rect x="67" y="71" width="12" height="24" rx="3" fill="url(#lg-ok)"/>
+          <rect x="35" y="86.8" width="28" height="10" rx="3" fill="#0a5a2e"/><rect x="35" y="85" width="28" height="10" rx="3" fill="#1f9d55"/>
+        </g>
+        <path d="M71 78l4 4 5-7" transform="translate(-2 4)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 id="login-title"></h1>
+      <p class="lgtag" id="login-tag"></p>
+    </div>
+    <div class="lgcard">
+    <form id="login-form" autocomplete="on">
+      <label id="lbl-email" for="in-email"></label>
+      <input id="in-email" type="tel" inputmode="tel" pattern="[0-9۰-۹٠-٩+ \-]*" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" placeholder="03001234567">
+      <label id="lbl-pass" for="in-pass"></label>
+      <div class="pwwrap"><input id="in-pass" type="password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr"><button type="button" class="eye" data-eye="in-pass" aria-label="" aria-pressed="false"></button></div>
+      <div class="u-mt-16"><button class="btn block" id="btn-login" type="submit"></button></div>
+      <div class="errtext" id="login-err" role="alert" aria-live="assertive" hidden></div>
+    </form>
+    <div class="lglinks"><a role="button" tabindex="0" id="lnk-forgot"></a><a role="button" tabindex="0" id="lnk-signup" hidden></a><button type="button" id="login-lang" class="lglang"></button></div>
+    </div>
+    <div class="lgtrust" id="login-trust"></div>
+    <div id="shop-choice" hidden></div>
+    <div class="lgfoot">Universal POS</div>
+  </section>
+
+  <div id="app" hidden>
+    <header class="top">
+      <div class="hrow">
+        <div class="avatar" id="hdr-avatar"></div>
+        <div class="hinfo"><div class="hello" id="hdr-hello"></div><div class="shop" id="hdr-shop"></div></div>
+        <button class="langbtn" id="btn-lang" type="button">EN</button>
+      </div>
+      <div class="hrow chips">
+        <span class="chip" id="chip-net"><span class="dot" id="net-dot"></span><span id="net-text"></span></span>
+        <span class="chip pend" id="chip-pend" hidden></span>
+        <span class="chip fail" id="chip-fail" hidden></span>
+      </div>
+    </header>
+    <div id="syncnote"></div>
+    <main>
+      <section id="view-home"></section>
+      <section id="view-bill" hidden></section>
+      <section id="view-products" hidden></section>
+      <section id="view-sales" hidden></section>
+      <section id="view-customers" hidden></section>
+      <section id="view-purchases" hidden></section>
+      <section id="view-expenses" hidden></section>
+      <section id="view-reports" hidden></section>
+      <section id="view-settings" hidden></section>
+    </main>
+    <div id="billbar" hidden></div>
+    <nav class="bottom" id="nav"></nav>
+  </div>
+
+  <div id="sa" hidden></div>
+
+  <div id="modal" hidden><div class="sheet" id="sheet"></div></div>
+  <div id="toast" hidden></div>
+  <div id="receipt-print"></div>
+
+  <!-- Libraries: loaded from lib/ (upload dexie.min.js and supabase.js there); if missing, falls back to the CDN. The service worker caches them for offline use. -->
+  <script src="lib/dexie.min.js" data-cdn="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js" onerror="document.write(unescape('%3Cscript src=%22'+this.dataset.cdn+'%22%3E%3C/script%3E'))"></script>
+  <script src="lib/supabase.js" data-cdn="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" onerror="document.write(unescape('%3Cscript src=%22'+this.dataset.cdn+'%22%3E%3C/script%3E'))"></script>
+  <script src="config.js"></script>
+  <script src="icons.js"></script>
+  <script src="i18n.js"></script>
+  <script src="events.js"></script>
+  <script src="db.js"></script>
+  <script src="catalog.js"></script>
+  <script src="sync.js"></script>
+  <script src="device.js"></script>
+  <script src="profile.js"></script>
+  <script src="legal.js"></script>
+  <script src="customers.js"></script>
+  <script src="purchases.js"></script>
+  <script src="qr.js"></script>
+  <script src="print.js"></script>
+  <script src="verify.js"></script>
+  <script src="expenses.js"></script>
+  <script src="reports.js"></script>
+  <script src="help.js"></script>
+  <script src="activity.js"></script>
+  <script src="lazy.js"></script>
+  <script src="announce.js"></script>
+  <script src="signup.js"></script>
+  <script src="contact.js"></script>
+  <script src="push.js"></script>
+  <script src="scanner.js"></script>
+  <script src="products.js"></script>
+  <script src="sales.js"></script>
+  <script src="billing/hold-quotes.js"></script>
+  <script src="billing/quick.js"></script>
+  <script src="billing/cart.js"></script>
+  <script src="home.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

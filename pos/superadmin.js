@@ -1,0 +1,740 @@
+// Universal POS — Super Admin panel (platform owner: shops, users, subscriptions, announcements, audit log).
+// Loaded BEFORE app.js. Uses globals from app.js / db.js / i18n.js at call time.
+// DATA LAYER: demo build -> localStorage store below. Live build (window.POS_DEMO unset) -> Supabase (see 'Live adapter').
+// Users are created/reset/deleted through the 'admin-users' Edge Function (needs the service-role key, which never reaches the browser).
+const DAY = 864e5, SAK = 'pos_sa_demo_v1';
+
+const SAT = {
+  sa_title: ['سپر ایڈمن', 'Super Admin'], sa_sub: ['پلیٹ فارم کنٹرول', 'Platform control'],
+  sa_t_dash: ['ڈیش بورڈ', 'Dashboard'], sa_t_shops: ['دکانیں', 'Shops'], sa_t_users: ['صارفین', 'Users'], sa_t_bill: ['بلنگ', 'Billing'], sa_t_more: ['مزید', 'More'],
+  sa_exit: ['دکان', 'Shop'], sa_mrr: ['ماہانہ آمدن (فعال دکانیں)', 'Monthly revenue (active shops)'],
+  sa_st_active: ['فعال', 'Active'], sa_st_trial: ['ٹرائل', 'Trial'], sa_st_expired: ['میعاد ختم', 'Expired'], sa_st_suspended: ['معطل', 'Suspended'], sa_st_archived: ['آرکائیو', 'Archived'], sa_st_all: ['سب', 'All'],
+  sa_expiring: ['7 دن میں ختم ہونے والی', 'Expiring within 7 days'], sa_none: ['کوئی نہیں', 'None'], sa_days_left: ['دن باقی', 'days left'], sa_days_ago: ['دن پہلے ختم', 'days ago'],
+  sa_rev6: ['پچھلے 6 ماہ کی وصولی', 'Collections, last 6 months'], sa_recent: ['حالیہ سرگرمی', 'Recent activity'],
+  sa_search_shop: ['دکان، مالک، شہر یا نمبر', 'Shop, owner, city or number'], sa_add_shop: ['نئی دکان', 'New shop'], sa_no_shops: ['کوئی دکان نہیں ملی', 'No shops found'],
+  sa_edit_shop: ['دکان میں ترمیم', 'Edit shop'], sa_owner: ['مالک کا نام', 'Owner name'], sa_city: ['شہر', 'City'], sa_plan: ['پلان', 'Plan'],
+  sa_start_trial: ['{n} دن کا مفت ٹرائل شروع کریں', 'Start a {n}-day free trial'],
+  sa_users_n: ['صارفین', 'Users'], sa_bills30: ['بل (30 دن)', 'Bills (30d)'], sa_sales30: ['فروخت (30 دن)', 'Sales (30d)'],
+  sa_renew: ['تجدید / ادائیگی', 'Renew / payment'], sa_suspend: ['معطل کریں', 'Suspend'], sa_activate: ['فعال کریں', 'Activate'], sa_archive: ['آرکائیو', 'Archive'], sa_restore: ['بحال کریں', 'Restore'],
+  sa_remind: ['یاد دہانی', 'Remind'], sa_reason: ['معطل کرنے کی وجہ؟', 'Reason for suspending?'], sa_confirm_activate: ['یہ دکان دوبارہ فعال کریں؟', 'Activate this shop again?'],
+  sa_confirm_archive: ['دکان آرکائیو کریں؟ لاگ اِن بند ہو جائے گا، ڈیٹا محفوظ رہے گا۔', 'Archive this shop? Logins stop, data is kept.'],
+  sa_no_payments: ['ابھی کوئی ادائیگی نہیں', 'No payments yet'], sa_add_user: ['نیا صارف', 'New user'], sa_edit_user: ['صارف میں ترمیم', 'Edit user'],
+  sa_user_search: ['نام، نمبر یا دکان', 'Name, number or shop'], sa_no_users: ['کوئی صارف نہیں ملا', 'No users found'], sa_active_acc: ['اکاؤنٹ فعال ہے', 'Account is active'],
+  sa_reset_pw: ['پاس ورڈ ری سیٹ', 'Reset password'],
+  sa_no_owner: ['اس دکان کا کوئی لاگ اِن اکاؤنٹ نہیں، اس لیے دکاندار لاگ اِن نہیں کر سکتا۔', 'This shop has no login account, so the shopkeeper cannot log in.'],
+  sa_make_owner: ['مالک کا لاگ اِن بنائیں', 'Create owner login'], sa_owner_pw: ['مالک کا پاس ورڈ ری سیٹ', 'Reset owner password'], sa_confirm_reset: ['نیا عارضی پاس ورڈ بنائیں؟', 'Generate a new temporary password?'],
+  sa_confirm_deluser: ['یہ صارف حذف کریں؟', 'Delete this user?'], sa_last_owner: ['دکان کا واحد مالک ہٹایا یا بدلا نہیں جا سکتا', 'The only owner of a shop cannot be removed or changed'],
+  sa_limit_users: ['اس پلان میں صارفین کی حد پوری ہو چکی', 'User limit of this plan reached'], sa_phone_used: ['یہ نمبر پہلے سے کسی صارف کا ہے', 'This number already belongs to a user'],
+  sa_existing_login: ['اس نمبر کا لاگ اِن پہلے سے موجود ہے۔ اسے نئی دکان میں شامل کر دیا گیا ہے اور اس کا پاس ورڈ نہیں بدلا گیا۔ وہ اپنے پرانے پاس ورڈ سے لاگ اِن کریں گے۔ بھول گئے ہوں تو اسی صارف کا "پاس ورڈ ری سیٹ" کریں۔', 'This number already had a login. It was added to the new shop and its password was NOT changed — they log in with their existing password. If they forgot it, use "Reset password" for that user.'],
+  sa_creds_title: ['لاگ اِن تفصیل', 'Login details'], sa_login_no: ['لاگ اِن نمبر', 'Login number'], sa_temp_pw: ['عارضی پاس ورڈ', 'Temporary password'],
+  sa_copy: ['کاپی', 'Copy'], sa_copied: ['کاپی ہو گیا', 'Copied'], sa_send_wa: ['واٹس ایپ پر بھیجیں', 'Send on WhatsApp'],
+  sa_wa_creds_msg: ['السلام علیکم {name}، آپ کا لاگ اِن: {phone}  عارضی پاس ورڈ: {pw}  (پہلی بار لاگ اِن کے بعد بدل لیں)', 'Hello {name}, your login: {phone}  temporary password: {pw}  (please change it after first login)'],
+  sa_period: ['مدت', 'Period'], sa_month: ['ماہ', 'month(s)'], sa_method: ['ادائیگی کا طریقہ', 'Payment method'], sa_bank: ['بینک', 'Bank'], sa_jazz: ['جاز کیش', 'JazzCash'], sa_easy: ['ایزی پیسہ', 'Easypaisa'],
+  sa_renew_title: ['سبسکرپشن تجدید', 'Renew subscription'], sa_pick_shop: ['دکان', 'Shop'], sa_new_expiry: ['نئی میعاد', 'New expiry'],
+  sa_pay_tab: ['ادائیگیاں', 'Payments'], sa_plans_tab: ['پلانز', 'Plans'], sa_col_month: ['اس ماہ کی وصولی', 'Collected this month'], sa_col_total: ['کل وصولی', 'Total collected'],
+  sa_add_payment: ['ادائیگی درج کریں', 'Record payment'], sa_plan_edit: ['پلان میں ترمیم', 'Edit plan'], sa_name_en: ['انگریزی نام', 'English name'], sa_name_ur2: ['اردو نام', 'Urdu name'],
+  sa_price: ['ماہانہ قیمت (Rs)', 'Monthly price (Rs)'], sa_max_users: ['زیادہ سے زیادہ صارفین', 'Max users'], sa_bill_qr: ['بل پر تصدیقی QR کوڈ', 'Verification QR on bills'], sa_barcodes: ['بارکوڈ (فیلڈ، کیمرہ اور سکینر)', 'Barcodes (field, camera & scanner)'],
+  sa_max_devices: ['ہر آئی ڈی کتنی ڈیوائسز پر چل سکے (0 = لامحدود)', 'Devices allowed per login ID (0 = unlimited)'], sa_devices: ['ڈیوائسز', 'Devices'], sa_dev_blocked: ['بند', 'Blocked'],
+  sa_dev_reset: ['گم/چوری: ڈیوائسز ری سیٹ', 'Lost/stolen: reset devices'], sa_dev_block: ['یہ ڈیوائس بند کریں', 'Block this device'], sa_dev_none: ['ابھی کوئی ڈیوائس رجسٹر نہیں', 'No device registered yet'],
+  sa_dev_confirm: ['پرانی ڈیوائس بند ہو جائے گی (بعد میں "اجازت دیں" سے کھولی جا سکتی ہے) اور اس آئی ڈی کے سب لاگ اِن ختم ہوں گے۔ صارف نئی ڈیوائس پر لاگ اِن کر سکے گا۔ جاری رکھیں؟ (احتیاط کے لیے پاس ورڈ بھی ری سیٹ کریں)', 'The old device will be blocked (you can allow it again later) and every login of this ID ends. The user can then log in on a new device. Continue? (Also reset the password to be safe)'],
+  sa_a_dev_reset: ['ڈیوائسز ری سیٹ', 'Devices reset'], sa_a_dev_allow: ['ڈیوائس کو اجازت', 'Device allowed'],
+  sa_dev_allow: ['اجازت دیں', 'Allow'], sa_dev_full: ['حد پوری ہے: پہلے کوئی اور ڈیوائس بند کریں یا پلان کی حد بڑھائیں', 'Limit reached: block another device first or raise the plan limit'], sa_max_products: ['زیادہ سے زیادہ پروڈکٹس (0 = لامحدود)', 'Max products (0 = unlimited)'],
+  sa_unlimited: ['لامحدود', 'Unlimited'], sa_per_month: ['ماہانہ', '/ month'], sa_shops_on_plan: ['دکانیں', 'shops'], sa_products: ['پروڈکٹس', 'products'],
+  sa_ann: ['اعلانات', 'Announcements'], sa_log: ['لاگ', 'Log'], sa_settings: ['سیٹنگز', 'Settings'], sa_ann_text: ['اعلان کا متن (تمام دکانوں کو نظر آئے گا)', 'Announcement text (shown to all shops)'],
+  sa_ann_add: ['نیا اعلان', 'New announcement'], sa_ann_none: ['کوئی اعلان نہیں', 'No announcements'], sa_ann_on: ['چل رہا ہے', 'Showing'], sa_ann_off: ['بند', 'Off'],
+  sa_set_trial: ['ٹرائل کے دن', 'Trial days'], sa_set_plan: ['نئی دکان کا ڈیفالٹ پلان', 'Default plan for new shops'], sa_set_phone: ['سپورٹ / تجدید کا نمبر', 'Support / renewal number'],
+  sa_export: ['پلیٹ فارم ڈیٹا ایکسپورٹ (JSON)', 'Export platform data (JSON)'], sa_reset_demo: ['سپر ایڈمن ڈیمو ڈیٹا ری سیٹ', 'Reset Super Admin demo data'],
+  sa_reset_demo_confirm: ['سپر ایڈمن کا ڈیمو ڈیٹا نمونے کے ڈیٹا سے بدل دیں؟', 'Replace Super Admin demo data with the sample data?'], sa_no_log: ['ابھی کوئی سرگرمی نہیں', 'No activity yet'],
+  sa_remind_msg: ['السلام علیکم {name}، آپ کی دکان "{shop}" کی سبسکرپشن کی آخری تاریخ {date} ہے۔ تجدید کے لیے رابطہ کریں: {phone}', 'Hello {name}, the subscription of your shop "{shop}" ends on {date}. To renew, contact: {phone}'],
+  sa_a_shop_new: ['نئی دکان', 'Shop added'], sa_a_shop_edit: ['دکان میں ترمیم', 'Shop edited'], sa_a_shop_suspend: ['دکان معطل', 'Shop suspended'], sa_a_shop_activate: ['دکان فعال', 'Shop activated'],
+  sa_a_shop_archive: ['دکان آرکائیو', 'Shop archived'], sa_a_shop_restore: ['دکان بحال', 'Shop restored'], sa_a_renew: ['تجدید / ادائیگی', 'Renewal / payment'],
+  sa_a_user_new: ['نیا صارف', 'User added'], sa_a_user_edit: ['صارف میں ترمیم', 'User edited'], sa_a_user_del: ['صارف حذف', 'User deleted'], sa_a_pw_reset: ['پاس ورڈ ری سیٹ', 'Password reset'],
+  sa_a_plan_edit: ['پلان میں ترمیم', 'Plan edited'], sa_a_ann_new: ['نیا اعلان', 'Announcement added'], sa_a_settings: ['سیٹنگز تبدیل', 'Settings changed']
+};
+SAT.sa_ann_to = ['کس کو دکھانا ہے', 'Show to']; SAT.sa_ann_all = ['تمام دکانیں', 'All shops']; SAT.sa_ann_push = ['فون پر نوٹیفکیشن بھی بھیجیں', 'Also send a phone notification'];
+SAT.sa_push_btn = ['اس دکان کو نوٹیفکیشن', 'Notify this shop']; SAT.sa_push_ask = ['اس دکان کے سب صارفین کو نوٹیفکیشن کا متن لکھیں', 'Write the notification text for all users of this shop'];
+Object.assign(SAT, {
+  sa_inactive_t: ['غیر فعال صارف', 'Inactive users'], sa_idle_days: ['{n} دن سے ایپ میں نہیں آئے', 'Not opened the app for {n} days'], sa_nudge: ['یاد دہانی', 'Remind'],
+  sa_nudge_all: ['سب کو میٹھی یاد دہانی بھیجیں', 'Send a sweet reminder to all'], sa_nudge_sent: ['یاد دہانی بھیج دی گئی: {n}', 'Reminder sent: {n}'],
+  sa_nudge_nopush: ['ان صارفین کے نوٹیفکیشن بند ہیں؛ واٹس ایپ سے بھیجیں', 'These users have notifications off; send by WhatsApp'], sa_nudge_fail: ['یاد دہانی نہیں جا سکی', 'Could not send the reminder'],
+  sa_wa: ['واٹس ایپ', 'WhatsApp'], sa_activity: ['حالیہ سرگرمی', 'Recent activity'], sa_act_none: ['ابھی کوئی سرگرمی ریکارڈ نہیں ہوئی', 'No activity recorded yet'], sa_user_act: ['اس صارف کی سرگرمی', 'This user\'s activity'],
+  sa_inactive_none: ['سب صارف فعال ہیں', 'All users are active'], sa_sec_remind: ['غیر فعال صارفین کی یاد دہانی', 'Inactive-user reminders'],
+  sa_set_idle: ['کتنے دن ایپ نہ کھولنے پر یاد دہانی (0 = بند)', 'Remind after this many days without opening the app (0 = off)'],
+  sa_set_idle_msg: ['اپنا پیغام (خالی = ڈیفالٹ میٹھا پیغام). {name} اور {shop} استعمال کر سکتے ہیں', 'Your own message (blank = default sweet message). You can use {name} and {shop}'],
+  sa_idle_hint: ['خودکار روزانہ بھیجنے کے لیے supabase/tools/cron_examples.sql چلائیں؛ ورنہ ڈیش بورڈ کے بٹن سے ہاتھ سے بھیجیں۔', 'For automatic daily sending run supabase/tools/cron_examples.sql; otherwise use the dashboard button.'],
+
+  sa_st_pending: ['منظوری کا انتظار', 'Pending approval'], sa_st_rejected: ['مسترد', 'Rejected'],
+  sa_a_signup_new: ['Sign up: نئی درخواست', 'Sign-up request'], sa_a_signup_approve: ['Sign up منظور', 'Sign-up approved'], sa_a_signup_reject: ['Sign up مسترد', 'Sign-up rejected'],
+  sa_approve: ['منظور کریں اور ڈیمو شروع کریں', 'Approve and start demo'], sa_reject: ['مسترد کریں', 'Reject'],
+  sa_confirm_reject: ['یہ درخواست مسترد کریں؟ دکاندار لاگ اِن نہیں کر سکے گا۔', 'Reject this request? The shopkeeper will not be able to log in.'],
+  sa_pending_n: ['درخواستیں منظوری کے انتظار میں', 'requests waiting for approval'], sa_signup_src: ['Sign up سے آئی', 'Came from sign-up'],
+  sa_sec_signup: ['Sign up اور ڈیمو', 'Sign-up and demo'],
+  sa_set_signup: ['نئے اکاؤنٹ (Sign up) کی اجازت', 'Allow new accounts (sign-up)'],
+  sa_set_signup_appr: ['ہر نئی درخواست پر میری منظوری ضروری ہو', 'Every new request needs my approval'],
+  sa_set_signup_plan: ['Sign up کا پلان (ڈیمو)', 'Sign-up plan (demo)'], sa_set_demo_days: ['ڈیمو کے دن', 'Demo days'],
+  sa_set_daily: ['روزانہ زیادہ سے زیادہ نئی درخواستیں (0 = لامحدود)', 'Max new requests per day (0 = unlimited)'],
+  sa_max_bills: ['زیادہ سے زیادہ بل (0 = لامحدود)', 'Max bills (0 = unlimited)'], sa_plan_feats: ['اس پلان میں یہ سہولیات', 'Features in this plan'],
+  sa_f_customers: ['کسٹمرز اور ادھار', 'Customers and udhaar'], sa_f_purchases: ['خریداری اور سپلائرز', 'Purchases and suppliers'],
+  sa_f_expenses: ['اخراجات', 'Expenses'], sa_f_reports: ['رپورٹس', 'Reports'], sa_signup_off_hint: ['Sign up آن کرنے سے پہلے Supabase میں supabase/schema.sql چلائیں اور signup فنکشن deploy کریں۔', 'Before turning sign-up on, run supabase/schema.sql in Supabase and deploy the signup function.']
+});
+addI18N(SAT);
+Object.assign(ICONS, {
+  shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  bell: '<path d="M6 17V11a6 6 0 0112 0v6l2 2H4z"/><path d="M10 21h4"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>'
+});
+
+// ───────── Demo data store ─────────
+let SAD = null;
+const SAS = { tab: 'dash', q: '', filter: 'all', uq: '', bseg: 'pay', mseg: 'ann', logN: 30 };
+const saNow = () => Date.now();
+const saIso = (off = 0) => new Date(saNow() + off * DAY).toISOString();
+const saDays = iso => Math.ceil((new Date(iso).getTime() - saNow()) / DAY);
+const saPass = () => [...crypto.getRandomValues(new Uint8Array(6))].map(b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
+const saPhone = v => String(v || '').replace(/[^\d+]/g, '');
+const saPlan = id => (SAD.plans.find(p => p.id === id) || SAD.plans[0]);
+const saPlanName = p => (LANG === 'ur' ? p.name_ur : p.name) || p.name;
+const saShopName = id => { const s = SAD.shops.find(x => x.id === id); return s ? s.name : '—'; };
+const saFill = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
+function shopState(s) { if (s.approval === 'pending') return 'pending'; if (s.approval === 'rejected') return 'rejected'; if (s.archived) return 'archived'; if (s.suspended) return 'suspended'; if (saDays(s.expires_at) < 0) return 'expired'; return s.trial ? 'trial' : 'active'; }
+const stChip = s => { const k = shopState(s); return `<span class="st ${k}">${t('sa_st_' + k)}</span>`; };
+const saExpTxt = s => { const d = saDays(s.expires_at); return d >= 0 ? `${d} ${t('sa_days_left')}` : `${-d} ${t('sa_days_ago')}`; };
+
+function saSeed() {
+  const plans = [
+    { id: 'basic', name: 'Basic', name_ur: 'بنیادی', price: 1500, max_users: 2, max_products: 500, bill_qr: false, barcodes: false, max_devices: 1 },
+    { id: 'standard', name: 'Standard', name_ur: 'اسٹینڈرڈ', price: 3000, max_users: 5, max_products: 3000, bill_qr: false, barcodes: true, max_devices: 1 },
+    { id: 'premium', name: 'Premium', name_ur: 'پریمیم', price: 5000, max_users: 15, max_products: 0, bill_qr: true, barcodes: true, max_devices: 1 },
+    { id: 'demo', name: 'Demo', name_ur: 'ڈیمو', price: 0, max_users: 1, max_products: 30, bill_qr: false, barcodes: false, max_devices: 1, max_bills: 50, f_customers: true, f_purchases: false, f_expenses: false, f_reports: false }
+  ];
+  const R = [ // name, owner, phone, city, plan, expiresInDays, flag, bills30, sales30, ageDays
+    ['الفلاح جنرل اسٹور', 'محمد الفلاح', '03001112233', 'لاہور', 'standard', 48, '', 412, 1840000, 300],
+    ['کراچی میڈیکل ہال', 'ڈاکٹر عمران', '03211112233', 'کراچی', 'premium', 200, '', 690, 3120000, 420],
+    ['رحمان کریانہ ہول سیل', 'عبدالرحمان', '03331112233', 'فیصل آباد', 'basic', 5, '', 210, 760000, 150],
+    ['ستارہ گارمنٹس', 'ستارہ بی بی', '03451112233', 'ملتان', 'standard', 9, 'trial', 64, 310000, 5],
+    ['نیو شان موبائل شاپ', 'شان علی', '03121112233', 'راولپنڈی', 'basic', -12, '', 120, 540000, 200],
+    ['بسم اللہ بیکرز', 'محمد یوسف', '03011112233', 'پشاور', 'standard', 20, 'suspended', 0, 0, 260],
+    ['حاجی اکرم ٹریڈرز', 'حاجی اکرم', '03221112233', 'گوجرانوالہ', 'premium', 90, '', 340, 2210000, 380],
+    ['گرین لیف فارمیسی', 'سمیرا خان', '03461112233', 'اسلام آباد', 'standard', 2, 'trial', 48, 260000, 12],
+    ['سمیر الیکٹرانکس', 'سمیر احمد', '03131112233', 'سیالکوٹ', 'basic', -80, 'archived', 0, 0, 500]
+  ];
+  const staff = ['اسلم', 'نعیم', 'کامران', 'ثناء', 'بلال', 'عائشہ', 'رضوان'];
+  const shops = [], users = [], payments = [];
+  R.forEach(([name, owner, phone, city, plan, exp, flag, b, sv, age], i) => {
+    const s = { id: uuid(), name, owner_name: owner, phone, city, plan_id: plan, trial: flag === 'trial', suspended: flag === 'suspended',
+      suspend_reason: flag === 'suspended' ? 'ادائیگی میں تاخیر' : '', archived: flag === 'archived', created_at: saIso(-age), expires_at: saIso(exp),
+      last_seen: saIso(-(i % 4) - (flag ? 6 : 0)), bills_30d: b, sales_30d: sv, notes: '', approval: 'approved', source: 'admin' };
+    shops.push(s);
+    const mk = (nm, ph, role, k) => users.push({ id: uuid(), shop_id: s.id, name: nm, phone: ph, role, active: true, created_at: saIso(-age + 1), last_login: saIso(-k) });
+    mk(owner, phone, 'owner', i % 3);
+    if (plan !== 'basic') mk(staff[i % 7], '0300' + (7000000 + i * 111), 'manager', 1 + (i % 4));
+    mk(staff[(i + 3) % 7], '0310' + (6000000 + i * 137), 'cashier', i % 2);
+    if (flag === 'trial' || flag === 'archived') return;
+    const n = Math.min(6, Math.floor(age / 30));
+    for (let m = exp < 0 ? 2 : 0; m < n + (exp < 0 ? 2 : 0); m++)
+      payments.push({ id: uuid(), shop_id: s.id, plan_id: plan, amount: plans.find(p => p.id === plan).price, days: 30, method: ['cash', 'bank', 'jazz', 'easy'][(i + m) % 4], note: '', at: saIso(-(m * 30 + (i % 9))) });
+  });
+  payments.sort((a, b) => (a.at < b.at ? 1 : -1));
+  return {
+    plans, shops, users, payments,
+    audit: [
+      { id: uuid(), at: saIso(-1), actor: 'Super Admin', action: 'renew', target: shops[0].name, detail: 'Rs 3,000' },
+      { id: uuid(), at: saIso(-3), actor: 'Super Admin', action: 'shop_suspend', target: shops[5].name, detail: 'ادائیگی میں تاخیر' },
+      { id: uuid(), at: saIso(-5), actor: 'Super Admin', action: 'shop_new', target: shops[3].name, detail: '' }
+    ],
+    announcements: [{ id: uuid(), text: 'اتوار رات 2 بجے سسٹم کی دیکھ بھال ہوگی، ایپ چند منٹ سست رہ سکتی ہے۔', active: true, at: saIso(-2) }],
+    settings: { trial_days: 14, default_plan: 'standard', support_phone: '03001234567', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20, inactive_days: 5, inactive_message: '' }
+  };
+}
+function saLoad() {
+  if (SAD) return SAD;
+  if (SA_LIVE()) return (SAD = { plans: [], shops: [], users: [], payments: [], audit: [], announcements: [], settings: { trial_days: 14, default_plan: 'standard', support_phone: '', signup_enabled: false, signup_approval: true, signup_plan: 'demo', demo_days: 7, signup_daily_limit: 20, inactive_days: 5, inactive_message: '' } });
+  try { const r = localStorage.getItem(SAK); if (r) SAD = JSON.parse(r); } catch (e) {}
+  if (!SAD) { SAD = saSeed(); saSave(); }
+  return SAD;
+}
+function saSave() { if (SA_LIVE()) { saPush().catch(saFail); return; } try { localStorage.setItem(SAK, JSON.stringify(SAD)); } catch (e) {} }
+function saLog(action, target, detail) {
+  SAD.audit = [{ id: uuid(), at: saIso(0), actor: 'Super Admin', action, target: target || '', detail: detail || '' }, ...SAD.audit].slice(0, 300);
+  if (!SA_LIVE()) saSave();
+}
+// ───────── Live adapter (Supabase) ─────────
+// SAD stays the in-memory working copy the UI already uses. saFetch() fills it from the server; saPush() diffs it against the
+// last-synced snapshot and writes only what changed. RLS (is_platform_admin) is the real gatekeeper; the client check is UX only.
+const SA_LIVE = () => !window.POS_DEMO;
+const SA_TABLES = { plans: 'plans', shops: 'shops', users: 'shop_members', payments: 'sub_payments', audit: 'audit_log', announcements: 'announcements' };
+const SA_COLS = {
+  plans: ['id', 'name', 'name_ur', 'price', 'max_users', 'max_products', 'bill_qr', 'barcodes', 'max_devices', 'max_bills', 'f_customers', 'f_purchases', 'f_expenses', 'f_reports'],
+  shops: ['id', 'name', 'owner_name', 'phone', 'city', 'plan_id', 'trial', 'suspended', 'suspend_reason', 'archived', 'created_at', 'expires_at', 'last_seen', 'bills_30d', 'sales_30d', 'notes', 'approval', 'source'],
+  users: ['id', 'user_id', 'shop_id', 'name', 'phone', 'role', 'active', 'created_at', 'last_login'],
+  payments: ['id', 'shop_id', 'plan_id', 'amount', 'days', 'method', 'note', 'at'],
+  audit: ['id', 'at', 'actor', 'action', 'target', 'detail'],
+  announcements: ['id', 'text', 'active', 'at', 'shop_id']
+};
+let SAB = null, saQ = Promise.resolve();
+const saKey = (t, r) => JSON.stringify(SA_COLS[t].map(c => (r[c] === undefined ? null : r[c])));
+const saPick = (t, r) => { const o = Object.fromEntries(SA_COLS[t].map(c => [c, r[c] === undefined ? null : r[c]])); if (t === 'announcements' && o.shop_id == null) delete o.shop_id; return o; };   // keeps working before 17_*.sql is run
+function saSnap() {
+  SAB = {};
+  for (const t of Object.keys(SA_COLS)) { SAB[t] = new Map(); for (const r of SAD[t]) SAB[t].set(r.id, { k: saKey(t, r), r: { ...r } }); }
+  SAB.settings = JSON.stringify(SAD.settings);
+}
+async function saFetch() {
+  const sb = getSb(), q = (t, o) => { let x = sb.from(SA_TABLES[t]).select('*'); if (o) x = x.order(o, { ascending: false }); return x; };
+  const res = await Promise.all([q('plans'), q('shops', 'created_at'), q('users', 'created_at'), q('payments', 'at'), q('audit', 'at').limit(300), q('announcements', 'at'),
+    sb.from('platform_settings').select('*').eq('id', 1).maybeSingle()]);
+  const bad = res.find(r => r.error); if (bad) throw new Error(bad.error.message);
+  const [plans, shops, users, payments, audit, announcements] = res.slice(0, 6).map(r => r.data || []);
+  const st = res[6].data || {};
+  SAD = { plans, shops, users, payments, audit, announcements,
+    settings: { trial_days: st.trial_days ?? 14, default_plan: st.default_plan || 'standard', support_phone: st.support_phone || '',
+      signup_enabled: st.signup_enabled === true, signup_approval: st.signup_approval !== false, signup_plan: st.signup_plan || 'demo', demo_days: st.demo_days ?? 7, signup_daily_limit: st.signup_daily_limit ?? 20, inactive_days: st.inactive_days ?? 5, inactive_message: st.inactive_message || '' } };
+  saSnap();
+}
+const SA_EXISTING = new Set();   // member ids whose phone already had a login (password untouched)
+async function saFn(body) {
+  const { data, error } = await getSb().functions.invoke('admin-users', { body });
+  if (error) { let m = error.message; try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+const saUp = async (t, rows) => { if (!rows.length) return; const { error } = await getSb().from(SA_TABLES[t]).upsert(rows); if (error) throw new Error(error.message); };
+async function saPushNow() {
+  if (!SA_LIVE() || !SAD || !SAB) return;
+  const d = SAD, changed = t => d[t].filter(r => { const o = SAB[t].get(r.id); return !o || o.k !== saKey(t, r); });
+  await saUp('plans', changed('plans').map(r => saPick('plans', r)));
+  await saUp('shops', changed('shops').map(r => saPick('shops', r)));            // parents before users
+  const sb = getSb();
+  for (const u of d.users) {                                                      // users: auth account first (Edge Function)
+    const o = SAB.users.get(u.id);
+    if (!o) {
+      let r;
+      try { r = await saFn({ action: 'create', email: loginIdToEmail(u.phone), member_id: u.id, shop_id: u.shop_id, name: u.name, phone: u.phone, role: u.role, active: u.active, password: u._pw }); }
+      catch (e) {                                   // a brand-new shop whose owner account failed must not stay behind as an empty shop
+        if (!SAB.shops.has(u.shop_id)) { try { await sb.from('shops').delete().eq('id', u.shop_id); } catch (x) {} }
+        throw e;
+      }
+      u.user_id = r.user_id; delete u._pw; if (r.existing) SA_EXISTING.add(u.id);   // same number already had a login: its password was NOT changed
+      if (!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: true });
+    } else if (o.k !== saKey('users', u)) {
+      if (o.r.phone !== u.phone) await saFn({ action: 'phone', user_id: u.user_id, phone: u.phone, email: loginIdToEmail(u.phone) });
+      if (!!o.r.active !== !!u.active) await saFn({ action: 'ban', user_id: u.user_id, banned: !u.active });
+      const { error } = await sb.from('shop_members').update({ name: u.name, phone: u.phone, role: u.role, shop_id: u.shop_id, active: u.active }).eq('id', u.id);
+      if (error) throw new Error(error.message);
+    }
+  }
+  for (const [id] of SAB.users) if (!d.users.some(u => u.id === id)) await saFn({ action: 'delete', member_id: id });
+  await saUp('payments', changed('payments').map(r => saPick('payments', r)));
+  await saUp('audit', changed('audit').map(r => saPick('audit', r)));
+  await saUp('announcements', changed('announcements').map(r => saPick('announcements', r)));
+  for (const [id] of SAB.announcements) if (!d.announcements.some(a => a.id === id)) { const { error } = await sb.from('announcements').delete().eq('id', id); if (error) throw new Error(error.message); }
+  if (JSON.stringify(d.settings) !== SAB.settings) { const { error } = await sb.from('platform_settings').upsert({ id: 1, ...d.settings }); if (error) throw new Error(error.message); }
+  saSnap();
+}
+function saPush() { const p = saQ.then(saPushNow); saQ = p.catch(() => {}); return p; }   // serialised: one push at a time
+async function saFail(e) {
+  let msg = (e && e.message) || t('err_generic');
+  if (/row-level security|jwt|not authenticated/i.test(msg)) msg += '\n\nسپر ایڈمن اجازت نہیں ملی: موجودہ لاگ اِن پلیٹ فارم ایڈمن نہیں ہے یا سیشن ختم ہو گیا۔ لاگ آؤٹ کر کے ایڈمن اکاؤنٹ سے دوبارہ لاگ اِن کریں۔';
+  toast(msg.split('\n')[0], 6000);
+  try { openModal(`<h3>${t('err_generic')}</h3><div dir="ltr" class="u-white-space-pre-wrap u-word-break-break-word u-user-select-text u-p-10 u-bg-f3f4f6 u-br-10">${esc(msg)}</div><div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`); } catch (x) {}   // stays on screen so the exact reason can be read
+ try { await saFetch(); } catch (x) {} saRender(); }   // roll back to server truth
+function saCommit() {            // save + wait; true on success (callers show credentials only then)
+  if (!SA_LIVE()) { saSave(); return Promise.resolve(true); }
+  return saPush().then(() => true, async e => { await saFail(e); return false; });
+}
+// ───────── Shell ─────────
+async function showSuperAdmin() {
+  if (SA_LIVE()) {
+    toast('…', 8000);
+    try { await saFetch(); } catch (e) { return toast((e && e.message) || t('err_generic'), 5000); }
+    $('toast').hidden = true;
+  } else saLoad();
+  $('app').hidden = true; $('login').hidden = true; $('sa').hidden = false;
+  document.documentElement.dataset.theme = 'admin';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = '#1c2541';
+  saRender();
+}
+async function exitSuperAdmin() {
+  $('sa').hidden = true;
+  if (!S.session) {   // admin without a shop: exit = sign out
+    try { if (S.sb) await S.sb.auth.signOut(); } catch (e) {}
+    S.isAdmin = false; SAD = null; applyTheme(); return showLogin();
+  }
+  $('app').hidden = false;
+  applyTheme(); applyStaticText(); renderBillShell(); switchTab(S.tab);
+}
+function saRender() {
+  const tabs = [['dash', 'sa_t_dash', 'chart'], ['shops', 'sa_t_shops', 'store'], ['users', 'sa_t_users', 'users'], ['bill', 'sa_t_bill', 'wallet'], ['inbox', 'sa_t_inbox', 'chat'], ['more', 'sa_t_more', 'settings']];
+  $('sa').innerHTML = `
+    <header class="top"><div class="hrow">
+      <div class="avatar">${ic('shield', 24)}</div>
+      <div class="hinfo"><div class="hello">${t('sa_title')}</div><div class="shop">${t('sa_sub')}</div></div>
+      <button class="langbtn" data-sa="lang" type="button">${LANG === 'ur' ? 'EN' : 'اردو'}</button>
+      <button class="langbtn" data-sa="exit" type="button">${ic('home', 16)} ${S.session ? t('sa_exit') : t('logout')}</button>
+    </div></header>
+    <main id="sa-main">${saView()}</main>
+    <nav class="bottom">${tabs.map(([k, l, i]) => `<button data-sa="tab|${k}" class="${SAS.tab === k ? 'active' : ''}"><span class="ico">${ic(i, 22)}</span><span>${t(l)}</span></button>`).join('')}</nav>`;
+  if (SAS.tab === 'shops') saShopsList();
+  if (SAS.tab === 'users') saUsersList();
+  if (SAS.tab === 'dash') saActFeed();
+  if (SAS.tab === 'inbox' && typeof ctAdminList === 'function') ctAdminList();
+  if (typeof ctPaint === 'function') ctPaint();
+}
+function saView() { return ({ dash: saDash, shops: saShopsView, users: saUsersView, bill: saBillView, inbox: () => ctAdminView(), more: saMoreView })[SAS.tab](); }
+const saActRow = a => `<div class="lrow"><span class="lic">${ic('list', 16)}</span><div class="grow"><b>${t('sa_a_' + a.action)}</b><div class="muted">${esc(a.target)}${a.detail ? ' · ' + esc(a.detail) : ''}</div></div><div class="muted u-fs-12">${esc(fmtDate(a.at))}</div></div>`;
+
+// ───────── Dashboard ─────────
+function saMonths() {
+  const out = [], now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1), key = d.getFullYear() * 12 + d.getMonth();
+    out.push({ key, label: d.toLocaleDateString(LANG === 'ur' ? 'ur-PK' : 'en-GB', { month: 'short' }), total: 0 });
+  }
+  SAD.payments.forEach(p => { const d = new Date(p.at), k = d.getFullYear() * 12 + d.getMonth(), m = out.find(x => x.key === k); if (m) m.total += p.amount; });
+  return out;
+}
+function saDash() {
+  const d = SAD, live = d.shops.filter(s => !s.archived), st = { active: 0, trial: 0, expired: 0, suspended: 0, pending: 0, rejected: 0 };
+  live.forEach(s => st[shopState(s)]++);
+  const mrr = live.filter(s => shopState(s) === 'active').reduce((a, s) => a + saPlan(s.plan_id).price, 0);
+  const soon = live.filter(s => ['active', 'trial'].includes(shopState(s)) && saDays(s.expires_at) <= 7).sort((a, b) => (a.expires_at < b.expires_at ? -1 : 1));
+  const mo = saMonths(), mx = Math.max(1, ...mo.map(m => m.total)), ann = saAnnouncement();
+  return `
+    <div class="today"><div class="cal">${ic('chart', 24)}</div><div class="grow"><div class="muted">${t('sa_mrr')}</div>
+      <div class="big">Rs ${money(mrr)}</div><div class="muted">${live.length} ${t('sa_t_shops')} · ${d.users.length} ${t('sa_t_users')}</div></div></div>
+    ${st.pending ? `<button class="btn block u-mb-12" data-sa="stat|pending">${ic('shield', 18)} ${st.pending} ${t('sa_pending_n')}</button>` : ''}
+    ${ann ? `<div class="warn u-m-0n0n12 u-p-6n12">${ic('bell', 16)} ${esc(ann)}</div>` : ''}
+    <div class="sa-stats">${['active', 'trial', 'expired', 'suspended'].map(k => `<button class="mod" data-sa="stat|${k}"><span class="mi u-fs-24 u-fw-800">${st[k]}</span>${t('sa_st_' + k)}</button>`).join('')}</div>
+    ${saInactiveCard()}
+    <div class="card"><div class="sa-sec">${t('sa_expiring')}</div>
+      ${soon.map(s => `<div class="lrow u-cur-pointer"  data-sa="shop|${s.id}"><span class="lic">${ic('clock', 16)}</span><div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(saPlanName(saPlan(s.plan_id)))}</div></div>${stChip(s)}<span class="muted">${saExpTxt(s)}</span></div>`).join('') || `<div class="muted">${t('sa_none')}</div>`}</div>
+    <div class="card"><div class="sa-sec">${t('sa_rev6')}</div>
+      <div class="sa-bars">${mo.map(m => `<div><span>${m.total ? Math.round(m.total / 1000) + 'k' : ''}</span><i style="height:${Math.max(3, Math.round(m.total / mx * 78))}%"></i><span>${m.label}</span></div>`).join('')}</div></div>
+    <div class="card"><div class="sa-sec">${t('sa_activity')}</div><div id="sa-actfeed"><div class="muted">…</div></div></div>
+    <div class="card"><div class="sa-sec">${t('sa_recent')}</div>${d.audit.slice(0, 5).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>`;
+}
+
+// ───────── Inactive users + activity ─────────
+function saInactiveCard() {
+  const list = actInactive(), N = SAD.settings.inactive_days > 0 ? SAD.settings.inactive_days : 5;
+  return `<div class="card"><div class="sa-sec">${t('sa_inactive_t')} (${N}+)</div>
+    ${list.slice(0, 30).map(u => { const wa = waNumber(u.phone);
+      return `<div class="lrow"><span class="lic">${ic('clock', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted">${t('sa_idle_days').replace('{n}', actDaysIdle(u))}</div></div>
+        <button class="btn secondary sm" type="button" data-sa="nudge|${u.id}">${ic('bell', 16)} ${t('sa_nudge')}</button>${wa ? `<a class="btn secondary sm lnk u-mis-6" target="_blank" rel="noopener"  href="https://wa.me/${wa}?text=${encodeURIComponent(actSweetText(u))}" aria-label="${t('sa_wa')}">${ic('chat', 16)}</a>` : ''}</div>`; }).join('') || `<div class="muted">${t('sa_inactive_none')}</div>`}
+    ${list.length ? `<button class="btn block u-mt-10" type="button" data-sa="nudgeall">${ic('bell', 18)} ${t('sa_nudge_all')} (${list.length})</button>` : ''}</div>`;
+}
+async function saActEvents(userId, limit) {      // live: activity_log table; demo: a believable sample
+  if (SA_LIVE()) {
+    let q = getSb().from('activity_log').select('user_id,user_name,shop_id,kind,name,at').order('at', { ascending: false }).limit(limit);
+    if (userId) q = q.eq('user_id', userId);
+    const { data, error } = await q; if (error) throw error; return data || [];
+  }
+  const names = ['open', 'tab:bill', 'tap:add', 'tap:add', '#btn-checkout', '#btn-complete', '#btn-print', 'tab:sales', 'tap:sale', 'tab:products', 'tab:settings', '#btn-contact'];
+  const us = userId ? SAD.users.filter(u => u.id === userId) : SAD.users.slice(0, 6), out = [];
+  us.forEach((u, i) => names.forEach((n, k) => out.push({ user_id: u.id, user_name: u.name, shop_id: u.shop_id, kind: n.startsWith('tab:') || n === 'open' ? 's' : 'c', name: n, at: new Date(Date.now() - (i * 47 + k * 6) * 6e4).toISOString() })));
+  return out.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
+}
+const saActRowHtml = (e, withUser) => `<div class="lrow"><span class="lic">${ic(e.kind === 's' ? 'home' : 'list', 16)}</span><div class="grow"><b>${esc(actName(e))}</b>${withUser ? `<div class="muted">${esc(e.user_name)} · ${esc(saShopName(e.shop_id))}</div>` : ''}</div><div class="muted u-fs-12">${esc(fmtDate(e.at))}</div></div>`;
+async function saActFeed() {
+  const box = $('sa-actfeed'); if (!box) return;
+  try { const ev = await saActEvents(null, 30); if (!$('sa-actfeed')) return; $('sa-actfeed').innerHTML = ev.map(e => saActRowHtml(e, true)).join('') || `<div class="muted">${t('sa_act_none')}</div>`; }
+  catch (e) { box.innerHTML = `<div class="muted">${t('sa_act_none')}</div>`; }
+}
+async function saUserActivity(id) {
+  const u = SAD.users.find(x => x.id === id); if (!u) return;
+  openModal(`<h2>${t('sa_user_act')}</h2><div class="muted u-mb-8">${esc(u.name)} · ${esc(saShopName(u.shop_id))}</div><div id="sa-uact"><div class="muted">…</div></div><button class="btn secondary block u-mt-12" data-close>${t('close')}</button>`);
+  try { const ev = await saActEvents(SA_LIVE() ? u.user_id : u.id, 80); const b = $('sa-uact'); if (b) b.innerHTML = ev.map(e => saActRowHtml(e, false)).join('') || `<div class="muted">${t('sa_act_none')}</div>`; }
+  catch (e) { const b = $('sa-uact'); if (b) b.innerHTML = `<div class="muted">${t('sa_act_none')}</div>`; }
+}
+async function saNudge(list) {
+  if (!list.length) return;
+  if (!SA_LIVE()) { list.forEach(u => { u.last_nudge_at = new Date().toISOString(); }); saSave(); toast(t('sa_nudge_sent').replace('{n}', list.length), 3500); return; }
+  try {
+    const { data, error } = await getSb().functions.invoke('push-notify', { body: { action: 'user_nudge', user_ids: list.map(u => u.user_id).filter(Boolean) } });
+    if (error || !data || data.error) throw new Error((error && error.message) || (data && data.error) || 'failed');
+    toast(t('sa_nudge_sent').replace('{n}', data.sent || 0), 3500);
+    const np = list.filter(u => (data.no_push || []).includes(u.user_id));
+    if (np.length) openModal(`<h2>${t('sa_nudge_nopush')}</h2>${np.map(u => { const wa = waNumber(u.phone); return `<div class="lrow"><div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div></div>${wa ? `<a class="btn sm lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(actSweetText(u))}">${ic('chat', 16)} ${t('sa_wa')}</a>` : ''}</div>`; }).join('')}<button class="btn secondary block u-mt-12" data-close>${t('close')}</button>`);
+  } catch (e) { toast(t('sa_nudge_fail') + ': ' + (e.message || e), 5000); }
+}
+
+// ───────── Shops ─────────
+function saShopsView() {
+  return `<div class="row u-mb-10"><input id="sa-q" class="grow" type="search" placeholder="${t('sa_search_shop')}" autocomplete="off" value="${esc(SAS.q)}">
+      <button class="btn" data-sa="shopnew" type="button">${ic('plus', 18)} ${t('sa_add_shop')}</button></div>
+    <div class="sa-chips">${['all', 'pending', 'active', 'trial', 'expired', 'suspended', 'archived'].map(k => `<button class="sa-chip ${SAS.filter === k ? 'on' : ''}" data-sa="filter|${k}">${t('sa_st_' + k)}</button>`).join('')}</div>
+    <div id="sa-list"></div>`;
+}
+function saShopsList() {
+  const q = SAS.q.trim().toLowerCase(), box = $('sa-list'); if (!box) return;
+  const list = SAD.shops.filter(s => {
+    const k = shopState(s);
+    if (SAS.filter === 'all' ? k === 'archived' : k !== SAS.filter) return false;
+    return !q || [s.name, s.owner_name, s.phone, s.city].join(' ').toLowerCase().includes(q);
+  }).sort((a, b) => (a.name < b.name ? -1 : 1));
+  box.innerHTML = list.map(s => `<div class="card custcard" data-sa="shop|${s.id}"><div class="avatar sm">${ic('store', 20)}</div>
+    <div class="grow"><b>${esc(s.name)}</b><div class="muted">${esc(s.city)} · ${esc(s.owner_name)}</div><div class="muted">${esc(saPlanName(saPlan(s.plan_id)))} · ${saExpTxt(s)}</div></div>${stChip(s)}</div>`).join('')
+    || `<div class="muted u-ta-center u-p-24">${t('sa_no_shops')}</div>`;
+}
+function saShopDetail(id) {
+  const d = SAD, s = d.shops.find(x => x.id === id); if (!s) return;
+  const us = d.users.filter(u => u.shop_id === id), owner = us.find(u => u.role === 'owner' && u.user_id), pay = d.payments.filter(p => p.shop_id === id).slice(0, 3), p = saPlan(s.plan_id);
+  const wa = waNumber(s.phone), msg = saFill(t('sa_remind_msg'), { name: s.owner_name, shop: s.name, date: s.expires_at.slice(0, 10), phone: d.settings.support_phone });
+  openModal(`<div class="row"><h2 class="grow">${esc(s.name)}</h2>${stChip(s)}</div>
+    <div class="muted">${esc(s.city)} · ${esc(s.owner_name)}${s.phone ? ` · <a href="tel:${esc(s.phone)}" dir="ltr">${esc(s.phone)}</a>` : ''}</div>
+    ${s.suspended && s.suspend_reason ? `<div class="warn">${esc(s.suspend_reason)}</div>` : ''}
+    <div class="balbox"><span>${esc(saPlanName(p))} · ${money(p.price)} ${t('sa_per_month')}</span><b class="u-fs-16">${s.expires_at.slice(0, 10)}<br><small class="muted">${saExpTxt(s)}</small></b></div>
+    <div class="sa-kpis"><div><b>${us.length}</b><span>${t('sa_users_n')}</span></div><div><b>${s.bills_30d}</b><span>${t('sa_bills30')}</span></div><div><b>${money(s.sales_30d)}</b><span>${t('sa_sales30')}</span></div></div>
+    ${s.approval !== 'approved' ? `<div class="warn u-mb-8">${t('sa_st_' + s.approval)}<div class="row u-mt-6"><button class="btn grow" data-sa="approve|${id}">${ic('shield', 16)} ${t('sa_approve')}</button>${s.approval === 'pending' ? `<button class="btn danger" data-sa="reject|${id}">${t('sa_reject')}</button>` : ''}</div></div>` : ''}
+    ${owner ? '' : `<div class="warn u-mb-8">${t('sa_no_owner')}<br><button class="btn sm u-mt-6" type="button" data-sa="mkowner|${id}">${ic('key', 16)} ${t('sa_make_owner')}</button></div>`}
+    <div class="row u-mb-8"><button class="btn grow" data-sa="renew|${id}">${ic('wallet', 18)} ${t('sa_renew')}</button>${owner ? `<button class="btn secondary" data-sa="resetpw|${owner.id}" aria-label="${t('sa_owner_pw')}" title="${t('sa_owner_pw')}">${ic('key', 18)}</button>` : ''}<button class="btn secondary" data-sa="shopedit|${id}" aria-label="${t('edit_product')}">${ic('edit', 18)}</button></div>
+    <div class="row u-mb-8">
+      <button class="btn ${s.suspended ? 'secondary' : 'danger'} grow" data-sa="toggle|${id}">${s.suspended ? t('sa_activate') : t('sa_suspend')}</button>
+      <button class="btn secondary grow" data-sa="archive|${id}">${s.archived ? t('sa_restore') : t('sa_archive')}</button>
+      ${wa ? `<a class="btn secondary lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)}</a>` : ''}<button class="btn secondary" data-sa="shoppush|${id}" aria-label="${t('sa_push_btn')}" title="${t('sa_push_btn')}">${ic('bell', 18)}</button></div>
+    <div class="row u-mt-10"><div class="sa-sec grow">${t('sa_t_users')}</div><button class="btn secondary sm" data-sa="useradd|${id}">${ic('plus', 14)} ${t('sa_add_user')}</button></div>
+    ${us.map(u => `<div class="lrow u-cur-pointer"  data-sa="useredit|${u.id}"><span class="lic">${ic('user', 16)}</span><div class="grow"><b>${esc(u.name)}</b><div class="muted u-ta-start" dir="ltr">${esc(u.phone)}</div></div><span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}">${ic('key', 16)}</button></div>`).join('')}
+    <div class="sa-sec u-mt-10">${t('sa_pay_tab')}</div>
+    ${pay.map(saPayRow).join('') || `<div class="muted">${t('sa_no_payments')}</div>`}
+    <div class="u-mt-12"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+}
+function saShopForm(id) {
+  const d = SAD, s = id ? d.shops.find(x => x.id === id) : { plan_id: d.settings.default_plan };
+  openModal(`<h2>${id ? t('sa_edit_shop') : t('sa_add_shop')}</h2><form id="sa-form">
+    <label>${t('name')}</label><input name="name" required value="${esc(s.name)}">
+    <label>${t('sa_owner')}</label><input name="owner_name" required value="${esc(s.owner_name)}">
+    <div class="row"><div class="grow"><label>${t('phone')}</label><input name="phone" inputmode="tel" dir="ltr" required value="${esc(s.phone)}"></div>
+      <div class="grow"><label>${t('sa_city')}</label><input name="city" value="${esc(s.city)}"></div></div>
+    <label>${t('sa_plan')}</label><select name="plan_id">${d.plans.map(p => `<option value="${p.id}" ${p.id === s.plan_id ? 'selected' : ''}>${esc(saPlanName(p))} — ${money(p.price)}</option>`).join('')}</select>
+    ${id ? '' : `<label><input type="checkbox" name="trial" checked class="u-w-auto u-minh-0"> ${saFill(t('sa_start_trial'), { n: d.settings.trial_days })}</label>`}
+    <label>${t('note')}</label><input name="notes" value="${esc(s.notes)}">
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+  $('sa-form').onsubmit = ev => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target).entries());
+    const phone = saPhone(f.phone);
+    if (!id && d.users.some(u => saPhone(u.phone) === phone)) return toast(t('sa_phone_used'), 3500);
+    if (id) {
+      Object.assign(s, { name: f.name.trim(), owner_name: f.owner_name.trim(), phone, city: f.city.trim(), plan_id: f.plan_id, notes: f.notes.trim() });
+      saLog('shop_edit', s.name); saSave(); closeModal(); toast(t('saved')); saRender(); return;
+    }
+    const trial = !!f.trial, ns = { id: uuid(), name: f.name.trim(), owner_name: f.owner_name.trim(), phone, city: f.city.trim(), plan_id: f.plan_id, trial,
+      suspended: false, suspend_reason: '', archived: false, created_at: saIso(0), expires_at: saIso(trial ? d.settings.trial_days : 0), last_seen: saIso(0), bills_30d: 0, sales_30d: 0, notes: f.notes.trim(), approval: 'approved', source: 'admin' };
+    const pw = saPass();
+    d.shops.push(ns); d.users.push({ id: uuid(), shop_id: ns.id, name: ns.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw });
+    saLog('shop_new', ns.name); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(ns.owner_name, phone, pw); } });
+  };
+}
+function saShowCreds(name, phone, pw) {
+  if (pw == null) {   // this number already had a login (another shop): nothing was changed, the old password still works
+    openModal(`<h2>${t('sa_creds_title')}</h2><div class="muted">${esc(name)}</div>
+      <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b class="u-fs-18">${esc(phone)}</b></div>
+      <div class="u-mt-10">${t('sa_existing_login')}</div>
+      <div class="u-mt-10"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+    return;
+  }
+  const wa = waNumber(phone), msg = saFill(t('sa_wa_creds_msg'), { name, phone, pw });
+  openModal(`<h2>${t('sa_creds_title')}</h2><div class="muted">${esc(name)}</div>
+    <div class="balbox" dir="ltr"><span>${t('sa_login_no')}</span><b class="u-fs-18">${esc(phone)}</b></div>
+    <div class="balbox" dir="ltr"><span>${t('sa_temp_pw')}</span><b class="u-fs-20 u-ls-1">${esc(pw)}</b></div>
+    <div class="row"><button class="btn secondary grow" data-sa="copy|${esc(pw)}">${t('sa_copy')}</button>
+      ${wa ? `<a class="btn grow lnk" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}">${ic('chat', 18)} ${t('sa_send_wa')}</a>` : ''}</div>
+    <div class="u-mt-10"><button class="btn secondary block" data-close>${t('close')}</button></div>`);
+}
+
+// ───────── Renew / payment ─────────
+const saPayRow = p => `<div class="lrow payment"><span class="lic">${ic('wallet', 16)}</span><div class="grow"><b>${esc(saShopName(p.shop_id))}</b>
+  <div class="muted">${esc(saPlanName(saPlan(p.plan_id)))} · ${Math.round(p.days / 30)} ${t('sa_month')} · ${esc(fmtDate(p.at))}</div></div><div class="lamt"><b>Rs ${money(p.amount)}</b></div></div>`;
+function saRenewForm(id) {
+  const d = SAD, live = d.shops.filter(s => !s.archived), s = id ? d.shops.find(x => x.id === id) : live[0];
+  const opt = (v, l, sel) => `<option value="${v}" ${sel ? 'selected' : ''}>${l}</option>`;
+  openModal(`<h2>${t('sa_renew_title')}</h2><form id="sa-form">
+    <label>${t('sa_pick_shop')}</label><select name="shop_id" ${id ? 'disabled' : ''}>${live.map(x => opt(x.id, esc(x.name), x.id === s.id)).join('')}</select>
+    <div class="row"><div class="grow"><label>${t('sa_plan')}</label><select name="plan_id">${d.plans.map(p => opt(p.id, esc(saPlanName(p)), p.id === s.plan_id)).join('')}</select></div>
+      <div class="grow"><label>${t('sa_period')}</label><select name="months">${[1, 3, 6, 12].map(m => opt(m, `${m} ${t('sa_month')}`, m === 1)).join('')}</select></div></div>
+    <label>${t('amount')} (Rs)</label><input name="amount" type="number" inputmode="decimal" step="any" min="1" required>
+    <label>${t('sa_method')}</label><select name="method">${opt('cash', t('cash'))}${opt('bank', t('sa_bank'))}${opt('jazz', t('sa_jazz'))}${opt('easy', t('sa_easy'))}</select>
+    <label>${t('note')}</label><input name="note">
+    <div class="muted u-mt-8" id="sa-newexp"></div>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+  const f = $('sa-form'), calc = (priceChanged) => {
+    const shop = d.shops.find(x => x.id === f.shop_id.value), m = +f.months.value, pl = saPlan(f.plan_id.value);
+    if (priceChanged !== false) f.amount.value = pl.price * m;
+    const base = Math.max(saNow(), new Date(shop.expires_at).getTime());
+    $('sa-newexp').textContent = `${t('sa_new_expiry')}: ${new Date(base + m * 30 * DAY).toISOString().slice(0, 10)}`;
+  };
+  ['shop_id', 'plan_id', 'months'].forEach(n => { f[n].onchange = () => { if (n === 'shop_id') f.plan_id.value = d.shops.find(x => x.id === f.shop_id.value).plan_id; calc(); }; });
+  calc();
+  f.onsubmit = ev => {
+    ev.preventDefault();
+    const shop = d.shops.find(x => x.id === f.shop_id.value), m = +f.months.value, amount = round2(num(f.amount.value));
+    if (!(amount > 0)) return toast(t('bad_amount'));
+    const base = Math.max(saNow(), new Date(shop.expires_at).getTime());
+    shop.expires_at = new Date(base + m * 30 * DAY).toISOString(); shop.plan_id = f.plan_id.value; shop.trial = false;
+    d.payments.unshift({ id: uuid(), shop_id: shop.id, plan_id: shop.plan_id, amount, days: m * 30, method: f.method.value, note: f.note.value.trim(), at: saIso(0) });
+    saLog('renew', shop.name, 'Rs ' + money(amount)); saSave(); closeModal(); toast(t('saved')); saRender();
+  };
+}
+
+// ───────── Users ─────────
+function saUsersView() {
+  return `<div class="row u-mb-10"><input id="sa-uq" class="grow" type="search" placeholder="${t('sa_user_search')}" autocomplete="off" value="${esc(SAS.uq)}">
+    <button class="btn" data-sa="useradd|" type="button">${ic('plus', 18)} ${t('sa_add_user')}</button></div><div id="sa-ulist"></div>`;
+}
+function saUsersList() {
+  const q = SAS.uq.trim().toLowerCase(), box = $('sa-ulist'); if (!box) return;
+  const list = SAD.users.filter(u => !q || [u.name, u.phone, saShopName(u.shop_id)].join(' ').toLowerCase().includes(q)).sort((a, b) => (a.name < b.name ? -1 : 1)).slice(0, 80);
+  box.innerHTML = list.map(u => `<div class="card custcard" data-sa="useredit|${u.id}"><div class="avatar sm">${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : ic('user', 20)}</div>
+    <div class="grow"><b>${esc(u.name)}</b><div class="muted">${esc(saShopName(u.shop_id))}</div><div class="muted u-ta-start" dir="ltr">${esc(u.phone)}</div></div>
+    <span class="bal ${u.active ? 'adv' : 'zero'}">${t(u.role)}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="resetpw|${u.id}" aria-label="${t('sa_reset_pw')}">${ic('key', 16)}</button></div>`).join('') || `<div class="muted u-ta-center u-p-24">${t('sa_no_users')}</div>`;
+}
+const saOnlyOwner = u => u.role === 'owner' && !SAD.users.some(x => x.id !== u.id && x.shop_id === u.shop_id && x.role === 'owner');
+async function saLoadDevices(u) {
+  const box = $('sa-dev'); if (!box) return;
+  try {
+    const { data, error } = await getSb().from('user_devices').select('id,device_name,first_seen,last_seen,revoked').eq('user_id', u.user_id).eq('shop_id', u.shop_id).order('last_seen', { ascending: false });
+    if (error) throw error;
+    const sh = SAD.shops.find(s => s.id === u.shop_id), max = sh ? (saPlan(sh.plan_id).max_devices ?? 1) : 1, used = data.filter(d => !d.revoked).length;
+    box.innerHTML = `<label class="u-mt-14">${t('sa_devices')} (${used}/${max === 0 ? '∞' : max})</label>`
+      + (data.map(d => `<div class="lrow"><span class="lic">${ic('phone', 16)}</span><div class="grow"><b dir="ltr" class="u-unicode-bidi-plaintext">${esc(d.device_name || '—')}</b><div class="muted">${esc(fmtDate(d.last_seen))}</div></div>`
+        + (d.revoked ? `<span class="bal zero">${t('sa_dev_blocked')}</span><button class="btn secondary sm u-mis-6" type="button" data-sa="devallow|${u.id}|${d.id}">${t('sa_dev_allow')}</button>` : `<button class="btn secondary sm" type="button" data-sa="devreset|${u.id}|${d.id}" aria-label="${t('sa_dev_block')}" title="${t('sa_dev_block')}">${ic('trash', 16)}</button>`) + '</div>').join('') || `<div class="muted">${t('sa_dev_none')}</div>`)
+      + `<button class="btn danger block u-mt-8" type="button" data-sa="devreset|${u.id}">${t('sa_dev_reset')}</button>`;
+  } catch (e) { box.innerHTML = ''; }       // device table not created yet (schema.sql): show nothing
+}
+function saUserForm(id, shopId) {
+  const d = SAD, live = d.shops.filter(s => !s.archived);
+  const u = id ? d.users.find(x => x.id === id) : { shop_id: shopId || (live[0] || {}).id, role: 'cashier', active: true };
+  openModal(`<h2>${id ? t('sa_edit_user') : t('sa_add_user')}</h2><form id="sa-form">
+    <label>${t('name')}</label><input name="name" required value="${esc(u.name)}">
+    <label>${t('phone')}</label><input name="phone" inputmode="tel" dir="ltr" required value="${esc(u.phone)}">
+    <label>${t('sa_pick_shop')}</label><select name="shop_id">${live.map(s => `<option value="${s.id}" ${s.id === u.shop_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+    <label>${t('role')}</label><select name="role">${['owner', 'manager', 'cashier'].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${t(r)}</option>`).join('')}</select>
+    <label><input type="checkbox" name="active" ${u.active ? 'checked' : ''} class="u-w-auto u-minh-0"> ${t('sa_active_acc')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div>
+    ${id ? `<button class="btn secondary block u-mt-8" type="button" data-sa="useract|${id}">${ic('list', 18)} ${t('sa_user_act')}</button>` : ''}
+    ${id ? `<div class="row u-mt-8"><button class="btn secondary grow" type="button" data-sa="resetpw|${id}">${ic('key', 18)} ${t('sa_reset_pw')}</button><button class="btn danger" type="button" data-sa="userdel|${id}">${ic('trash', 18)}</button></div>` : ''}
+    ${id && SA_LIVE() && u.user_id ? '<div id="sa-dev"></div>' : ''}</form>`);
+  if (id && SA_LIVE() && u.user_id) saLoadDevices(u);
+  $('sa-form').onsubmit = ev => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target).entries()), phone = saPhone(f.phone), active = !!f.active;
+    if (d.users.some(x => x.id !== id && saPhone(x.phone) === phone)) return toast(t('sa_phone_used'), 3500);
+    if (id && saOnlyOwner(u) && (f.role !== 'owner' || f.shop_id !== u.shop_id || !active)) return toast(t('sa_last_owner'), 4000);
+    if ((!id || f.shop_id !== u.shop_id) && d.users.filter(x => x.shop_id === f.shop_id).length >= saPlan(d.shops.find(s => s.id === f.shop_id).plan_id).max_users) return toast(t('sa_limit_users'), 4000);
+    if (id) { Object.assign(u, { name: f.name.trim(), phone, shop_id: f.shop_id, role: f.role, active }); saLog('user_edit', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender(); return; }
+    const pw = saPass(), nu = { id: uuid(), shop_id: f.shop_id, name: f.name.trim(), phone, role: f.role, active, created_at: saIso(0), last_login: null, _pw: pw };
+    d.users.push(nu); saLog('user_new', nu.name, saShopName(nu.shop_id)); saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, SA_EXISTING.has(nu.id) ? null : pw); } });
+  };
+}
+
+// ───────── Billing ─────────
+function saBillView() {
+  const d = SAD, now = new Date(), mk = now.getFullYear() * 12 + now.getMonth();
+  const tot = d.payments.reduce((a, p) => a + p.amount, 0), mon = d.payments.filter(p => { const x = new Date(p.at); return x.getFullYear() * 12 + x.getMonth() === mk; }).reduce((a, p) => a + p.amount, 0);
+  const seg = `<div class="seg"><button class="${SAS.bseg === 'pay' ? 'on' : ''}" data-sa="bseg|pay">${t('sa_pay_tab')}</button><button class="${SAS.bseg === 'plans' ? 'on' : ''}" data-sa="bseg|plans">${t('sa_plans_tab')}</button></div>`;
+  if (SAS.bseg === 'plans') return seg + d.plans.map(p => {
+    const n = d.shops.filter(s => !s.archived && s.plan_id === p.id).length;
+    return `<div class="card custcard" data-sa="planedit|${p.id}"><div class="avatar sm">${ic('wallet', 20)}</div><div class="grow"><b>${esc(saPlanName(p))}</b>
+      <div class="muted">${p.max_users} ${t('sa_t_users')} · ${p.max_products ? p.max_products + ' ' + t('sa_products') : t('sa_unlimited')}</div><div class="muted">${n} ${t('sa_shops_on_plan')}${' · ' + (p.max_devices === 0 ? '∞' : (p.max_devices ?? 1)) + ' ' + t('sa_devices')}${p.barcodes ? ' · ▮▯ ✓' : ''}${p.bill_qr ? ' · QR ✓' : ''}</div></div>
+      <span class="bal adv">Rs ${money(p.price)}</span></div>`; }).join('');
+  return seg + `<div class="sa-kpis u-grid-template-columns-repeat-2-1fr"><div><b>Rs ${money(mon)}</b><span>${t('sa_col_month')}</span></div><div><b>Rs ${money(tot)}</b><span>${t('sa_col_total')}</span></div></div>
+    <button class="btn block u-mb-12" data-sa="payadd">${ic('plus', 18)} ${t('sa_add_payment')}</button>
+    <div class="card">${d.payments.slice(0, 40).map(saPayRow).join('') || `<div class="muted">${t('sa_no_payments')}</div>`}</div>`;
+}
+function saPlanForm(id) {
+  const p = SAD.plans.find(x => x.id === id);
+  openModal(`<h2>${t('sa_plan_edit')}</h2><form id="sa-form">
+    <div class="row"><div class="grow"><label>${t('sa_name_ur2')}</label><input name="name_ur" required value="${esc(p.name_ur)}"></div><div class="grow"><label>${t('sa_name_en')}</label><input name="name" required value="${esc(p.name)}"></div></div>
+    <label>${t('sa_price')}</label><input name="price" type="number" inputmode="decimal" min="0" required value="${p.price}">
+    <div class="row"><div class="grow"><label>${t('sa_max_users')}</label><input name="max_users" type="number" min="1" required value="${p.max_users}"></div>
+      <div class="grow"><label>${t('sa_max_products')}</label><input name="max_products" type="number" min="0" required value="${p.max_products}"></div></div>
+    <div class="row"><div class="grow"><label>${t('sa_max_devices')}</label><input name="max_devices" type="number" min="0" required value="${p.max_devices ?? 1}"></div>
+      <div class="grow"><label>${t('sa_max_bills')}</label><input name="max_bills" type="number" min="0" required value="${p.max_bills || 0}"></div></div>
+    <div class="sa-sec u-mt-10">${t('sa_plan_feats')}</div>
+    ${['customers', 'purchases', 'expenses', 'reports'].map(k => `<label class="u-mt-4"><input type="checkbox" name="f_${k}" class="u-w-auto u-minh-0" ${p['f_' + k] !== false ? 'checked' : ''}> ${t('sa_f_' + k)}</label>`).join('')}
+    <label class="u-mt-10"><input type="checkbox" name="bill_qr" class="u-w-auto u-minh-0" ${p.bill_qr ? 'checked' : ''}> ${t('sa_bill_qr')}</label>
+    <label class="u-mt-6"><input type="checkbox" name="barcodes" class="u-w-auto u-minh-0" ${p.barcodes ? 'checked' : ''}> ${t('sa_barcodes')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+  $('sa-form').onsubmit = ev => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target).entries());
+    Object.assign(p, { name: f.name.trim(), name_ur: f.name_ur.trim(), price: Math.max(0, num(f.price)), max_users: Math.max(1, Math.round(num(f.max_users))), max_products: Math.max(0, Math.round(num(f.max_products))), bill_qr: f.bill_qr === 'on', barcodes: f.barcodes === 'on', max_bills: Math.max(0, Math.round(num(f.max_bills))), f_customers: f.f_customers === 'on', f_purchases: f.f_purchases === 'on', f_expenses: f.f_expenses === 'on', f_reports: f.f_reports === 'on', max_devices: Math.max(0, Math.round(num(f.max_devices))) });
+    saLog('plan_edit', p.name); saSave(); closeModal(); toast(t('saved')); saRender();
+  };
+}
+
+// ───────── More: announcements / log / settings ─────────
+function saMoreView() {
+  const d = SAD, seg = `<div class="seg">${[['ann', 'sa_ann'], ['log', 'sa_log'], ['set', 'sa_settings'], ['help', 'sa_help']].map(([k, l]) => `<button class="${SAS.mseg === k ? 'on' : ''}" data-sa="mseg|${k}">${t(l)}</button>`).join('')}</div>`;
+  if (SAS.mseg === 'help') return seg + helpHtml('superadmin') +
+    `<h3 class="u-m-16n4n8">${t('owner')} / ${t('manager')} / ${t('cashier')}</h3>` + ['owner', 'manager', 'cashier'].map(r => `<div class="muted u-m-10n4n6"><b>${HELP_ROLE_LABEL[r][LANG === 'ur' ? 0 : 1]}</b></div>${helpHtml(r, false)}`).join('');
+  if (SAS.mseg === 'ann') return seg + `<button class="btn block u-mb-12" data-sa="annadd">${ic('plus', 18)} ${t('sa_ann_add')}</button>` +
+    (d.announcements.map(a => `<div class="card"><div>${esc(a.text)}</div><div class="muted">${a.shop_id ? esc(saShopName(a.shop_id)) : t('sa_ann_all')}</div><div class="row u-mt-8"><span class="muted grow">${esc(fmtDate(a.at))}</span>
+      <button class="btn ${a.active ? '' : 'secondary'} sm" data-sa="anntoggle|${a.id}">${a.active ? t('sa_ann_on') : t('sa_ann_off')}</button><button class="btn danger sm" data-sa="anndel|${a.id}" aria-label="${t('delete')}">${ic('trash', 14)}</button></div></div>`).join('') || `<div class="muted u-ta-center u-p-24">${t('sa_ann_none')}</div>`);
+  if (SAS.mseg === 'log') return seg + `<div class="card">${d.audit.slice(0, SAS.logN).map(saActRow).join('') || `<div class="muted">${t('sa_no_log')}</div>`}</div>` +
+    (d.audit.length > SAS.logN ? `<button class="btn secondary block" data-sa="morelog">${t('more')}</button>` : '');
+  return seg + `<div class="card"><label>${t('language')}</label><select id="sa-set-lang"><option value="ur" ${LANG === 'ur' ? 'selected' : ''}>اردو</option><option value="en" ${LANG === 'en' ? 'selected' : ''}>English</option></select>
+      <label>${t('sa_set_trial')}</label><input id="sa-set-trial" type="number" min="0" inputmode="numeric" value="${d.settings.trial_days}">
+      <label>${t('sa_set_plan')}</label><select id="sa-set-plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.default_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
+      <label>${t('sa_set_phone')}</label><input id="sa-set-phone" inputmode="tel" dir="ltr" value="${esc(d.settings.support_phone)}"></div>
+    <div class="card"><div class="sa-sec">${t('sa_sec_signup')}</div>
+      <label class="u-d-flex u-gap-8 u-ai-center"><input type="checkbox" id="sa-set-signup_enabled" class="u-w-auto u-minh-0" ${d.settings.signup_enabled ? 'checked' : ''}> ${t('sa_set_signup')}</label>
+      ${d.settings.signup_enabled ? '' : `<div class="muted">${t('sa_signup_off_hint')}</div>`}
+      <label class="u-d-flex u-gap-8 u-ai-center"><input type="checkbox" id="sa-set-signup_approval" class="u-w-auto u-minh-0" ${d.settings.signup_approval ? 'checked' : ''}> ${t('sa_set_signup_appr')}</label>
+      <label>${t('sa_set_signup_plan')}</label><select id="sa-set-signup_plan">${d.plans.map(p => `<option value="${p.id}" ${p.id === d.settings.signup_plan ? 'selected' : ''}>${esc(saPlanName(p))}</option>`).join('')}</select>
+      <label>${t('sa_set_demo_days')}</label><input id="sa-set-demo_days" type="number" min="0" inputmode="numeric" value="${d.settings.demo_days}">
+      <label>${t('sa_set_daily')}</label><input id="sa-set-signup_daily_limit" type="number" min="0" inputmode="numeric" value="${d.settings.signup_daily_limit}"></div>
+    <div class="card"><div class="sa-sec">${t('sa_sec_remind')}</div>
+      <label>${t('sa_set_idle')}</label><input id="sa-set-inactive_days" type="number" min="0" inputmode="numeric" value="${d.settings.inactive_days}">
+      <label>${t('sa_set_idle_msg')}</label><textarea id="sa-set-inactive_message" rows="4" maxlength="300">${esc(d.settings.inactive_message)}</textarea>
+      <div class="muted u-mt-6">${t('sa_idle_hint')}</div></div>
+    <button class="btn secondary block u-mb-10" data-sa="export">${ic('download', 18)} ${t('sa_export')}</button>
+    ${SA_LIVE() ? '' : '<button class="btn danger block" data-sa="resetsa">' + t('sa_reset_demo') + '</button>'}`;
+}
+function saAnnForm() {
+  openModal(`<h2>${t('sa_ann_add')}</h2><form id="sa-form"><label>${t('sa_ann_text')}</label><input name="text" required maxlength="160">
+    <label>${t('sa_ann_to')}</label><select name="shop_id"><option value="">${t('sa_ann_all')}</option>${SAD.shops.filter(s => !s.archived).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>
+    <label><input type="checkbox" name="push" checked class="u-w-auto u-minh-0"> ${t('sa_ann_push')}</label>
+    <div class="row u-mt-14"><button class="btn grow" type="submit">${t('save')}</button><button class="btn secondary" type="button" data-close>${t('cancel')}</button></div></form>`);
+  $('sa-form').onsubmit = ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), txt = fd.get('text').trim(), sid = fd.get('shop_id') || null; if (!txt) return;
+    SAD.announcements.forEach(a => { if ((a.shop_id || null) === sid) a.active = false; });   // one live announcement per target (all shops / one shop)
+    SAD.announcements.unshift({ id: uuid(), text: txt, active: true, at: saIso(0), shop_id: sid });
+    saLog('ann_new', txt.slice(0, 40), sid ? saShopName(sid) : ''); closeModal(); toast(t('saved'));
+    saCommit().then(ok => { if (ok) { if (fd.get('push')) pushNotify('announce', { shop_id: sid, text: txt }); saRender(); } });
+  };
+}
+
+// ───────── Actions (data-sa="name|arg") ─────────
+const SA_ACT = {
+  nudge: id => { const u = SAD.users.find(x => x.id === id); if (u) saNudge([u]); },
+  nudgeall: () => saNudge(actInactive()),
+  useract: id => saUserActivity(id),
+  tab: k => { SAS.tab = k; saRender(); },
+  lang: async () => { await saveCfg('lang', LANG === 'ur' ? 'en' : 'ur'); setLang(S.cfg.lang); applyStaticText(); saRender(); },
+  exit: () => exitSuperAdmin(),
+  stat: k => { SAS.tab = 'shops'; SAS.filter = k; SAS.q = ''; saRender(); },
+  filter: k => { SAS.filter = k; saRender(); },
+  shop: id => saShopDetail(id), shopnew: () => saShopForm(null), shopedit: id => saShopForm(id), renew: id => saRenewForm(id), payadd: () => saRenewForm(null),
+  approve: id => {
+    const s = SAD.shops.find(x => x.id === id); if (!s) return;
+    s.approval = 'approved'; s.trial = true; s.expires_at = saIso(Math.max(0, SAD.settings.demo_days));    // the demo clock starts at approval
+    saLog('signup_approve', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
+  },
+  reject: async id => {
+    const s = SAD.shops.find(x => x.id === id); if (!s || !await askConfirm(t('sa_confirm_reject'))) return;
+    s.approval = 'rejected'; saLog('signup_reject', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
+  },
+  toggle: async id => {
+    const s = SAD.shops.find(x => x.id === id);
+    if (s.suspended) { if (!await askConfirm(t('sa_confirm_activate'))) return; s.suspended = false; s.suspend_reason = ''; saLog('shop_activate', s.name); }
+    else { const r = await askPrompt(t('sa_reason'), ''); if (r === null) return; s.suspended = true; s.suspend_reason = r.trim(); saLog('shop_suspend', s.name, s.suspend_reason); }
+    saSave(); closeModal(); toast(t('saved')); saRender();
+  },
+  archive: async id => {
+    const s = SAD.shops.find(x => x.id === id);
+    if (!s.archived && !await askConfirm(t('sa_confirm_archive'))) return;
+    s.archived = !s.archived; saLog(s.archived ? 'shop_archive' : 'shop_restore', s.name); saSave(); closeModal(); toast(t('saved')); saRender();
+  },
+  useradd: sid => saUserForm(null, sid), useredit: id => saUserForm(id),
+  mkowner: sid => {                       // shop exists but has no login: create the owner from the shop's own owner name + phone
+    const s = SAD.shops.find(x => x.id === sid); if (!s) return;
+    const phone = saPhone(s.phone);
+    try { loginIdToEmail(phone); } catch (e) { return toast(t('bad_phone'), 4000); }
+    if (SAD.users.some(x => saPhone(x.phone) === phone)) return toast(t('sa_phone_used'), 4000);
+    const pw = saPass(), nu = { id: uuid(), shop_id: sid, name: s.owner_name, phone, role: 'owner', active: true, created_at: saIso(0), last_login: null, _pw: pw };
+    SAD.users.push(nu); saLog('user_new', nu.name, s.name);
+    saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, SA_EXISTING.has(nu.id) ? null : pw); } });
+  },
+  userdel: async id => {
+    const u = SAD.users.find(x => x.id === id);
+    if (saOnlyOwner(u)) return toast(t('sa_last_owner'), 4000);
+    if (!await askConfirm(t('sa_confirm_deluser'))) return;
+    SAD.users = SAD.users.filter(x => x.id !== id); saLog('user_del', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender();
+  },
+  resetpw: async id => {
+    const u = SAD.users.find(x => x.id === id);
+    if (!await askConfirm(t('sa_confirm_reset'))) return;
+    const pw = saPass();
+    if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw, email: loginIdToEmail(u.phone) }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
+    saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, pw);
+  },
+  devreset: async (id, dev) => {
+    const u = SAD.users.find(x => x.id === id); if (!u || !u.user_id) return;
+    if (!await askConfirm(t('sa_dev_confirm'))) return;
+    try { const { error } = await getSb().rpc('admin_reset_devices', { p_user: u.user_id, p_shop: u.shop_id, p_device: dev || null }); if (error) throw error; }
+    catch (e) { return toast(e.message || t('err_generic'), 5000); }
+    saLog('dev_reset', u.name, saShopName(u.shop_id)); saSave(); toast(t('saved')); saLoadDevices(u);
+  },
+  devallow: async (id, dev) => {
+    const u = SAD.users.find(x => x.id === id); if (!u || !dev) return;
+    try { const { error } = await getSb().rpc('admin_allow_device', { p_device: dev }); if (error) throw error; }
+    catch (e) { return toast(/device_limit/.test(e.message || '') ? t('sa_dev_full') : (e.message || t('err_generic')), 5000); }
+    saLog('dev_allow', u.name, saShopName(u.shop_id)); saSave(); toast(t('saved')); saLoadDevices(u);
+  },
+  copy: pw => { try { navigator.clipboard.writeText(pw); toast(t('sa_copied')); } catch (e) { toast(pw, 5000); } },
+  bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),
+  mseg: k => { SAS.mseg = k; saRender(); }, morelog: () => { SAS.logN += 30; saRender(); },
+  annadd: () => saAnnForm(),
+  shoppush: async id => { const s = SAD.shops.find(x => x.id === id); const m = s && await askPrompt(t('sa_push_ask'), ''); if (m && m.trim()) { pushNotify('shop_push', { shop_id: id, title: 'Universal POS', body: m.trim() }); toast(t('saved')); } },
+  anntoggle: id => { const a = SAD.announcements.find(x => x.id === id); if (!a.active) SAD.announcements.forEach(x => { x.active = false; }); a.active = !a.active; saSave(); saRender(); },
+  anndel: id => { SAD.announcements = SAD.announcements.filter(x => x.id !== id); saSave(); saRender(); },
+  export: () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(SAD, null, 1)], { type: 'application/json' }));
+    a.download = `platform-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  },
+  resetsa: async () => { if (!await askConfirm(t('sa_reset_demo_confirm'))) return; SAD = saSeed(); saSave(); toast(t('saved')); saRender(); }
+};
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-sa]'); if (!el) return;
+  const [a, x, y] = el.dataset.sa.split('|');
+  if (SA_ACT[a]) { saLoad(); SA_ACT[a](x, y, el); }
+});
+let saTimer;
+document.addEventListener('input', ev => {
+  const id = ev.target.id;
+  if (id === 'sa-q') { clearTimeout(saTimer); saTimer = setTimeout(() => { SAS.q = ev.target.value; saShopsList(); }, 150); }
+  else if (id === 'sa-uq') { clearTimeout(saTimer); saTimer = setTimeout(() => { SAS.uq = ev.target.value; saUsersList(); }, 150); }
+});
+document.addEventListener('change', async ev => {
+  const id = ev.target.id; if (!id || !id.startsWith('sa-set-')) return;
+  const v = ev.target.value;
+  if (id === 'sa-set-lang') { await saveCfg('lang', v); setLang(v); applyStaticText(); return saRender(); }
+  if (id === 'sa-set-trial') SAD.settings.trial_days = Math.max(0, Math.round(num(v)));
+  if (id === 'sa-set-plan') SAD.settings.default_plan = v;
+  if (id === 'sa-set-phone') SAD.settings.support_phone = saPhone(v);
+  if (id === 'sa-set-signup_enabled') { SAD.settings.signup_enabled = ev.target.checked; saLog('settings', 'signup ' + (ev.target.checked ? 'on' : 'off')); saSave(); toast(t('saved')); return saRender(); }
+  if (id === 'sa-set-signup_approval') SAD.settings.signup_approval = ev.target.checked;
+  if (id === 'sa-set-signup_plan') SAD.settings.signup_plan = v;
+  if (id === 'sa-set-inactive_days') SAD.settings.inactive_days = Math.max(0, Math.round(num(v)));
+  if (id === 'sa-set-inactive_message') SAD.settings.inactive_message = v.trim().slice(0, 300);
+  if (id === 'sa-set-demo_days') SAD.settings.demo_days = Math.max(0, Math.round(num(v)));
+  if (id === 'sa-set-signup_daily_limit') SAD.settings.signup_daily_limit = Math.max(0, Math.round(num(v)));
+  saLog('settings', id.replace('sa-set-', '')); saSave(); toast(t('saved'));
+});
+// ───────── Super Admin helpers: readable names, "inactive" list, sweet message ─────────
+const ACT_NAMES = {
+  ur: { open: 'ایپ کھولی', 'tab:home': 'ہوم', 'tab:bill': 'بل بنایا', 'tab:products': 'انوینٹری', 'tab:sales': 'فروخت', 'tab:settings': 'مزید / سیٹنگز', 'tab:customers': 'کسٹمرز', 'tab:purchases': 'خریداری', 'tab:expenses': 'اخراجات', 'tab:reports': 'رپورٹس',
+    '#btn-complete': 'بل مکمل کیا', '#btn-checkout': 'چیک آؤٹ', '#btn-print': 'پرنٹ', '#btn-scan': 'بارکوڈ اسکین', '#btn-addprod': 'نئی پروڈکٹ', '#btn-addprod2': 'نئی پروڈکٹ', '#btn-hold': 'بل روکا', '#btn-quote': 'کوٹیشن', '#btn-export': 'ایکسپورٹ',
+    '#btn-sync-now': 'سنک', '#btn-contact': 'رابطہ کھولا', '#btn-help': 'ہدایات', '#btn-about': 'ایپ کے بارے میں', '#btn-logout': 'لاگ آؤٹ', 'tap:sale': 'بل کھولا', 'tap:edit': 'پروڈکٹ ایڈٹ', 'tap:add': 'آئٹم بل میں ڈالا' },
+  en: { open: 'Opened app', 'tab:home': 'Home', 'tab:bill': 'Billing', 'tab:products': 'Inventory', 'tab:sales': 'Sales', 'tab:settings': 'More / Settings', 'tab:customers': 'Customers', 'tab:purchases': 'Purchases', 'tab:expenses': 'Expenses', 'tab:reports': 'Reports',
+    '#btn-complete': 'Completed a bill', '#btn-checkout': 'Checkout', '#btn-print': 'Print', '#btn-scan': 'Barcode scan', '#btn-addprod': 'New product', '#btn-addprod2': 'New product', '#btn-hold': 'Held a bill', '#btn-quote': 'Quotation', '#btn-export': 'Export',
+    '#btn-sync-now': 'Sync', '#btn-contact': 'Opened contact', '#btn-help': 'Help', '#btn-about': 'About', '#btn-logout': 'Log out', 'tap:sale': 'Opened a bill', 'tap:edit': 'Edited a product', 'tap:add': 'Added item to bill' }
+};
+const actName = e => (ACT_NAMES[LANG === 'ur' ? 'ur' : 'en'][e.name] || e.name);
+const actDaysIdle = u => { const t0 = u.last_login || u.created_at; return t0 ? Math.floor((Date.now() - new Date(t0).getTime()) / 864e5) : 0; };
+function actInactive() {                          // active users of live shops who have not opened the app for N days
+  const N = Number(SAD.settings.inactive_days); const days = N > 0 ? N : 5;
+  return SAD.users.filter(u => u.active !== false && u.role !== 'admin' && actDaysIdle(u) >= days
+      && SAD.shops.some(s => s.id === u.shop_id && ['active', 'trial'].includes(shopState(s))))
+    .sort((a, b) => actDaysIdle(b) - actDaysIdle(a));
+}
+const ACT_SWEET = ['السلام علیکم {name}! کچھ دنوں سے آپ کی دکان "{shop}" ایپ میں نظر نہیں آئی، ہمیں آپ کی کمی محسوس ہوئی۔ آج کا ایک بل بنا کر دیکھیں، آپ کا سارا حساب محفوظ اور تیار ہے۔ ہم ہمیشہ آپ کے ساتھ ہیں۔',
+  'Hello {name}! We have missed your shop "{shop}" in the app for a few days. Try making one bill today — all your records are safe and ready. We are always with you.'];
+const actSweetText = u => (SAD.settings.inactive_message || ACT_SWEET[LANG === 'ur' ? 0 : 1]).replaceAll('{name}', u.name || '').replaceAll('{shop}', saShopName(u.shop_id));
+
+if (window.POS_DEMO_RESET) { const r0 = window.POS_DEMO_RESET; window.POS_DEMO_RESET = () => { try { localStorage.removeItem(SAK); } catch (e) {} r0(); }; }
