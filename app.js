@@ -28,6 +28,37 @@ function toast(msg, ms = 2500) {
   const el = $('toast'); el.textContent = msg; el.hidden = false;
   clearTimeout(toast._t); toast._t = setTimeout(() => { el.hidden = true; }, ms);
 }
+// ───────── In-app dialogs (replace the browser's confirm/alert/prompt, which show "<site> says") ─────────
+function appDialog({ msg, input, def, okOnly }) {
+  return new Promise(resolve => {
+    const old = document.getElementById('dlg'); if (old) old.remove();
+    const el = document.createElement('div'); el.id = 'dlg';
+    el.innerHTML = `<div class="dlg-box" role="dialog" aria-modal="true">
+      <div class="dlg-msg">${esc(msg).replace(/\n/g, '<br>')}</div>
+      ${input ? `<input class="dlg-in" id="dlg-in" value="${esc(def || '')}" autocomplete="off">` : ''}
+      <div class="row dlg-act">
+        <button class="btn grow" id="dlg-ok">${esc(t('dlg_ok'))}</button>
+        ${okOnly ? '' : `<button class="btn secondary grow" id="dlg-no">${esc(t('cancel'))}</button>`}
+      </div></div>`;
+    document.body.appendChild(el);
+    const inp = el.querySelector('#dlg-in');
+    const done = v => { document.removeEventListener('keydown', onKey, true); el.remove(); resolve(v); };
+    const ok = () => done(input ? inp.value : true);
+    const no = () => done(input ? null : false);
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); okOnly ? ok() : no(); }
+      else if (e.key === 'Enter' && input) { e.preventDefault(); e.stopPropagation(); ok(); }
+    }
+    document.addEventListener('keydown', onKey, true);
+    el.querySelector('#dlg-ok').onclick = ok;
+    const nb = el.querySelector('#dlg-no'); if (nb) nb.onclick = no;
+    el.addEventListener('click', e => { if (e.target === el && !okOnly) no(); });
+    (inp || el.querySelector('#dlg-ok')).focus();
+  });
+}
+const askConfirm = msg => appDialog({ msg });
+const askPrompt = (msg, def) => appDialog({ msg, input: true, def });
+window.alert = msg => { appDialog({ msg: String(msg), okOnly: true }); };   // safety net: no browser pop-up anywhere
 function openModal(html) { $('sheet').innerHTML = html; $('modal').hidden = false; }
 function closeModal() { stopScan(); S.setSheet = null; $('modal').hidden = true; $('sheet').innerHTML = ''; }
 
@@ -239,11 +270,11 @@ async function finishLogin(session) {
   await showApp();
 }
 async function doLogout() {
-  if (window.POS_DEMO) { if (confirm(t('logout_confirm'))) window.POS_DEMO_RESET(); return; }
-  if (!confirm(t('logout_confirm'))) return;
+  if (window.POS_DEMO) { if (await askConfirm(t('logout_confirm'))) window.POS_DEMO_RESET(); return; }
+  if (!await askConfirm(t('logout_confirm'))) return;
   if (typeof syncRun === 'function' && navigator.onLine) { toast(t('sync_running'), 6000); try { await syncRun(); } catch (e) {} }
   const left = (await pendingCount()) + (await failedCount());
-  if (left && !confirm(t('logout_unsynced').replace('{n}', left))) return;
+  if (left && !await askConfirm(t('logout_unsynced').replace('{n}', left))) return;
   try { if (S.sb) await S.sb.auth.signOut(); } catch (e) {}
   // Local business data is kept on purpose: pending records must never be deleted before server confirmation.
   await delSetting('session'); await delSetting('shop_id');

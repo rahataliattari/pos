@@ -676,3 +676,10 @@ a[role="button"] { cursor: pointer; text-decoration: underline; -webkit-tap-high
 .rc .shopname, .rc .hd .sub { letter-spacing: 0 !important; }
 html[lang="ur"] .rc *:not(.cd) { letter-spacing: 0 !important; }
 .rc .li.last { border-bottom: 0 !important; }
+
+/* in-app dialog (replaces browser confirm/alert/prompt) */
+#dlg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 400; padding: 20px; }
+#dlg .dlg-box { background: #fff; width: 100%; max-width: 380px; border-radius: 20px; padding: 20px 18px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+#dlg .dlg-msg { font-size: 16px; line-height: 1.8; color: #222; margin-bottom: 14px; }
+#dlg .dlg-in { width: 100%; margin-bottom: 14px; }
+#dlg .dlg-act .btn { flex: 1; }

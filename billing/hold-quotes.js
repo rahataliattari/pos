@@ -4,11 +4,11 @@
 
 const BP = { seg: 'held' };
 const bpEff = l => Math.round(l.unit_price * (1 - Math.min(100, Math.max(0, num(l.disc))) / 100) * 100) / 100;
-const bpTotals = (lines, disc, mode, pct) => {      // same maths as cartTotals(), for a stored cart
-  const sub = lines.reduce((a, l) => a + lineTotal(l), 0);
-  const d = Math.min(Math.max(mode === 'pct' ? sub * Math.min(100, Math.max(0, num(pct))) / 100 : num(disc), 0), sub);
-  const tax = Math.round((sub - d) * num(S.cfg.tax_rate)) / 100;
-  return { subtotal: round2(sub), discount: round2(d), tax, total: round2(sub - d + tax) };
+const bpTotals = (lines, disc, mode, pct) => {      // same maths as cartTotals() (and saveSale), for a stored cart
+  const sub = round2(lines.reduce((a, l) => a + lineTotal(l), 0));
+  const d = round2(Math.min(Math.max(mode === 'pct' ? sub * Math.min(100, Math.max(0, num(pct))) / 100 : num(disc), 0), sub));
+  const tax = round2((sub - d) * num(S.cfg.tax_rate) / 100);
+  return { subtotal: sub, discount: d, tax, total: round2(sub - d + tax) };
 };
 async function bpLoad() {
   S.held = await getSetting('held_bills', []); S.quotes = await getSetting('quotes', []);
@@ -103,8 +103,8 @@ function bpListOpen(seg) {
 const BP_ACT = {
   seg: k => bpListOpen(k), resume: id => bpResume(id), qshow: id => bpShowQuote(id), qload: id => bpQuoteLoad(id),
   qprint: id => { const q = (S.quotes || []).find(x => x.id === id); if (q) doPrint(quoteHtml(q), S.cfg.paper); },
-  hdel: async id => { if (!confirm(t('hold_del'))) return; S.held = S.held.filter(x => x.id !== id); await bpSave(); renderBillShell(); bpListOpen(); },
-  qdel: async id => { if (!confirm(t('hold_del'))) return; S.quotes = S.quotes.filter(x => x.id !== id); await bpSave(); bpListOpen(); }
+  hdel: async id => { if (!await askConfirm(t('hold_del'))) return; S.held = S.held.filter(x => x.id !== id); await bpSave(); renderBillShell(); bpListOpen(); },
+  qdel: async id => { if (!await askConfirm(t('hold_del'))) return; S.quotes = S.quotes.filter(x => x.id !== id); await bpSave(); bpListOpen(); }
 };
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-bp]'); if (!el) return;

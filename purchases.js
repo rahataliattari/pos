@@ -132,7 +132,7 @@ async function openSupplierPayForm(id, kind) {
 }
 
 async function deleteSupplier(id) {
-  if (!confirm(t('confirm_delete_sup'))) return;
+  if (!await askConfirm(t('confirm_delete_sup'))) return;
   try {
     await softDeleteSupplier(S.session.shop_id, id);
     closeModal(); S.supPage = 0; renderPurchases(); refreshStatus();

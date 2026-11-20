@@ -121,10 +121,12 @@ function openCheckout() {
 }
 
 function cartTotals() {
-  const subtotal = S.cart.reduce((s, l) => s + lineTotal(l), 0);
-  const d = saleDiscountFor(subtotal);
-  const tax = Math.round((subtotal - d) * num(S.cfg.tax_rate)) / 100;   // same rounding as saveSale()
-  return { subtotal: Math.round(subtotal * 100) / 100, discount: Math.round(d * 100) / 100, tax, total: Math.round((subtotal - d + tax) * 100) / 100 };
+  // Same steps and rounding as saveSale() (db.js), so the total shown on screen is exactly the total that gets saved.
+  // (Before: tax was worked out on the UNROUNDED % discount, which made some bills differ by 1 paisa from the saved bill.)
+  const subtotal = round2(S.cart.reduce((s, l) => s + lineTotal(l), 0));
+  const discount = round2(saleDiscountFor(subtotal));
+  const tax = round2((subtotal - discount) * num(S.cfg.tax_rate) / 100);
+  return { subtotal, discount, tax, total: round2(subtotal - discount + tax) };
 }
 
 function renderCart() {
@@ -255,7 +257,7 @@ async function startEditSale(saleId) {
   const r = await getSaleWithItems(saleId); if (!r || r.sale.status === 'void') return;
   if (r.items.some(i => i.quick)) return qbEdit(saleId);                    // a Quick Bill is corrected in the Quick Bill sheet
   if (r.sale.returned_total > 0) return toast(t('edit_has_return'), 4000);
-  if (S.cart.length && !confirm(t('edit_replace_cart'))) return;
+  if (S.cart.length && !await askConfirm(t('edit_replace_cart'))) return;
   const prods = await db.products.bulkGet(r.items.map(i => i.product_id));
   const cust = r.sale.customer_id ? await db.customers.get(r.sale.customer_id) : null;
   billResetState();

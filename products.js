@@ -85,7 +85,7 @@ async function openProductForm(id) {
     } catch (ex) { toast(ex.message || t('err_generic'), 4000); }
   };
   if (id) $('btn-delprod').onclick = async () => {
-    if (!confirm(t('confirm_delete'))) return;
+    if (!await askConfirm(t('confirm_delete'))) return;
     await softDeleteProduct(id); closeModal(); renderProducts(); refreshStatus();
   };
 }

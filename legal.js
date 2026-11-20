@@ -4,16 +4,16 @@
 // Placeholders inside the text: {company} {app} {contact} {city} {retain} {trial}.
 
 const LEGAL_CFG = {
-  version: '1.1',                         // change this number when the text changes: every user is asked to accept again
-  date: '2026-11-16',                     // date of this version
+  version: '1.2',                         // change this number when the text changes: every user is asked to accept again
+  date: '2026-11-20',                     // date of this version
   app: 'Universal POS',
-  company_ur: '[سروس فراہم کنندہ کا نام]',   // ← your company / your name
-  company_en: '[Service Provider Name]',
-  contact_ur: '[فون / واٹس ایپ / ای میل]',   // ← support contact
-  contact_en: '[Phone / WhatsApp / Email]',
-  city_ur: '[شہر]', city_en: '[City]',
+  company_ur: 'راحت علی',   // ← your company / your name
+  company_en: 'Rahat Ali',
+  contact_ur: '03234182526',   // ← support contact
+  contact_en: '03234182526',
+  city_ur: 'نارووال', city_en: 'Narowal',
   retain: 90,                             // days the data of an expired shop is kept
-  trial: 14                               // free trial days (just a text; the real number is set in Super Admin settings)
+  trial: 2                                // free trial days (just a text; the real number is set in Super Admin settings)
 };
 
 // Each clause: [title_ur, title_en, text_ur, text_en]  ("\n" starts a new paragraph)
@@ -32,8 +32,8 @@ const LEGAL_DOCS = [
       'فیس فراہم کنندہ کی موجودہ قیمتوں کے مطابق ہے اور مدت شروع ہونے سے پہلے ادا کی جاتی ہے (نقد، بینک، جاز کیش یا ایزی پیسہ)۔ ادائیگی فراہم کنندہ کے ریکارڈ میں درج ہونے پر میعاد بڑھتی ہے۔ تجدید خود بخود نہیں ہوتی اور کوئی رقم خود بخود نہیں کٹتی۔ تفصیل "ادائیگی، تجدید اور واپسی کی پالیسی" میں ہے۔',
       'Fees follow the Provider’s current price list and are paid before the period starts (cash, bank, JazzCash or Easypaisa). The expiry date is extended once the payment is recorded by the Provider. Renewal is not automatic and nothing is charged automatically. Details are in the "Payment, Renewal and Refund Policy".'],
     ['میعاد ختم ہونا اور معطلی', 'Expiry and suspension',
-      'میعاد ختم ہونے یا دکان معطل ہونے پر اگلے لاگ اِن پر داخلہ بند ہو جاتا ہے۔ فراہم کنندہ عدم ادائیگی، معاہدے کی خلاف ورزی یا غیر قانونی استعمال کی صورت میں دکان یا کسی اکاؤنٹ کو معطل کر سکتا ہے۔ معطلی یا میعاد ختم ہونے کے بعد ڈیٹا {retain} دن محفوظ رکھا جاتا ہے؛ تجدید پر سب بحال ہو جاتا ہے۔',
-      'When the subscription expires or a shop is suspended, login is blocked from the next login. The Provider may suspend a shop or an account for non-payment, breach of this agreement or unlawful use. After suspension or expiry the data is kept for {retain} days; on renewal everything is restored.'],
+      'میعاد ختم ہونے کے بعد 3 دن کی مہلت ملتی ہے جس میں بل بنتے رہتے ہیں۔ مہلت ختم ہونے پر نئے بل بنانا بند ہو جاتا ہے، پرانا ڈیٹا نظر آتا رہتا ہے، اور سرور سے سنک میعاد ختم ہوتے ہی رک جاتا ہے۔ دکان معطل ہونے پر داخلہ بند ہو جاتا ہے۔ فراہم کنندہ عدم ادائیگی، معاہدے کی خلاف ورزی یا غیر قانونی استعمال کی صورت میں دکان یا کسی اکاؤنٹ کو معطل کر سکتا ہے۔ معطلی یا میعاد ختم ہونے کے بعد ڈیٹا {retain} دن محفوظ رکھا جاتا ہے؛ تجدید پر سب بحال ہو جاتا ہے۔',
+      'After the subscription expires there is a 3-day grace period during which billing continues. When the grace period ends, creating new bills is blocked, existing data stays viewable, and syncing with the server stops from the moment of expiry. When a shop is suspended, access is blocked. The Provider may suspend a shop or an account for non-payment, breach of this agreement or unlawful use. After suspension or expiry the data is kept for {retain} days; on renewal everything is restored.'],
     ['اکاؤنٹس اور ڈیوائسز', 'Accounts and devices',
       'ہر لاگ اِن آئی ڈی (موبائل نمبر) ایک ہی شخص کی ہے اور اسے آپس میں شیئر نہیں کیا جا سکتا۔ ایک آئی ڈی پلان میں طے شدہ تعداد کی ڈیوائسز پر چل سکتی ہے (ڈیفالٹ: ایک ڈیوائس)۔ ڈیوائس گم یا چوری ہو جائے تو فوراً فراہم کنندہ کو بتائیں؛ فراہم کنندہ وہ ڈیوائس بند کر سکتا ہے اور تصدیق کے بعد آئی ڈی نئی ڈیوائس پر چلانے کی اجازت دے سکتا ہے، اور بند کی گئی ڈیوائس کو دوبارہ اجازت بھی دے سکتا ہے۔ اپنے اکاؤنٹس کی تمام سرگرمی کا ذمہ دار صارف ہے۔',
       'Each login ID (mobile number) belongs to one person and must not be shared. An ID can run on the number of devices set by the plan (default: one device). If a device is lost or stolen, tell the Provider immediately; the Provider may block that device and, after verification, allow the ID on a new device, and may also allow a blocked device again. The Customer is responsible for all activity under its accounts.'],
@@ -161,8 +161,8 @@ const LEGAL_DOCS = [
       'تجدید خود بخود نہیں ہوتی اور کوئی رقم خود بخود نہیں کٹتی۔ میعاد ختم ہونے سے پہلے ایپ میں یاد دہانی آ سکتی ہے۔ نئی میعاد پرانی میعاد (یا آج کی تاریخ، جو بعد کی ہو) سے گنی جاتی ہے۔',
       'Renewal is not automatic and nothing is charged automatically. The app may remind you before expiry. The new expiry counts from the old expiry (or today, whichever is later).'],
     ['دیر سے تجدید', 'Late renewal',
-      'میعاد ختم ہونے کے بعد لاگ اِن بند ہوتا ہے مگر ڈیٹا {retain} دن محفوظ رہتا ہے۔ اس مدت میں تجدید پر سب بحال ہو جاتا ہے۔ اس کے بعد ڈیٹا مٹایا جا سکتا ہے۔',
-      'After expiry, login is blocked but data is kept for {retain} days. Renewing within that time restores everything. After that the data may be deleted.'],
+      'میعاد ختم ہونے کے بعد 3 دن کی مہلت کے بعد نئے بل بند ہو جاتے ہیں مگر ڈیٹا {retain} دن محفوظ رہتا ہے۔ اس مدت میں تجدید پر سب بحال ہو جاتا ہے۔ اس کے بعد ڈیٹا مٹایا جا سکتا ہے۔',
+      'After expiry and a 3-day grace period, new bills are blocked but data is kept for {retain} days. Renewing within that time restores everything. After that the data may be deleted.'],
     ['واپسی (ریفنڈ)', 'Refunds',
       'ادا شدہ مدت شروع ہونے کے بعد فیس عام طور پر واپس نہیں ہوتی، سوائے ان صورتوں کے:\n(الف) ایک ہی ادائیگی غلطی سے دو بار ہوئی — اضافی رقم مکمل واپس۔\n(ب) فراہم کنندہ کی غلطی سے سروس طویل عرصہ دستیاب نہ رہی — متاثرہ دنوں کے برابر میعاد یا رقم کی واپسی۔\n(ج) پہلی بار کی سبسکرپشن کے پہلے 7 دن میں درخواست — فراہم کنندہ کی صوابدید پر، اصل اخراجات منہا کر کے۔',
       'Once a paid period has started, fees are generally not refundable, except:\n(a) the same payment was made twice by mistake — the extra amount is refunded in full;\n(b) the service was unavailable for a long time because of the Provider — extra days or a refund for the affected days;\n(c) a request within the first 7 days of a first-time subscription — at the Provider’s discretion, after deducting actual costs.'],

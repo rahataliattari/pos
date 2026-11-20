@@ -80,5 +80,5 @@ document.addEventListener('click', async ev => {
   if (a === 'per') { S.exPeriod = x; renderExpenses(); }
   else if (a === 'add') openExpenseForm(null);
   else if (a === 'edit') openExpenseForm(x);
-  else if (a === 'del') { if (!confirm(t('ex_confirm_del'))) return; await softDeleteExpense(x); closeModal(); renderExpenses(); refreshStatus(); }
+  else if (a === 'del') { if (!await askConfirm(t('ex_confirm_del'))) return; await softDeleteExpense(x); closeModal(); renderExpenses(); refreshStatus(); }
 });

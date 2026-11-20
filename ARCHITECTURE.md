@@ -1,97 +1,93 @@
-# Universal POS — Offline-First Architecture (Stage 1)
+# Universal POS — ڈیزائن (Architecture)
 
-Status: DESIGN ONLY. Nothing here has been tested on a device. The app must not be called production-ready until every acceptance test in section 10 passes.
+یہ فائل **کیوں اور کیسے** بتاتی ہے: ایپ کے بنیادی اصول، ڈیٹا کا راستہ، سنک، حفاظت، اور معلوم حدود۔
+**کون سی فائل کہاں ہے** اس کے لیے `STRUCTURE.md` دیکھیں۔ سرور کی تبدیلیوں کے لیے `supabase/README.md` اور `supabase/migrations/README.md`۔
+جہاں اس فائل اور کوڈ میں فرق ہو، **کوڈ اور `supabase/schema.sql` درست ہیں**۔
 
-## 1. Stages
+---
 
-| Stage | Deliverable | Exit criteria |
-|-------|-------------|---------------|
-| 1 | Architecture, local schema (`db.js`), cloud schema (`schema.sql`), sync design | Schemas reviewed, RLS policies reviewed |
-| 2 | Offline billing MVP: login, product search, barcode, cart, sale save, stock movement, receipt, PWA shell | Acceptance tests 1-4 |
-| 3 | Sync engine: queue, connectivity check, push, pull, backoff, logs, Sync Now | Tests 5-8, 11 |
-| 4 | Customers, suppliers, payments, purchases, expenses | Offline CRUD works |
-| 5 | Conflict screen, stock discrepancy detection, multi-device | Test 9 |
-| 6 | Backup/restore, export, RLS verification, Bluetooth printing, Urdu/English polish | Tests 10, 12 |
+## 1. بنیادی اصول
 
-## 2. Layers
+1. **آف لائن-فرسٹ۔** ہر چیز پہلے فون کے مقامی ڈیٹا بیس (Dexie / IndexedDB) میں محفوظ ہوتی ہے۔ بل انٹرنیٹ کے بغیر بنتا ہے؛ سنک بعد میں ہوتا ہے۔
+2. **UI صرف مقامی ڈیٹا پڑھتا ہے۔** اسکرینیں نیٹ ورک کو براہِ راست نہیں چھوتیں۔ نیٹ ورک صرف `sync.js` اور چند الگ مقامات (سپر ایڈمن، سپورٹ، سائن اپ، لاگ اِن) استعمال کرتے ہیں۔
+3. **سادہ ٹیکنالوجی۔** عام HTML/CSS/JS (کوئی build step نہیں)، PWA، `sw.js` سے آف لائن کیش۔ سرور: Supabase (Postgres + Auth + Edge Functions)۔
+4. **ایک ڈیٹا بیس، کئی دکانیں۔** ہر ریکارڈ پر `shop_id` ہے؛ سرور پر RLS اور فنکشنز دکانوں کا ڈیٹا الگ رکھتے ہیں۔
+5. **پیسے کا حساب خود ریکارڈ سے نکلتا ہے**، محفوظ شدہ جوڑ سے نہیں (نیچے دیکھیں)۔
+
+## 2. مقامی ڈیٹا (`db.js`)
+
+کاروباری ٹیبل (سنک ہونے والے): `categories, products, customers, suppliers, sales, sale_items, purchases, purchase_items, payments, expenses, stock_movements`۔
+
+مقامی صرف: `sync_queue` (بھیجنے کی قطار)، `sync_logs`، `conflicts` (ہارنے والی مقامی کاپیاں)، `app_settings` (کلید/قدر)، `catalog_items` (مشترکہ کیٹلاگ، صرف پڑھنے کے لیے)۔
+
+ہر کاروباری ریکارڈ میں: `id` (UUID، ڈیوائس پر بنتا ہے)، `shop_id`، `version` (ہر تبدیلی پر +1)، `updated_at`، `deleted_at` (نرم حذف)، `sync_status`۔
+
+**ریکارڈ کبھی سچ مچ حذف نہیں ہوتے**، `deleted_at` لگتا ہے۔ یوں حذف بھی سنک ہوتا ہے۔
+
+### پیسے اور اسٹاک کے اصول
+- **اسٹاک = `stock_movements` کا جمع** (لیجر)۔ فروخت، خریداری، واپسی، منسوخی ہر ایک ایک موومنٹ لکھتی ہے۔ کئی فون ہوں تو موومنٹس جمع ہو جاتی ہیں، ٹکراتی نہیں۔ اکائیاں بنیادی یونٹ میں محفوظ ہوتی ہیں (درجن = 12)۔
+- **گاہک کا ادھار = شروع کا بیلنس + بلوں کا غیر ادا حصہ + چارج − وصولیاں** (`getCustomerBalance`)۔ زیادہ ادا شدہ بل منفی ادھار نہیں بناتا۔ **سپلائر** کا بھی یہی اصول ہے۔
+- **راؤنڈنگ:** ہر رقم `round2` (دو اعشاریہ) سے۔ ترتیب: لائنوں کا جمع → ڈسکاؤنٹ (گول) → ٹیکس = `round2((جمع − ڈسکاؤنٹ) × شرح / 100`) → کل۔ بل اسکرین (`cartTotals`)، فوری بل (`qbSums`)، ہولڈ/کوٹیشن (`bpTotals`) اور محفوظ کرنے والا `saveSale` **ایک ہی ترتیب** استعمال کرتے ہیں؛ `tests/` یہی جانچتے ہیں۔
+- **منسوخی (void)** اسٹاک واپس ڈالتی ہے اور ادا شدہ رقم واپس دکھاتی ہے۔ **جزوی واپسی** ڈسکاؤنٹ اور ٹیکس تناسب سے کم کرتی ہے؛ ادھار والے بل پر واپس شدہ رقم صرف ادھار گھٹاتی ہے، نقد واپسی نہیں بنتی۔ **ترمیم** = پرانا بل منسوخ (نقد واپسی کے بغیر) + نیا بل جو پرانے کی طرف اشارہ کرے۔
+
+## 3. سنک (`sync.js`)
 
 ```
-UI (Urdu RTL / English)  ->  Services (sales, stock, customers...)
-                                   |
-                           Dexie (IndexedDB)  <-- single source of truth for the UI
-                                   |
-                           Sync Engine (background)
-                                   |
-                           Supabase (Auth + Postgres + RLS + RPC)
+مقامی لکھائی ──► sync_queue ──► PUSH (sync_push) ──► سرور pos_<ٹیبل>
+                                                          │
+مقامی ڈیٹا بیس ◄────────── PULL (sync_pull) ◄─────────────┘
 ```
 
-Rule: the UI NEVER talks to Supabase for business data. It reads and writes Dexie only. The sync engine is the only code that touches the network for business data.
+- **PUSH:** قطار سے ہر ریکارڈ کی تازہ ترین حالت (ایک ریکارڈ کی کئی قطار-اندراجات ایک میں سمٹ جاتی ہیں)، 100 کے بیچ میں۔ ناکامی پر دوبارہ کوشش، وقفہ بڑھتا ہوا (زیادہ سے زیادہ 10 منٹ، 8 کوششیں)۔
+- **PULL:** ہر ٹیبل کے لیے `p_since` = پچھلا `server_ts` (سرور کی گھڑی؛ فون کی گھڑی پر انحصار نہیں)۔ جس ریکارڈ پر مقامی غیر سنک شدہ تبدیلی ہو اسے پل نہیں بدلتا۔
+- **کب چلتا ہے:** مقامی لکھائی کے بعد (1.5 سیکنڈ debounce)، ہر 30 سیکنڈ، اور انٹرنیٹ واپس آنے پر۔ `navigator.locks` سے ایک وقت میں ایک ٹیب۔
+- **تنازعہ کا قاعدہ** (سرور پر `sync_push` میں): زیادہ `version` جیتا؛ برابر ہو تو نیا `updated_at`؛ ورنہ **سرور کی کاپی جیتتی ہے** اور ہارنے والی مقامی کاپی `conflicts` میں رہتی ہے۔ مالک سیٹنگز کی "تنازعات" اسکرین سے مقامی یا سرور والی چن سکتا ہے (`syncResolveChoice`)۔
+- **کردار:** سرور خود کیشیئر کو صرف `sales, sale_items, stock_movements, payments, customers` لکھنے دیتا ہے؛ منسوخی/واپسی والے بل بھی کیشیئر کے لیے `denied` ہیں۔ `denied` ریکارڈ قطار میں "ناکام" دکھتا ہے، دوبارہ کوشش نہیں ہوتی۔
+- **دکان کی مشترکہ سیٹنگز** (رسید کا ہیڈر/فوٹر، فون، پتہ، NTN، کاروبار کی قسم، رسید کا انداز) `shops.settings` میں، `get_shop_settings` / `save_shop_settings` سے (صرف مالک/منیجر)۔ کاغذ کا سائز، زبان، تھیم ہر فون کی اپنی ہیں۔
+- **بیک اپ:** مقامی ڈیٹا کی فائل بنانا `db.js` کے `exportAllData()` میں ہے (سیٹنگز میں اس کا بٹن موجود ہے)، اور بحال کرنا `sync.js` کے `syncImportFile()` میں۔
 
-## 3. Local data model
+## 4. سبسکرپشن اور رسائی
 
-- All stores in `db.js`. Every business record carries: `id` (UUID v4), `shop_id`, `device_id`, `created_at`, `updated_at`, `version`, `sync_status` (`pending` | `synced` | `failed` | `conflict`).
-- A sale is written in ONE Dexie transaction: `sales` + `sale_items` + `stock_movements` + `sync_queue` entries. Either everything is saved or nothing is.
-- Stock is derived: `stock = SUM(stock_movements.qty_change)` per product. `products.stock_cache` is a convenience value rebuilt from movements; movements are the truth.
-- Stock movements, sales, sale items, and payments are append-only. Corrections are new records (e.g. a `return` sale or an `adjustment` movement), never edits or deletes.
-- Deletion of mutable records (products, customers) is a soft delete (`deleted_at`). Pending records are never removed locally until the server confirms them.
+| پرت | کیا کرتی ہے |
+|---|---|
+| **سرور (ہر سنک/سیٹنگز کال)** | `sync_check_access` = `sync_check_member` (ممبر فعال، دکان معطل/آرکائیو/غیر منظور/میعاد ختم **نہیں**) + `sync_check_device` (ڈیوائس رجسٹرڈ اور بند نہیں)۔ میعاد ختم ہوتے ہی **سنک رک جاتا ہے** (مہلت کا دور صرف ایپ میں ہے)۔ پلیٹ فارم ایڈمن پر کوئی پابندی نہیں۔ |
+| **ایپ (آف لائن)** | `subState()` (`sync.js`): `ok` → میعاد کے بعد **3 دن مہلت** (`SUB_GRACE_DAYS`، بل بنتے رہتے ہیں، بینر) → `locked` (نیا بل/فوری بل/ترمیم بند؛ پرانا ڈیٹا نظر آتا ہے؛ سنک جاری)۔ `saveSale` خود چیک کرتا ہے، اس لیے ہر قسم کا بل اسی سے گزرتا ہے۔ فون کی تاریخ پیچھے کرنے سے نہیں کھلتا (`clock_max` آخری دیکھا وقت یاد رکھتا ہے)۔ تجدید کے بعد انٹرنیٹ سے جڑتے ہی نئی میعاد آ جاتی ہے۔ |
+| **ڈیوائس حد** | پلان کی `max_devices` (0 = لامحدود، ڈیفالٹ 1)۔ ایپ ہر درخواست کے `X-Client-Info` ہیڈر میں `dev:<id>` بھیجتی ہے۔ `register_device`, `admin_reset_devices`, `admin_allow_device`۔ ایپ کی طرف `device.js`۔ |
+| **پلان کی حدیں** | **سرور پر نافذ:** پروڈکٹس اور بلوں کی تعداد (`enforce_plan_limit` ٹریگر)۔ **صرف ایپ میں:** صارفین، رپورٹس، اخراجات، بارکوڈ، QR وغیرہ کی فیچر-پابندیاں۔ |
 
-## 4. Sync protocol
+## 5. حفاظت
 
-### Push (device -> server)
-1. Connectivity check: `HEAD/GET` to a tiny Supabase RPC `ping()` with a 5 s timeout. `navigator.onLine` is only a hint to try; success of `ping()` is what counts.
-2. Read pending `sync_queue` rows ordered by `seq` (parents before children: sale before items, etc.), in batches of 50.
-3. Send each batch to RPC `sync_push(shop_id, device_id, batch jsonb)`.
-4. The server applies each op with `INSERT ... ON CONFLICT (id) DO NOTHING` for append-only tables, so a retried batch can never duplicate a sale or payment. The server returns per-op results: `applied`, `duplicate` (already there; treated as success), or `rejected` with a reason.
-5. On `applied` / `duplicate`: mark local record `synced`, delete the queue row. On `rejected`: mark `failed`, keep the queue row, log it.
-6. Network errors: queue rows stay untouched; `attempts++`, `next_retry_at = now + min(2^attempts * 5s, 15 min) + jitter`.
-7. Interruption is safe because each op is idempotent and the queue row is removed only after server confirmation. On restart, the engine simply resumes from the remaining queue.
+- ہر سرور ٹیبل پر **RLS** ہے۔ کاروباری ٹیبل `pos_*` پر ممبرز کے لیے صرف پڑھنے کی پالیسی (`member_read`) ہے، لکھنے کی کوئی پالیسی نہیں، اس لیے براہِ راست لکھنا بند ہے؛ لکھائی صرف `security definer` فنکشنز (`sync_push` وغیرہ) سے، جو شروع میں رسائی کی جانچ کرتے ہیں۔
+- **service-role key صرف Edge Functions میں ہے** (`signup`, `admin-users`, `push-notify`)، ایپ میں کبھی نہیں۔ ایپ میں صرف anon key ہے۔
+- **لاگ اِن = فون نمبر + پاس ورڈ۔** نمبر کو ایک مصنوعی ای میل (`92...@<LOGIN_DOMAIN>`) میں بدلا جاتا ہے؛ یہ تبدیلی ایپ اور فنکشنز میں ایک ہی طرح ہے۔
+- **`admin-users`:** صرف `platform_admins` (اور `my_phone` میں دکان کا مالک، پاس ورڈ سے تصدیق کے بعد)۔ `create` اگر نمبر پہلے سے موجود ہو تو صرف نئی دکان کی رکنیت جوڑتا ہے؛ موجودہ پاس ورڈ/ای میل نہیں بدلتا۔
+- **سائن اپ:** `signup` فنکشن بغیر لاگ اِن چلتا ہے؛ فی IP فی گھنٹہ 5 کوششیں، اور سپر ایڈمن کی منظوری/سیٹنگز۔
+- **رازداری:** سرگرمی کا لاگ (`activity_log`) صرف اسکرین/بٹن کے نام رکھتا ہے، رقم، گاہک یا پروڈکٹ نہیں۔
 
-### Pull (server -> device)
-1. For each synced table, request rows with `server_seq > last_pulled_seq` (stored in `app_settings`), paged (500 rows).
-2. Apply in a Dexie transaction. For append-only tables: insert if the id is unknown. For mutable tables (products, customers): apply if the server version is higher AND the local record is not `pending`; if the local record is `pending`, mark `conflict` instead of overwriting.
-3. Advance `last_pulled_seq` only after the page is committed.
+## 6. لوڈنگ اور آف لائن (PWA)
 
-### Triggers
-App start, `online` event, every 30 s while online and visible, after each sale, and manual Sync Now. A lock (single-flight, via `navigator.locks` where available) prevents two syncs running at once across tabs.
+- `index.html` میں اسکرپٹ کی ترتیب اہم ہے؛ `app.js` سب سے آخر میں۔ `billing/cart.js` پہلے لوڈ ہوتی ہے (مددگار فنکشنز)۔
+- `lazy.js` سپر ایڈمن کی فائلیں صرف ایڈمن کو لوڈ کرتی ہے۔
+- `sw.js`: شیل فائلیں cache-first؛ **کسی شیل فائل کے بدلنے پر `CACHE` نمبر بڑھائیں**۔ Supabase کی درخواستیں (`*.supabase.co`) کبھی کیش نہیں ہوتیں۔
+- تیسری پارٹی لائبریریاں (Dexie، supabase-js، ZXing): پہلے `lib/` سے، نہ ملیں تو CDN سے۔ `node tests/check-libs.js` فائلوں کی جانچ کرتا ہے۔
+- ڈیمو: `node build-demo.js` ایک فائل میں پوری ایپ بناتا ہے؛ `demo/dexie-shim.js` اِن میموری ڈیٹا بیس ہے (اسی پر ٹیسٹ بھی چلتے ہیں)۔
 
-## 5. Conflict resolution
+## 7. ٹیسٹ
 
-- Sales/payments/stock movements: no conflicts by design; they are unique events keyed by UUID and are only ever added.
-- Mutable records (product price, customer details): optimistic `version` check. If the server version differs from the client's base version, the server returns a conflict; the record is kept in a `conflicts` list with both copies and shown on the owner-only Conflict screen. Nothing is silently overwritten.
-- Stock discrepancy: two devices can both sell the last unit offline. Both sales are legitimate and are kept. After the pull, the derived stock goes negative; the app flags the product as a discrepancy for the owner to review (adjust, reorder, or annotate). Sales are never blocked or rolled back for this.
-- Audit: server table `audit_log` records every insert/update of mutable tables via trigger; originals are preserved.
+`node --test tests/money.test.js tests/cart.test.js tests/more.test.js` — پیسے کا اصل کوڈ (`db.js`, `billing/*`, `purchases.js`, `reports.js`, `sync.js` کا سبسکرپشن حصہ) Node میں چلتا ہے۔ انٹرنیٹ یا پیکج نہیں چاہیے۔ **نہیں جانچا گیا:** سرور کے SQL فنکشنز، Edge Functions، UI، اصل سنک۔
 
-## 6. Security
+## 8. معلوم حدود (ایمانداری سے)
 
-- Every table has `shop_id`. RLS allows access only if `auth.uid()` has a row in `shop_members` for that shop. The client-supplied `shop_id` is checked against membership server-side on every write (policy `WITH CHECK` and inside the RPC).
-- Roles: `owner`, `manager`, `cashier`. Only owners can resolve conflicts, manage members, restore backups, and delete/adjust sensitive records.
-- Frontend ships only the Supabase URL and anon key (loaded from config injected at build/deploy time, `config.js` generated from environment variables). The service-role key is never in frontend code or in the repo.
-- RPC functions are `SECURITY INVOKER` (RLS applies). Any `SECURITY DEFINER` function must check membership explicitly.
+- **تنازعہ میں پورا ریکارڈ بدلتا ہے** (فیلڈ-وار ملاپ نہیں): "سرور جیتتا ہے"۔
+- **PULL کا cursor:** `server_ts` ہر ریکارڈ کی لکھائی کے وقت لگتا ہے۔ نظری طور پر ایک دیر سے کمٹ ہونے والا ٹرانزیکشن اپنے سے بعد والے cursor کے پیچھے رہ سکتا ہے اور چھوٹ سکتا ہے۔ عملاً بہت کم؛ مکمل بحالی کے لیے cursor صاف کر کے دوبارہ پل کیا جا سکتا ہے۔
+- **ڈیٹا سنک سے پہلے صرف براؤزر میں ہوتا ہے۔** iPhone کا Safari انسٹال نہ کی ایپ کا ڈیٹا صاف کر سکتا ہے۔ سرور کا بیک اپ/Point-in-time recovery Supabase کے پیڈ پلان پر منحصر ہے۔
+- **ٹیکس:** ایک فلیٹ شرح۔ بل نمبر ہر ڈیوائس کا اپنا حرف + کاؤنٹر (لگاتار نہیں)۔ **FBR انضمام نہیں ہے۔**
+- **سپر ایڈمن** کے لیے صرف فون + پاس ورڈ ہے، 2FA نہیں۔ پاس ورڈ ری سیٹ دستی ہے۔
+- خرابی کی خودکار رپورٹنگ/مانیٹرنگ نہیں؛ صرف مقامی `sync_logs`۔
 
-## 7. Backup and recovery
+## 9. نئی چیز شامل کرتے وقت
 
-- Cloud: Supabase backups depend on the plan. Free plan has no usable daily backups, so do not rely on it. Choose Pro (daily backups, optional PITR) for real shops. This is a hosting decision for the owner; I cannot configure it from here.
-- Additionally: a scheduled export (Supabase scheduled function or external cron using a server-side key, never the frontend) writing per-shop JSON/CSV to storage.
-- App: owner-only "Export all data" (JSON) and "Restore from file". Restore is additive and idempotent (same UUIDs, `ON CONFLICT DO NOTHING`), with a preview before applying.
-- Sync is not backup: a bad delete or bug syncs everywhere. Hence soft deletes and append-only records.
-
-## 8. Performance
-
-Compound indexes for the common queries (barcode, name prefix, sale date, pending status). Lists use cursor/offset pagination via `.offset().limit()`; reports aggregate with indexed range queries, never `toArray()` on whole tables. Product search keeps only a small result set in memory. No heavy frameworks; vanilla JS modules plus Dexie.
-
-## 9. UI notes
-
-Urdu-first RTL (`dir="rtl"`, `lang="ur"`), English toggle, green/white theme, top bar showing Online/Offline (based on `ping()`, not `navigator.onLine`), pending count, last sync time. Bluetooth printing via Web Bluetooth (ESC/POS) where Android Chrome supports it, with a print-to-PDF/browser-print fallback.
-
-## 10. Acceptance tests (all must pass before any "production-ready" claim)
-
-1. Sale while online. 2. Sale while offline. 3. Reload offline. 4. Local records intact. 5. Reconnect. 6. Auto sync. 7. Interrupt sync and resume. 8. No duplicate sales. 9. Two devices selling offline at the same time. 10. Shop data isolation (user A cannot read/write shop B). 11. Failed sync recovery. 12. Backup and restore.
-
-Current status: 0 of 12 run.
-
-## 11. Open decisions for the owner
-
-- Supabase plan (backups). 
-- Whether cashiers may edit prices or give discounts.
-- Tax/currency rules and receipt layout.
-- Printer model(s) for Bluetooth testing.
+- نئی فائل: چار جگہیں (`STRUCTURE.md` کے آخر میں)۔
+- نئی ترجمہ کلید: `i18n.js` میں اردو اور انگریزی **دونوں**؛ پھر `node check-i18n.js`۔
+- پیسے کا کوئی حساب بدلیں تو متعلقہ ٹیسٹ چلائیں/بڑھائیں۔
+- سرور کی تبدیلی: `supabase/migrations/` میں اگلی فائل **اور** `schema.sql` میں وہی۔

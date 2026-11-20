@@ -36,7 +36,7 @@ async function showReturnForm(saleId) {
   $('btn-ret-ok').onclick = async () => {
     const lines = [...document.querySelectorAll('[data-ret]')].map(e => ({ item_id: e.dataset.ret, qty: num(e.value) })).filter(l => l.qty > 0);
     if (!lines.length) return toast(t('ret_none'), 3000);
-    if (!confirm(t('ret_confirm'))) return;
+    if (!await askConfirm(t('ret_confirm'))) return;
     try {
       await returnSaleItems(saleId, lines, '');
       toast(t('saved')); closeModal();
@@ -70,14 +70,14 @@ async function showReceipt(saleId) {
   if ($('btn-return')) $('btn-return').onclick = () => showReturnForm(saleId);
   if ($('btn-editsale')) $('btn-editsale').onclick = () => startEditSale(saleId);
   if ($('btn-void')) $('btn-void').onclick = async () => {
-    if (!confirm(t('void_confirm'))) return;
-    const reason = prompt(t('void_reason')) ;
+    if (!await askConfirm(t('void_confirm'))) return;
+    const reason = await askPrompt(t('void_reason'));
     if (reason === null) return;
     try { await voidSale(saleId, reason); toast(t('saved')); closeModal(); if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome(); }
     catch (e) { toast(e.message || t('err_generic'), 4000); }
   };
   if ($('btn-delvoid')) $('btn-delvoid').onclick = async () => {
-    if (!confirm(t('del_void_confirm'))) return;
+    if (!await askConfirm(t('del_void_confirm'))) return;
     try { await deleteVoidSale(saleId); toast(t('saved')); closeModal(); if (S.tab === 'sales') { S.salesPage = 0; renderSales(); } if (S.tab === 'home') renderHome(); refreshStatus(); }
     catch (e) { toast(e.message || t('err_generic'), 4000); }
   };

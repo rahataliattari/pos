@@ -167,7 +167,7 @@ async function openPaymentForm(id, kind) {
 }
 
 async function deleteCustomer(id) {
-  if (!confirm(t('confirm_delete_cust'))) return;
+  if (!await askConfirm(t('confirm_delete_cust'))) return;
   try {
     await softDeleteCustomer(S.session.shop_id, id);
     closeModal(); S.custPage = 0; renderCustomers(); refreshStatus();

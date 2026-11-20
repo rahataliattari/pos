@@ -623,19 +623,19 @@ const SA_ACT = {
     s.approval = 'approved'; s.trial = true; s.expires_at = saIso(Math.max(0, SAD.settings.demo_days));    // the demo clock starts at approval
     saLog('signup_approve', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
   },
-  reject: id => {
-    const s = SAD.shops.find(x => x.id === id); if (!s || !confirm(t('sa_confirm_reject'))) return;
+  reject: async id => {
+    const s = SAD.shops.find(x => x.id === id); if (!s || !await askConfirm(t('sa_confirm_reject'))) return;
     s.approval = 'rejected'; saLog('signup_reject', s.name); saCommit().then(ok => { if (ok) { toast(t('saved')); closeModal(); saRender(); } });
   },
-  toggle: id => {
+  toggle: async id => {
     const s = SAD.shops.find(x => x.id === id);
-    if (s.suspended) { if (!confirm(t('sa_confirm_activate'))) return; s.suspended = false; s.suspend_reason = ''; saLog('shop_activate', s.name); }
-    else { const r = prompt(t('sa_reason'), ''); if (r === null) return; s.suspended = true; s.suspend_reason = r.trim(); saLog('shop_suspend', s.name, s.suspend_reason); }
+    if (s.suspended) { if (!await askConfirm(t('sa_confirm_activate'))) return; s.suspended = false; s.suspend_reason = ''; saLog('shop_activate', s.name); }
+    else { const r = await askPrompt(t('sa_reason'), ''); if (r === null) return; s.suspended = true; s.suspend_reason = r.trim(); saLog('shop_suspend', s.name, s.suspend_reason); }
     saSave(); closeModal(); toast(t('saved')); saRender();
   },
-  archive: id => {
+  archive: async id => {
     const s = SAD.shops.find(x => x.id === id);
-    if (!s.archived && !confirm(t('sa_confirm_archive'))) return;
+    if (!s.archived && !await askConfirm(t('sa_confirm_archive'))) return;
     s.archived = !s.archived; saLog(s.archived ? 'shop_archive' : 'shop_restore', s.name); saSave(); closeModal(); toast(t('saved')); saRender();
   },
   useradd: sid => saUserForm(null, sid), useredit: id => saUserForm(id),
@@ -648,22 +648,22 @@ const SA_ACT = {
     SAD.users.push(nu); saLog('user_new', nu.name, s.name);
     saCommit().then(ok => { if (ok) { saRender(); saShowCreds(nu.name, phone, SA_EXISTING.has(nu.id) ? null : pw); } });
   },
-  userdel: id => {
+  userdel: async id => {
     const u = SAD.users.find(x => x.id === id);
     if (saOnlyOwner(u)) return toast(t('sa_last_owner'), 4000);
-    if (!confirm(t('sa_confirm_deluser'))) return;
+    if (!await askConfirm(t('sa_confirm_deluser'))) return;
     SAD.users = SAD.users.filter(x => x.id !== id); saLog('user_del', u.name, saShopName(u.shop_id)); saSave(); closeModal(); toast(t('saved')); saRender();
   },
   resetpw: async id => {
     const u = SAD.users.find(x => x.id === id);
-    if (!confirm(t('sa_confirm_reset'))) return;
+    if (!await askConfirm(t('sa_confirm_reset'))) return;
     const pw = saPass();
     if (SA_LIVE()) { try { await saFn({ action: 'reset', user_id: u.user_id, password: pw, email: loginIdToEmail(u.phone) }); } catch (e) { return toast(e.message || t('err_generic'), 5000); } }
     saLog('pw_reset', u.name, saShopName(u.shop_id)); saSave(); saShowCreds(u.name, u.phone, pw);
   },
   devreset: async (id, dev) => {
     const u = SAD.users.find(x => x.id === id); if (!u || !u.user_id) return;
-    if (!confirm(t('sa_dev_confirm'))) return;
+    if (!await askConfirm(t('sa_dev_confirm'))) return;
     try { const { error } = await getSb().rpc('admin_reset_devices', { p_user: u.user_id, p_shop: u.shop_id, p_device: dev || null }); if (error) throw error; }
     catch (e) { return toast(e.message || t('err_generic'), 5000); }
     saLog('dev_reset', u.name, saShopName(u.shop_id)); saSave(); toast(t('saved')); saLoadDevices(u);
@@ -678,7 +678,7 @@ const SA_ACT = {
   bseg: k => { SAS.bseg = k; saRender(); }, planedit: id => saPlanForm(id),
   mseg: k => { SAS.mseg = k; saRender(); }, morelog: () => { SAS.logN += 30; saRender(); },
   annadd: () => saAnnForm(),
-  shoppush: id => { const s = SAD.shops.find(x => x.id === id); const m = s && prompt(t('sa_push_ask'), ''); if (m && m.trim()) { pushNotify('shop_push', { shop_id: id, title: 'Universal POS', body: m.trim() }); toast(t('saved')); } },
+  shoppush: async id => { const s = SAD.shops.find(x => x.id === id); const m = s && await askPrompt(t('sa_push_ask'), ''); if (m && m.trim()) { pushNotify('shop_push', { shop_id: id, title: 'Universal POS', body: m.trim() }); toast(t('saved')); } },
   anntoggle: id => { const a = SAD.announcements.find(x => x.id === id); if (!a.active) SAD.announcements.forEach(x => { x.active = false; }); a.active = !a.active; saSave(); saRender(); },
   anndel: id => { SAD.announcements = SAD.announcements.filter(x => x.id !== id); saSave(); saRender(); },
   export: () => {
@@ -687,7 +687,7 @@ const SA_ACT = {
     a.download = `platform-export-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   },
-  resetsa: () => { if (!confirm(t('sa_reset_demo_confirm'))) return; SAD = saSeed(); saSave(); toast(t('saved')); saRender(); }
+  resetsa: async () => { if (!await askConfirm(t('sa_reset_demo_confirm'))) return; SAD = saSeed(); saSave(); toast(t('saved')); saRender(); }
 };
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-sa]'); if (!el) return;

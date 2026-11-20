@@ -43,7 +43,7 @@
 |---|---|
 | `schema.sql` | **نئی تنصیب**: پورا موجودہ اسکیما (ٹیبل، فنکشنز، RLS). دوبارہ چلانا محفوظ |
 | `migrations/` | پہلے سے چلتی ڈیٹا بیس کی تبدیلیوں کی تاریخ (01–22). نئی تنصیب پر نہ چلائیں |
-| `tools/` | ایک بار کے ایڈمن اسکرپٹ / اختیاری cron |
+| `tools/` | ایک بار کے ایڈمن اسکرپٹ / اختیاری cron؛ `delete_shop_data.sql` دکان کا ڈیٹا ایکسپورٹ/حذف |
 | `functions/` | Edge Functions: `signup`, `admin-users`, `push-notify` |
 | `README.md` | نئی تنصیب، اپ ڈیٹ اور نئی تبدیلی کا طریقہ |
 
@@ -57,3 +57,8 @@
 
 ## نئی فائل شامل کرتے وقت چار جگہیں
 1. `index.html` (`<script>`)  2. `sw.js` (شیل کی فہرست)  3. `build-demo.js` (`order`)  4. اگر صرف ایڈمن کے لیے ہو تو `lazy.js` اور `check-i18n.js` کی `LAZY` فہرست.
+
+## ٹیسٹ
+- `tests/` — پیسوں کے حساب کے خودکار ٹیسٹ۔ چلانے کے لیے: `node --test tests/money.test.js tests/cart.test.js tests/more.test.js` (Node 18+، انٹرنیٹ یا کوئی پیکج نہیں چاہیے)۔
+- `node tests/check-libs.js` — `lib/` کی تین فائلوں کی جانچ۔
+- ڈیزائن اور اصول: `ARCHITECTURE.md`؛ سرور کی تبدیلیاں: `supabase/migrations/README.md`۔

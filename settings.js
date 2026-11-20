@@ -154,7 +154,7 @@ onUI('click', 70, async ev => {
     let email; try { email = loginIdToEmail($('set-newphone').value); } catch (e) { toast(e.message, 3500); return true; }
     const pw = $('set-phonepw').value; if (!pw) { toast(t('cur_password'), 3000); return true; }
     if (!(await pingServer())) { toast(t('login_need_online'), 3500); return true; }
-    if (!confirm(t('phone_confirm') + '\n' + displayLogin(email))) { return true; }
+    if (!await askConfirm(t('phone_confirm') + '\n' + displayLogin(email))) { return true; }
     try {
       const { data, error } = await getSb().functions.invoke('admin-users', { body: { action: 'my_phone', phone: $('set-newphone').value, password: pw } });
       if (error || (data && data.error)) throw new Error((data && data.error) || error.message);
