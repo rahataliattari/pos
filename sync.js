@@ -125,6 +125,10 @@ async function syncPush(sb, shop) {
             });
           } else if (out.status === 'conflict') {
             await syncResolveConflict(table, out.id, out.server, g.seqs);
+          } else if (out.status === 'plan_limit') {   // plan's product/bill limit reached: stop retrying this record, tell the owner
+            await db.sync_queue.bulkUpdate(g.seqs.map(seq => ({ key: seq, changes: { status: 'failed', last_error: 'plan_limit' } })));
+            await logSync('warn', `plan limit reached on ${table}`, out.id);
+            if (!syncPush._warned) { syncPush._warned = true; toast(t('plan_limit_hit'), 8000); }
           } else if (out.status === 'denied') {       // role not allowed on the server: stop retrying, show as failed
             await db.sync_queue.bulkUpdate(g.seqs.map(seq => ({ key: seq, changes: { status: 'failed', last_error: 'denied' } })));
             await logSync('warn', `denied by server (role) on ${table}`, out.id);

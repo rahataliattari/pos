@@ -10,7 +10,7 @@ Download these three files and put them in THIS folder with exactly these names:
 
 Then:
 - run  node tests/check-libs.js   to confirm the files are complete,
-- bump CACHE in sw.js (pos-shell-v68 -> v69) so phones download the new files,
+- bump CACHE in sw.js (pos-shell-v69 -> v70) so phones download the new files,
 - upload everything to GitHub as usual.
 
 Use the exact versions above: the app was tested with them.

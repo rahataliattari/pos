@@ -314,9 +314,18 @@ begin
       into ex using v_id, p_shop;
 
     if ex.version is null then
-      execute format('insert into public.%I (id, shop_id, version, updated_at, deleted_at, data) values ($1,$2,$3,$4,$5,$6)', tbl)
-        using v_id, p_shop, v_ver, v_upd, nullif(r->>'deleted_at','')::timestamptz, r;
-      out := out || jsonb_build_object('id', v_id, 'status', 'ok');
+      begin
+        execute format('insert into public.%I (id, shop_id, version, updated_at, deleted_at, data) values ($1,$2,$3,$4,$5,$6)', tbl)
+          using v_id, p_shop, v_ver, v_upd, nullif(r->>'deleted_at','')::timestamptz, r;
+        out := out || jsonb_build_object('id', v_id, 'status', 'ok');
+      exception when sqlstate '42501' then
+        -- پلان کی حد (enforce_plan_limit) صرف اسی ریکارڈ کو روکے، پورا بیچ ناکام نہ ہو
+        if sqlerrm like 'plan_limit%' then
+          out := out || jsonb_build_object('id', v_id, 'status', 'plan_limit', 'detail', sqlerrm);
+        else
+          raise;
+        end if;
+      end;
     elsif v_ver > ex.version or (v_ver = ex.version and v_upd > ex.updated_at) then
       execute format('update public.%I set version=$3, updated_at=$4, deleted_at=$5, data=$6, server_ts=clock_timestamp() where id=$1 and shop_id=$2', tbl)
         using v_id, p_shop, v_ver, v_upd, nullif(r->>'deleted_at','')::timestamptz, r;
