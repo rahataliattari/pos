@@ -340,13 +340,53 @@ begin
     end if;
 
     -- Migration 26: cashier stock movement must be backed by a real completed sale.
-    -- ref_id points to the sale; product quantity is capped by non-Quick-Bill sale lines.
     if v_role = 'cashier' and p_table = 'stock_movements' and not v_deny then
       if coalesce(r->>'reason', '') <> 'sale'
          or coalesce(r->>'ref_type', '') <> 'sale'
          or coalesce(nullif(r->>'qty_change', '')::numeric, 0) >= 0
          or nullif(r->>'product_id', '') is null
-         or coalesce(r->>'ref_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}      out := out || jsonb_build_object('id', v_id, 'status', 'denied');
+         or nullif(r->>'ref_id', '') is null then
+        v_deny := true;
+      else
+        begin
+          v_sale_id := (r->>'ref_id')::uuid;
+        exception when invalid_text_representation then
+          v_deny := true;
+        end;
+        if not v_deny then
+          select data->>'status' into v_sale_status
+            from public.pos_sales
+           where id = v_sale_id and shop_id = p_shop
+           for update;
+          if coalesce(v_sale_status, '') <> 'completed' then
+            v_deny := true;
+          else
+            select coalesce(sum(coalesce(nullif(data->>'qty', '')::numeric, 0)
+                                * coalesce(nullif(data->>'unit_factor', '')::numeric, 1)), 0)
+              into v_sale_qty
+              from public.pos_sale_items
+             where shop_id = p_shop
+               and data->>'sale_id' = v_sale_id::text
+               and data->>'product_id' = r->>'product_id'
+               and coalesce((data->>'quick')::boolean, false) = false;
+            select coalesce(sum(abs(coalesce(nullif(data->>'qty_change', '')::numeric, 0))), 0)
+              into v_used_qty
+              from public.pos_stock_movements
+             where shop_id = p_shop
+               and data->>'reason' = 'sale'
+               and data->>'ref_type' = 'sale'
+               and data->>'ref_id' = v_sale_id::text
+               and data->>'product_id' = r->>'product_id'
+               and id <> v_id;
+            if v_sale_qty <= 0 or v_used_qty + abs((r->>'qty_change')::numeric) > v_sale_qty then
+              v_deny := true;
+            end if;
+          end if;
+        end if;
+      end if;
+    end if;
+    if v_deny then
+      out := out || jsonb_build_object('id', v_id, 'status', 'denied');
       continue;
     end if;
 
