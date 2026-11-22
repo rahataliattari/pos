@@ -1,6 +1,12 @@
--- Universal POS — migration 25 rollback
--- Removes the explicit Data API table/sequence grants introduced by migration 25.
--- Does not alter RLS policies or data. Run only if reverting migration 25.
-revoke select, insert, update, delete on all tables in schema public from authenticated;
-revoke usage, select on all sequences in schema public from authenticated;
-notify pgrst, 'reload schema';
+-- Universal POS — migration 25 rollback (SAFE HOLD)
+-- Migration 25 used broad GRANT statements. A blanket REVOKE here would also remove
+-- privileges that existed before migration 25 and could break the live POS application.
+-- Therefore this file intentionally performs NO privilege changes.
+--
+-- To reverse migration 25 safely, first capture the current and pre-migration grants
+-- from the database audit/backup, compare them table-by-table and sequence-by-sequence,
+-- then revoke ONLY the privileges that migration 25 newly introduced.
+-- Do not run blanket REVOKE ... ON ALL TABLES / ALL SEQUENCES commands.
+--
+-- This file is intentionally a no-op until a verified, least-privilege rollback is prepared.
+select 'SAFE HOLD: no grants were revoked; manual privilege-diff required.' as rollback_status;
