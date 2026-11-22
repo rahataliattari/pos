@@ -36,6 +36,7 @@
 | 23 | `23_sync_push_plan_limit.sql` | اصلاح: پلان کی حد پر صرف وہی ریکارڈ `plan_limit` بنے، پورا سنک بیچ ناکام نہ ہو (ایپ کی `sync.js` کے ساتھ) |
 | 24 | `24_cashier_hardening.sql` | کیشیئر کی sync پابندیاں، حذف/ترمیم کی روک تھام، حساس خریداری/اخراجات/سپلائر ڈیٹا کی حفاظت |
 | 25 | `25_data_api_grants.sql` | public schema کی تمام tables/sequences پر وسیع grants؛ RLS audit کے بغیر اسے نہ چلائیں |
+| 26 | `26_cashier_stock_sale_guard.sql` | کیشیئر کی stock movement کو completed sale، اصل product اور فروخت شدہ مقدار سے validate کرتا ہے |
 
 **نمبر 06 اور 07 اس فولڈر میں نہیں ہیں۔** ان کی کوئی فائل ریپو میں نہیں۔ اگر آپ کی لائیو ڈیٹا بیس پر وہ کبھی چلائی گئی ہوں تو ان کا اثر `schema.sql` میں شامل ہے یا نہیں، یہ مجھے معلوم نہیں؛ شک ہو تو `schema.sql` دوبارہ چلانا محفوظ ہے۔
 
@@ -56,3 +57,7 @@ select to_regclass('public.signup_attempts');                         -- 18
 select to_regclass('public.activity_log');                            -- 20
 select pg_get_functiondef('public.save_shop_settings(uuid,jsonb)'::regprocedure) like '%business_type%';  -- 22
 ```
+
+
+## Migration 26 — لازمی ٹیسٹ
+23 اور 24 کے بعد چلائیں۔ پہلے test shop پر عام product bill، Quick Bill (کوئی stock movement نہیں)، duplicate sync retry، مختلف devices اور sold quantity سے زیادہ movement کی کوشش ٹیسٹ کریں۔ Live database پر چلانے سے پہلے backup رکھیں۔
