@@ -92,7 +92,8 @@ end $$; then
         v_sale_id := (r->>'ref_id')::uuid;
         select data->>'status' into v_sale_status
           from public.pos_sales
-         where id = v_sale_id and shop_id = p_shop;
+         where id = v_sale_id and shop_id = p_shop
+         for update;
 
         if coalesce(v_sale_status, '') <> 'completed' then
           v_deny := true;
@@ -115,7 +116,8 @@ end $$; then
              and data->>'reason' = 'sale'
              and data->>'ref_type' = 'sale'
              and data->>'ref_id' = v_sale_id::text
-             and data->>'product_id' = r->>'product_id';
+             and data->>'product_id' = r->>'product_id'
+           and id <> v_id;
 
           if v_sale_qty <= 0
              or v_used_qty + abs((r->>'qty_change')::numeric) > v_sale_qty then
