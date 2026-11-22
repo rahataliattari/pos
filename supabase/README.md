@@ -13,7 +13,7 @@
 3. Edge Functions deploy کریں؛ ضرورت ہو تو `tools/cron_examples.sql`.
 
 ## پہلے سے چلتی ڈیٹا بیس (جس پر 01 تا 22 چل چکی ہیں)
-صرف وہ migration چلائیں جو آپ نے ابھی تک نہیں چلائی۔ Migration 24 سے پہلے 23 مکمل ہونا ضروری ہے۔ ترتیب سے: `23_sync_push_plan_limit.sql`، پھر `24_cashier_hardening.sql`۔ `25_data_api_grants.sql` کو فی الحال نہ چلائیں؛ اس میں تمام public tables پر وسیع grants ہیں، پہلے ہر ٹیبل کی RLS اور موجودہ grants کا جائزہ ضروری ہے۔
+صرف وہ migration چلائیں جو آپ نے ابھی تک نہیں چلائی۔ Migration 24 سے پہلے 23 مکمل ہونا ضروری ہے۔ ترتیب سے: `23_sync_push_plan_limit.sql`، پھر `24_cashier_hardening.sql`۔ `25_data_api_grants.sql` کو فی الحال نہ چلائیں؛ اس میں تمام public tables پر وسیع grants ہیں۔ Migration 26 صرف اس وقت چلائیں جب 23 اور 24 مکمل ہو چکی ہوں۔ یہ کیشیئر کی stock movement کو موجودہ completed sale، اصل product اور فروخت شدہ quantity سے باندھتی ہے۔
 (20 نے `save_shop_settings` سے `business_type` ہٹا دیا تھا؛ 22 اسے واپس لاتی ہے).
 
 ## نئی تبدیلی کیسے کریں
