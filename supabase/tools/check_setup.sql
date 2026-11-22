@@ -7,7 +7,7 @@ t_need(name) as (values ('shops'),('shop_members'),('plans'),('platform_admins')
   ('pos_categories'),('pos_products'),('pos_customers'),('pos_suppliers'),('pos_sales'),('pos_sale_items'),
   ('pos_purchases'),('pos_purchase_items'),('pos_payments'),('pos_expenses'),('pos_stock_movements')),
 f_need(name) as (values ('accept_terms'),('activity_push'),('admin_allow_device'),('admin_reset_devices'),('enforce_plan_limit'),
-  ('get_shop_settings'),('is_platform_admin'),('my_profile'),('ping'),('push_subscribe'),('push_unsubscribe'),('register_device'),
+  ('get_shop_settings'),('has_role'),('is_platform_admin'),('my_profile'),('ping'),('push_subscribe'),('push_unsubscribe'),('register_device'),
   ('rename_my_shop'),('request_device_id'),('request_password_reset'),('save_shop_settings'),('set_my_avatar'),('set_my_name'),
   ('signup_info'),('support_mark_read'),('support_reply'),('support_send'),('sync_check_access'),('sync_check_device'),
   ('sync_check_member'),('sync_pull'),('sync_push'),('sync_role'))
