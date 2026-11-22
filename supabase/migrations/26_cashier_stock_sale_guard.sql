@@ -1,8 +1,8 @@
 -- Universal POS — migration 26: کیشیئر کی اسٹاک موومنٹ کو حقیقی فروخت سے باندھنا
 -- پہلے migrations 23 اور 24 مکمل ہونے چاہئیں۔ Migration 25 (وسیع grants) اس کے لیے ضروری نہیں۔
 -- یہ صرف sync_push کو اپ ڈیٹ کرتی ہے؛ موجودہ ڈیٹا یا ٹیبلز تبدیل/حذف نہیں ہوتے۔
--- کیشیئر کے لیے: مکمل شدہ سرور فروخت لازمی، ref_type/ref_id لازمی، Quick Bill اسٹاک نہیں بناتا،
--- اور ہر پروڈکٹ کی مجموعی اسٹاک کمی فروخت شدہ مقدار سے زیادہ نہیں ہو سکتی۔
+-- کیشیئر کے لیے مکمل شدہ سرور فروخت، sale ref، اصل پروڈکٹ اور فروخت شدہ مقدار کی حد لازم ہے۔
+-- Quick Bill کی آئٹمز stock movements نہیں بناتیں، اس لیے اس سے مصنوعی اسٹاک تبدیلی ممکن نہیں۔
 
 create or replace function public.sync_push(p_shop uuid, p_table text, p_rows jsonb) returns jsonb
   language plpgsql security definer set search_path = public as $$
@@ -50,83 +50,51 @@ begin
     end if;
 
     -- Migration 26: cashier stock movement must be backed by a real completed sale.
-    -- ref_id points to the sale; product quantity is capped by non-Quick-Bill sale lines.
     if v_role = 'cashier' and p_table = 'stock_movements' and not v_deny then
       if coalesce(r->>'reason', '') <> 'sale'
          or coalesce(r->>'ref_type', '') <> 'sale'
          or coalesce(nullif(r->>'qty_change', '')::numeric, 0) >= 0
          or nullif(r->>'product_id', '') is null
-         or coalesce(r->>'ref_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}      out := out || jsonb_build_object('id', v_id, 'status', 'denied');
-      continue;
-    end if;
-
-    if ex.version is null then
-      begin
-        execute format('insert into public.%I (id, shop_id, version, updated_at, deleted_at, data) values ($1,$2,$3,$4,$5,$6)', tbl)
-          using v_id, p_shop, v_ver, v_upd, nullif(r->>'deleted_at','')::timestamptz, r;
-        out := out || jsonb_build_object('id', v_id, 'status', 'ok');
-      exception when sqlstate '42501' then
-        -- پلان کی حد صرف اسی ریکارڈ کو روکے؛ باقی سنک بیچ جاری رہے
-        if sqlerrm like 'plan_limit%' then
-          out := out || jsonb_build_object('id', v_id, 'status', 'plan_limit', 'detail', sqlerrm);
-        else
-          raise;
-        end if;
-      end;
-    elsif v_wins then
-      execute format('update public.%I set version=$3, updated_at=$4, deleted_at=$5, data=$6, server_ts=clock_timestamp() where id=$1 and shop_id=$2', tbl)
-        using v_id, p_shop, v_ver, v_upd, nullif(r->>'deleted_at','')::timestamptz, r;
-      out := out || jsonb_build_object('id', v_id, 'status', 'ok');
-    elsif v_ver = ex.version and v_upd = ex.updated_at then
-      out := out || jsonb_build_object('id', v_id, 'status', 'ok');
-    else
-      out := out || jsonb_build_object('id', v_id, 'status', 'conflict', 'server', ex.data);
-    end if;
-  end loop;
-
-  update public.shops set last_seen = now() where id = p_shop;
-  return out;
-end $$; then
+         or nullif(r->>'ref_id', '') is null then
         v_deny := true;
       else
-        v_sale_id := (r->>'ref_id')::uuid;
-        select data->>'status' into v_sale_status
-          from public.pos_sales
-         where id = v_sale_id and shop_id = p_shop
-         for update;
-
-        if coalesce(v_sale_status, '') <> 'completed' then
+        begin
+          v_sale_id := (r->>'ref_id')::uuid;
+        exception when invalid_text_representation then
           v_deny := true;
-        else
-          select coalesce(sum(
-                   coalesce(nullif(data->>'qty', '')::numeric, 0)
-                   * coalesce(nullif(data->>'unit_factor', '')::numeric, 1)
-                 ), 0)
-            into v_sale_qty
-            from public.pos_sale_items
-           where shop_id = p_shop
-             and data->>'sale_id' = v_sale_id::text
-             and data->>'product_id' = r->>'product_id'
-             and coalesce((data->>'quick')::boolean, false) = false;
-
-          select coalesce(sum(abs(coalesce(nullif(data->>'qty_change', '')::numeric, 0))), 0)
-            into v_used_qty
-            from public.pos_stock_movements
-           where shop_id = p_shop
-             and data->>'reason' = 'sale'
-             and data->>'ref_type' = 'sale'
-             and data->>'ref_id' = v_sale_id::text
-             and data->>'product_id' = r->>'product_id'
-           and id <> v_id;
-
-          if v_sale_qty <= 0
-             or v_used_qty + abs((r->>'qty_change')::numeric) > v_sale_qty then
+        end;
+        if not v_deny then
+          select data->>'status' into v_sale_status
+            from public.pos_sales
+           where id = v_sale_id and shop_id = p_shop
+           for update;
+          if coalesce(v_sale_status, '') <> 'completed' then
             v_deny := true;
+          else
+            select coalesce(sum(coalesce(nullif(data->>'qty', '')::numeric, 0)
+                                * coalesce(nullif(data->>'unit_factor', '')::numeric, 1)), 0)
+              into v_sale_qty
+              from public.pos_sale_items
+             where shop_id = p_shop
+               and data->>'sale_id' = v_sale_id::text
+               and data->>'product_id' = r->>'product_id'
+               and coalesce((data->>'quick')::boolean, false) = false;
+            select coalesce(sum(abs(coalesce(nullif(data->>'qty_change', '')::numeric, 0))), 0)
+              into v_used_qty
+              from public.pos_stock_movements
+             where shop_id = p_shop
+               and data->>'reason' = 'sale'
+               and data->>'ref_type' = 'sale'
+               and data->>'ref_id' = v_sale_id::text
+               and data->>'product_id' = r->>'product_id'
+               and id <> v_id;
+            if v_sale_qty <= 0 or v_used_qty + abs((r->>'qty_change')::numeric) > v_sale_qty then
+              v_deny := true;
+            end if;
           end if;
         end if;
       end if;
     end if;
-
     if v_deny then
       out := out || jsonb_build_object('id', v_id, 'status', 'denied');
       continue;
