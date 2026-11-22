@@ -3,7 +3,7 @@
 | فولڈر / فائل | کام |
 |---|---|
 | `schema.sql` | **نئی تنصیب**: پورا موجودہ اسکیما (ٹیبل، فنکشنز، RLS، اجازتیں). SQL Editor میں ایک بار چلائیں؛ دوبارہ چلانا محفوظ. |
-| `migrations/` | **پہلے سے چلتی ڈیٹا بیس** کے لیے تبدیلیوں کی تاریخ (01 تا 25). نئی تنصیب پر انہیں نہ چلائیں. |
+| `migrations/` | **پہلے سے چلتی ڈیٹا بیس** کے لیے تبدیلیوں کی تاریخ (01 تا 26). نئی تنصیب پر انہیں نہ چلائیں. |
 | `tools/` | ایک بار کے ایڈمن اسکرپٹ اور اختیاری cron (اسکیما کا حصہ نہیں). `delete_shop_data.sql` = ایک دکان کا ڈیٹا ایکسپورٹ اور حذف (حذف کی درخواست پر؛ ریہرسل کے ساتھ). |
 | `functions/` | Edge Functions: `signup`, `admin-users`, `push-notify`. |
 
@@ -13,7 +13,7 @@
 3. Edge Functions deploy کریں؛ ضرورت ہو تو `tools/cron_examples.sql`.
 
 ## پہلے سے چلتی ڈیٹا بیس (جس پر 01 تا 22 چل چکی ہیں)
-صرف وہ migration چلائیں جو آپ نے ابھی تک نہیں چلائی۔ Migration 24 سے پہلے 23 مکمل ہونا ضروری ہے۔ ترتیب سے: `23_sync_push_plan_limit.sql`، پھر `24_cashier_hardening.sql`۔ `25_data_api_grants.sql` کو فی الحال نہ چلائیں؛ اس میں تمام public tables پر وسیع grants ہیں۔ Migration 26 صرف اس وقت چلائیں جب 23 اور 24 مکمل ہو چکی ہوں۔ یہ کیشیئر کی stock movement کو موجودہ completed sale، اصل product اور فروخت شدہ quantity سے باندھتی ہے۔
+صرف وہ migration چلائیں جو آپ نے ابھی تک نہیں چلائی۔ پہلے 23، پھر 24، پھر 26 چلائیں۔ `25_data_api_grants.sql` کو فی الحال نہ چلائیں؛ اس میں تمام public tables پر وسیع grants ہیں۔ Migration 26 کیشیئر کی stock movement کو موجودہ completed sale، اصل product اور فروخت شدہ quantity سے باندھتی ہے۔
 (20 نے `save_shop_settings` سے `business_type` ہٹا دیا تھا؛ 22 اسے واپس لاتی ہے).
 
 ## نئی تبدیلی کیسے کریں
