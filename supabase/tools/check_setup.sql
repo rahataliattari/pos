@@ -35,6 +35,11 @@ union all
 select 'save_shop_settings میں business_type شامل (migration 22)',
        coalesce((select pg_get_functiondef(p.oid) like '%business_type%' from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'save_shop_settings' limit 1), false)
+union all
+select 'کیشیئر اسٹاک موومنٹ کا تحفظ (migration 26)',
+       coalesce((select pg_get_functiondef(p.oid) like '%v_used_qty%' and pg_get_functiondef(p.oid) like '%pos_sale_items%'
+                 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+                 where s.nspname = 'public' and p.proname = 'sync_push' limit 1), false)
 order by ok, 1;
 
 -- اضافی معلومات (ok/false نہیں، صرف دیکھنے کے لیے):
