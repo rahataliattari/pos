@@ -2,9 +2,9 @@
 -- Universal POS — مکمل سرور اسکیما (موجودہ حالت).  نئی تنصیب کے لیے صرف یہی ایک فائل چلائیں.
 -- Supabase Dashboard > SQL Editor میں پوری فائل ایک بار چلائیں. دوبارہ چلانا محفوظ ہے (کوئی ڈیٹا نہیں مٹتا).
 --
--- • یہ فائل پرانی 01 تا 24 تبدیلیوں کا حتمی نتیجہ ہے (ہر فنکشن کا آخری ورژن، ہر ٹیبل کے سب کالم).
+-- • یہ فائل پرانی 01 تا 26 تبدیلیوں کا حتمی نتیجہ ہے (ہر فنکشن کا آخری ورژن، ہر ٹیبل کے سب کالم).
 -- • پہلے سے چلتی ڈیٹا بیس کو اس سے اپ ڈیٹ نہ کریں؛ اس کے لیے migrations/ فولڈر دیکھیں (migrations/README.md).
--- • اس کے بعد نیا کام: migrations/ میں اگلے نمبر کی فائل (25_...) لکھیں، اور اسی تبدیلی کو یہاں بھی شامل کریں.
+-- • اس کے بعد نیا کام: migrations/ میں اگلے نمبر کی فائل (27_...) لکھیں، اور اسی تبدیلی کو یہاں بھی شامل کریں.
 -- • پہلا Super Admin (آخر میں ہدایت دیکھیں) اور اختیاری cron (tools/cron_examples.sql) الگ ہیں.
 -- ═══════════════════════════════════════════════════════════════════════════════════════════
 
@@ -299,6 +299,7 @@ create or replace function public.sync_push(p_shop uuid, p_table text, p_rows js
 declare
   r jsonb; tbl text; ex record; v_ver int; v_upd timestamptz; v_id uuid; v_role text;
   v_denied boolean; v_deny boolean; v_wins boolean;
+  v_sale_id uuid; v_sale_status text; v_sale_qty numeric; v_used_qty numeric;
   out jsonb := '[]'::jsonb;
 begin
   if p_table <> all (array['categories','products','customers','suppliers','sales','sale_items',
@@ -338,8 +339,14 @@ begin
       end if;
     end if;
 
-    if v_deny then
-      out := out || jsonb_build_object('id', v_id, 'status', 'denied');
+    -- Migration 26: cashier stock movement must be backed by a real completed sale.
+    -- ref_id points to the sale; product quantity is capped by non-Quick-Bill sale lines.
+    if v_role = 'cashier' and p_table = 'stock_movements' and not v_deny then
+      if coalesce(r->>'reason', '') <> 'sale'
+         or coalesce(r->>'ref_type', '') <> 'sale'
+         or coalesce(nullif(r->>'qty_change', '')::numeric, 0) >= 0
+         or nullif(r->>'product_id', '') is null
+         or coalesce(r->>'ref_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}      out := out || jsonb_build_object('id', v_id, 'status', 'denied');
       continue;
     end if;
 
